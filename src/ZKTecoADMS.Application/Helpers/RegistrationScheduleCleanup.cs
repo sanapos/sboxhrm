@@ -12,6 +12,28 @@ internal static class RegistrationScheduleCleanup
         IRepository<WorkSchedule> workScheduleRepository,
         CancellationToken cancellationToken)
     {
+        // Phiếu xin bỏ ca: lần duyệt đã gỡ ca → xếp lại ca đó (nếu ngày ấy chưa có lại ca này / chưa là ngày nghỉ).
+        if (!registration.IsDayOff && registration.ShiftId == null && registration.ReplaceShiftId is Guid droppedShiftId)
+        {
+            if (registration.AppliedWorkScheduleId == null) return;
+            var dayStart = registration.Date.Date;
+            var dayEnd = dayStart.AddDays(1);
+            var sameDay = await workScheduleRepository.GetAllAsync(
+                ws => ws.EmployeeUserId == registration.EmployeeUserId && ws.StoreId == storeId
+                      && ws.Date >= dayStart && ws.Date < dayEnd,
+                cancellationToken: cancellationToken);
+            if (sameDay.Any(ws => ws.IsDayOff || ws.ShiftId == droppedShiftId)) return;
+            await workScheduleRepository.AddAsync(new WorkSchedule
+            {
+                StoreId = storeId,
+                EmployeeUserId = registration.EmployeeUserId,
+                ShiftId = droppedShiftId,
+                Date = dayStart,
+                IsDayOff = false,
+            }, cancellationToken);
+            return;
+        }
+
         if (registration.AppliedWorkScheduleId is Guid appliedId)
         {
             // Phiếu đổi ca: dòng lịch ca cũ đã chuyển sang ca mới → trả lại ca cũ.

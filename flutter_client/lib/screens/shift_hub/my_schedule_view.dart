@@ -370,7 +370,7 @@ class _MyScheduleViewState extends State<MyScheduleView> {
                 // Cùng một kiểu nhãn «loại · trạng thái» cho đăng ký / đơn nghỉ / đổi ca (ShiftUi.requestStatusLabel).
                 if (reg != null && reg['status'] != 'Approved')
                   ShiftUi.pill(
-                    '${reg['isDayOff'] == true ? 'Đăng ký nghỉ' : reg['replaceShiftId'] != null ? 'Đổi ${_tpl(reg['replaceShiftId'])?['name'] ?? 'ca'} → ${_tpl(reg['shiftId'])?['name'] ?? 'ca'}' : 'Đăng ký ${_tpl(reg['shiftId'])?['name'] ?? 'ca'}'} · '
+                    '${reg['isDayOff'] == true ? 'Đăng ký nghỉ' : reg['replaceShiftId'] != null && reg['shiftId'] == null ? 'Xin bỏ ${_tpl(reg['replaceShiftId'])?['name'] ?? 'ca'}' : reg['replaceShiftId'] != null ? 'Đổi ${_tpl(reg['replaceShiftId'])?['name'] ?? 'ca'} → ${_tpl(reg['shiftId'])?['name'] ?? 'ca'}' : 'Đăng ký ${_tpl(reg['shiftId'])?['name'] ?? 'ca'}'} · '
                     '${ShiftUi.requestStatusLabel('reg', reg['status']?.toString())}'
                     '${reg['status'] == 'Rejected' && (reg['rejectionReason']?.toString() ?? '').isNotEmpty ? ': ${reg['rejectionReason']}' : ''}',
                     ShiftUi.statusColor(reg['status']?.toString()),
@@ -403,6 +403,43 @@ class _MyScheduleViewState extends State<MyScheduleView> {
         ),
       ]);
 
+  /// Xin bỏ ca [shiftId] ngày [date] (không thay ca khác) — quản lý duyệt thì ca được gỡ khỏi lịch.
+  Future<bool> _askDrop(DateTime date, String shiftId) async {
+    final name = _tpl(shiftId)?['name'] ?? 'ca';
+    final note = TextEditingController();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Xin bỏ $name?')),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('${ShiftUi.weekdaysLong[date.weekday - 1]}, ${ShiftUi.dmy(date)}'),
+          const SizedBox(height: 6),
+          Text(tr('Quản lý duyệt thì $name được gỡ khỏi lịch, các ca khác giữ nguyên. Nghỉ có lương thì dùng «Xin nghỉ phép».')),
+          const SizedBox(height: 12),
+          TextField(
+            controller: note,
+            decoration: InputDecoration(labelText: tr('Lý do (không bắt buộc)'), border: const OutlineInputBorder()),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Huỷ'))),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Gửi'))),
+        ],
+      ),
+    );
+    final text = note.text.trim();
+    note.dispose();
+    if (ok != true || !mounted) return false;
+    final r = await _api.createScheduleRegistration({
+      'date': ShiftUi.key(date),
+      'replaceShiftId': shiftId,
+      'isDayOff': false,
+      if (text.isNotEmpty) 'note': text,
+    });
+    _result(r, 'Đã gửi xin bỏ $name — chờ quản lý duyệt');
+    return r['isSuccess'] == true;
+  }
+
   Widget _menu(Map<String, dynamic> d, DateTime date, Map? s, Map<String, dynamic>? tp, Map? reg) {
     final hasShift = s != null && s['isDayOff'] != true && s['shiftId'] != null;
     final extraShifts = _rows(d['schedules']).skip(1).where((x) => x['isDayOff'] != true && x['shiftId'] != null).toList();
@@ -411,6 +448,11 @@ class _MyScheduleViewState extends State<MyScheduleView> {
       icon: const Icon(Icons.more_vert_rounded, color: SboxColors.slate500),
       onSelected: (v) async {
         var changed = false;
+        if (v.startsWith('drop:')) {
+          changed = await _askDrop(date, v.substring(5));
+          if (changed) _changed();
+          return;
+        }
         if (v.startsWith('swap:')) {
           final x = extraShifts[int.parse(v.substring(5))];
           final xt = _tpl(x['shiftId']);
@@ -468,6 +510,16 @@ class _MyScheduleViewState extends State<MyScheduleView> {
           PopupMenuItem(
             value: 'swap',
             child: ListTile(dense: true, leading: const Icon(Icons.swap_horiz_rounded), title: Text(tr('Đổi ca với đồng nghiệp'))),
+          ),
+        // Bỏ hẳn một ca (không thay bằng ca khác): gửi phiếu chờ quản lý duyệt.
+        for (final x in [if (hasShift) s, ...extraShifts])
+          PopupMenuItem(
+            value: 'drop:${x['shiftId']}',
+            child: ListTile(
+              dense: true,
+              leading: const Icon(Icons.remove_circle_outline_rounded, color: SboxColors.danger),
+              title: Text(tr('Xin bỏ ${_tpl(x['shiftId'])?['name'] ?? 'ca'}')),
+            ),
           ),
         for (var i = 0; i < extraShifts.length; i++)
           PopupMenuItem(

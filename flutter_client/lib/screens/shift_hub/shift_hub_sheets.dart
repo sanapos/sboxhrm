@@ -292,7 +292,8 @@ class _RegisterSheetState extends State<_RegisterSheet> {
 // ═════════════ ĐĂNG KÝ CẢ TUẦN ═════════════
 
 /// Nhân viên đăng ký ca cho nhiều ngày trong một bảng (thay vì mở «Đăng ký ca» từng ngày):
-/// mỗi ngày chọn một ca, «Nghỉ» hoặc bỏ trống; gửi một lượt, mỗi ngày một đăng ký chờ duyệt.
+/// mỗi ngày chọn một hoặc nhiều ca (không chồng giờ, không trùng ca đang có), «Nghỉ» hoặc bỏ trống;
+/// gửi một lượt, mỗi ca một đăng ký chờ duyệt.
 /// [days]: phần tử `days` của `GET /api/shift-hub/my` (có schedule, registration, slots).
 Future<bool> showRegisterWeekSheet(
   BuildContext context, {
@@ -313,9 +314,37 @@ class _RegisterWeekSheet extends StatefulWidget {
 }
 
 class _RegisterWeekSheetState extends State<_RegisterWeekSheet> {
-  /// ngày → shiftId | 'off'
-  final Map<String, String> _pick = {};
+  /// ngày → các shiftId đã chọn, hoặc {'off'} (đăng ký nghỉ).
+  final Map<String, Set<String>> _pick = {};
   bool _saving = false;
+
+  int get _count => _pick.values.fold(0, (n, v) => n + v.length);
+
+  /// Ca đang xếp của ngày [d] (một người có thể làm nhiều ca).
+  List<String> _scheduled(Map<String, dynamic> d) => [
+        for (final x in (d['schedules'] as List? ?? [if (d['schedule'] is Map) d['schedule']]))
+          if (x is Map && x['isDayOff'] != true && x['shiftId'] != null) x['shiftId'].toString(),
+      ];
+
+  /// Ca [id] chồng giờ ca đang có / ca đã chọn khác trong ngày.
+  bool _clash(Map<String, dynamic> d, String id) {
+    final t = _tpl(id);
+    if (t == null) return false;
+    final others = {..._scheduled(d), ...?_pick[d['date'].toString()]}..remove(id)..remove('off');
+    return others.any((o) => _tpl(o) != null && BoardData.shiftsOverlap(_tpl(o)!, t));
+  }
+
+  void _toggle(String key, String id, bool on) {
+    final set = _pick.putIfAbsent(key, () => <String>{});
+    if (id == 'off') {
+      set.clear();
+      if (on) set.add('off');
+    } else {
+      set.remove('off');
+      on ? set.add(id) : set.remove(id);
+    }
+    if (set.isEmpty) _pick.remove(key);
+  }
 
   List<Map<String, dynamic>> get _open => widget.days.where((d) => d['isPast'] != true).toList();
 
@@ -327,17 +356,19 @@ class _RegisterWeekSheetState extends State<_RegisterWeekSheet> {
     var ok = 0, fail = 0;
     String? err;
     for (final e in _pick.entries) {
-      final off = e.value == 'off';
-      final r = await ApiService().createScheduleRegistration({
-        'date': e.key,
-        if (!off) 'shiftId': e.value,
-        'isDayOff': off,
-      });
-      if (r['isSuccess'] == true) {
-        ok++;
-      } else {
-        fail++;
-        err ??= r['message']?.toString();
+      for (final v in e.value) {
+        final off = v == 'off';
+        final r = await ApiService().createScheduleRegistration({
+          'date': e.key,
+          if (!off) 'shiftId': v,
+          'isDayOff': off,
+        });
+        if (r['isSuccess'] == true) {
+          ok++;
+        } else {
+          fail++;
+          err ??= r['message']?.toString();
+        }
       }
     }
     if (!mounted) return;
@@ -357,7 +388,7 @@ class _RegisterWeekSheetState extends State<_RegisterWeekSheet> {
       child: SizedBox(
         height: MediaQuery.of(context).size.height * 0.85,
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          _title('Đăng ký cả tuần', 'Chọn ca cho từng ngày rồi gửi một lượt'),
+          _title('Đăng ký cả tuần', 'Chọn một hoặc nhiều ca cho từng ngày rồi gửi một lượt'),
           Expanded(
             child: days.isEmpty
                 ? Center(child: Text(tr('Tuần này không còn ngày nào để đăng ký'), style: const TextStyle(color: SboxColors.slate500)))
@@ -371,7 +402,7 @@ class _RegisterWeekSheetState extends State<_RegisterWeekSheet> {
               onPressed: _saving || _pick.isEmpty ? null : _save,
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
               icon: const Icon(Icons.send_rounded),
-              label: Text(tr(_saving ? 'Đang gửi…' : 'Gửi ${_pick.length} đăng ký')),
+              label: Text(tr(_saving ? 'Đang gửi…' : 'Gửi $_count đăng ký')),
             ),
           ),
         ]),
@@ -384,11 +415,12 @@ class _RegisterWeekSheetState extends State<_RegisterWeekSheet> {
     final date = ShiftUi.parse(key)!;
     final s = d['schedule'] as Map?;
     final reg = d['registration'] as Map?;
-    final now = s == null
-        ? 'Chưa có ca'
-        : s['isDayOff'] == true
+    final mine = _scheduled(d);
+    final now = mine.isNotEmpty
+        ? 'Đang có ${mine.map((x) => _tpl(x)?['name'] ?? 'ca').join(', ')}'
+        : s?['isDayOff'] == true
             ? 'Đang là ngày nghỉ'
-            : 'Đang có ${_tpl(s['shiftId'])?['name'] ?? 'ca'}';
+            : 'Chưa có ca';
     final pending = reg != null && reg['status'] == 'Pending';
     final slots = [for (final x in (d['slots'] as List? ?? const [])) if (x is Map) x];
     String? slotStatus(String id) => slots.where((x) => x['shiftId']?.toString() == id).firstOrNull?['status']?.toString();
@@ -406,16 +438,27 @@ class _RegisterWeekSheetState extends State<_RegisterWeekSheet> {
         const SizedBox(height: 6),
         Wrap(spacing: 6, runSpacing: 6, children: [
           for (final t in widget.templates)
-            ChoiceChip(
-              avatar: CircleAvatar(radius: 5, backgroundColor: ShiftUi.shiftColor(ShiftUi.n(t['colorIndex']).toInt())),
-              label: Text('${t['name']}${slotStatus(t['id'].toString()) == 'short' ? ' · thiếu' : (slotStatus(t['id'].toString()) == 'full' || slotStatus(t['id'].toString()) == 'over') ? ' · đủ' : ''}'),
-              selected: _pick[key] == t['id'].toString(),
-              onSelected: (v) => setState(() => v ? _pick[key] = t['id'].toString() : _pick.remove(key)),
-            ),
-          ChoiceChip(
+            Builder(builder: (_) {
+              final id = t['id'].toString();
+              final has = mine.contains(id);
+              final picked = _pick[key]?.contains(id) == true;
+              final clash = !picked && !has && _clash(d, id);
+              return FilterChip(
+                avatar: CircleAvatar(radius: 5, backgroundColor: ShiftUi.shiftColor(ShiftUi.n(t['colorIndex']).toInt())),
+                label: Text(has
+                    ? tr('${t['name']} · đang có')
+                    : clash
+                        ? tr('${t['name']} · trùng giờ')
+                        : '${t['name']}${slotStatus(id) == 'short' ? ' · thiếu' : (slotStatus(id) == 'full' || slotStatus(id) == 'over') ? ' · đủ' : ''}'),
+                selected: picked,
+                // Ca đang có / chồng giờ ca khác trong ngày: không chọn được (đổi ca dùng «Đăng ký thêm ca / đổi ca»).
+                onSelected: has || clash ? null : (v) => setState(() => _toggle(key, id, v)),
+              );
+            }),
+          FilterChip(
             label: Text(tr('Nghỉ')),
-            selected: _pick[key] == 'off',
-            onSelected: (v) => setState(() => v ? _pick[key] = 'off' : _pick.remove(key)),
+            selected: _pick[key]?.contains('off') == true,
+            onSelected: (v) => setState(() => _toggle(key, 'off', v)),
           ),
         ]),
       ]),

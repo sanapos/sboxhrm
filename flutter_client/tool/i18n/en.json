@@ -1939,6 +1939,7 @@
   "Chọn một": "Choose one",
   "Chọn một chế độ. «Tự in khi thanh toán» = in tem sau TT.\n": "Choose one mode. \"Auto-print at payment\" = print the label after payment.\n",
   "Chọn một dịch vụ tính giờ (vd «Quá giờ karaoke» theo block 15 phút). Tiền quá giờ tính từ lúc hết gói.": "Choose a time-based service (e.g. «Karaoke overtime» in 15-minute blocks). Overtime is charged from when the package runs out.",
+  "Chọn một hoặc nhiều ca cho từng ngày rồi gửi một lượt": "Pick one or more shifts for each day, then send them all at once",
   "Chọn một nhân viên": "Select one employee",
   "Chọn một phòng ban": "Select one department",
   "Chọn một yêu cầu để xem chi tiết": "Select a request to view details",
@@ -18567,6 +18568,10 @@
    "Q{0}: revenue / tax"
   ],
   [
+   "Quản lý duyệt thì {0} được gỡ khỏi lịch, các ca khác giữ nguyên. Nghỉ có lương thì dùng «Xin nghỉ phép».",
+   "Once a manager approves, {0} is removed from your schedule and your other shifts stay. For paid time off, use «Request leave»."
+  ],
+  [
    "Quản lý {0}",
    "Manage {0}"
   ],
@@ -21225,6 +21230,14 @@
   [
    "Xem đủ {0} mặt hàng",
    "View all {0} items"
+  ],
+  [
+   "Xin bỏ {0}",
+   "Request to drop {0}"
+  ],
+  [
+   "Xin bỏ {0}?",
+   "Request to drop {0}?"
   ],
   [
    "Xoá chương trình «{0}»?",
@@ -24303,6 +24316,10 @@
    "{0} · card valid until {1}"
   ],
   [
+   "{0} · trùng giờ",
+   "{0} · overlaps"
+  ],
+  [
    "{0} · trạng thái: Đã hủy",
    "{0} · status: Cancelled"
   ],
@@ -24485,6 +24502,10 @@
   [
    "{0} · Đã có trong lịch",
    "{0} · Already scheduled"
+  ],
+  [
+   "{0} · đang có",
+   "{0} · already yours"
   ],
   [
    "{0} · đang mất kết nối",
@@ -26321,6 +26342,10 @@
   [
    "Đã gửi tới app SBOX BOSS của chủ / quản lý · còn {0}:{1}",
    "Sent to the owner / manager's SBOX BOSS app · {0}:{1} left"
+  ],
+  [
+   "Đã gửi xin bỏ {0} — chờ quản lý duyệt",
+   "Request to drop {0} sent — waiting for manager approval"
   ],
   [
    "Đã gửi yêu cầu báo cáo cho {0}",

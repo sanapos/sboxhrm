@@ -3778,6 +3778,7 @@
   "Chọn một chế độ. «Tự in khi thanh toán» = in tem sau TT.\n": "请选择一种模式。“结账时自动打印”= 结账后打印标签。\n",
   "Chọn một chức danh để xem và chỉnh sửa quyền": "选择职称以查看并编辑权限",
   "Chọn một dịch vụ tính giờ (vd «Quá giờ karaoke» theo block 15 phút). Tiền quá giờ tính từ lúc hết gói.": "选择一项计时服务（如按15分钟计的«卡拉OK超时»）。超时费用从套餐用完后开始计算。",
+  "Chọn một hoặc nhiều ca cho từng ngày rồi gửi một lượt": "为每一天选择一个或多个班次，然后一次性提交",
   "Chọn một hoặc nhiều máy in — bấm in sẽ gửi tới tất cả máy đã chọn.": "选择一台或多台打印机 — 点击打印将发送到所有已选打印机。",
   "Chọn một hoặc nhiều ngày đích muốn sao chép đến.": "选择一个或多个要复制到的目标日期。",
   "Chọn một nhân viên": "选择一名员工",
@@ -30738,6 +30739,10 @@
    "第 {0} 季度：营收 / 税款"
   ],
   [
+   "Quản lý duyệt thì {0} được gỡ khỏi lịch, các ca khác giữ nguyên. Nghỉ có lương thì dùng «Xin nghỉ phép».",
+   "经理批准后，{0}将从排班中移除，其他班次保持不变。带薪休息请使用«请假»。"
+  ],
+  [
    "Quản lý {0}",
    "管理 {0}"
   ],
@@ -33396,6 +33401,14 @@
   [
    "Xem đủ {0} mặt hàng",
    "查看全部 {0} 个商品"
+  ],
+  [
+   "Xin bỏ {0}",
+   "申请取消{0}"
+  ],
+  [
+   "Xin bỏ {0}?",
+   "申请取消{0}？"
   ],
   [
    "Xoá chương trình «{0}»?",
@@ -36474,6 +36487,10 @@
    "{0} · 卡有效期至 {1}"
   ],
   [
+   "{0} · trùng giờ",
+   "{0} · 时间冲突"
+  ],
+  [
    "{0} · trạng thái: Đã hủy",
    "{0} · 状态：已取消"
   ],
@@ -36656,6 +36673,10 @@
   [
    "{0} · Đã có trong lịch",
    "{0} · 已在排班中"
+  ],
+  [
+   "{0} · đang có",
+   "{0} · 已排班"
   ],
   [
    "{0} · đang mất kết nối",
@@ -38492,6 +38513,10 @@
   [
    "Đã gửi tới app SBOX BOSS của chủ / quản lý · còn {0}:{1}",
    "已发送至店主 / 管理员的SBOX BOSS应用 · 剩余 {0}:{1}"
+  ],
+  [
+   "Đã gửi xin bỏ {0} — chờ quản lý duyệt",
+   "已提交取消{0}的申请 — 等待经理批准"
   ],
   [
    "Đã gửi yêu cầu báo cáo cho {0}",

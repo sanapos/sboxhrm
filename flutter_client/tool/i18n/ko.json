@@ -3778,6 +3778,7 @@
   "Chọn một chế độ. «Tự in khi thanh toán» = in tem sau TT.\n": "모드를 하나 선택하세요. «결제 시 자동 인쇄» = 결제 후 라벨 인쇄.\n",
   "Chọn một chức danh để xem và chỉnh sửa quyền": "직책을 선택하여 권한을 확인하고 수정하세요",
   "Chọn một dịch vụ tính giờ (vd «Quá giờ karaoke» theo block 15 phút). Tiền quá giờ tính từ lúc hết gói.": "시간제 서비스 하나를 선택하세요 (예: 15분 단위 «노래방 초과 시간»). 초과 요금은 패키지 종료 시점부터 계산됩니다.",
+  "Chọn một hoặc nhiều ca cho từng ngày rồi gửi một lượt": "날짜별로 근무조를 하나 이상 선택한 뒤 한 번에 보내세요",
   "Chọn một hoặc nhiều máy in — bấm in sẽ gửi tới tất cả máy đã chọn.": "프린터를 하나 이상 선택하세요 — 인쇄하면 선택한 모든 프린터로 전송됩니다.",
   "Chọn một hoặc nhiều ngày đích muốn sao chép đến.": "복사할 대상 날짜를 하나 이상 선택하세요.",
   "Chọn một nhân viên": "직원 한 명 선택",
@@ -30738,6 +30739,10 @@
    "{0}분기: 매출 / 세금"
   ],
   [
+   "Quản lý duyệt thì {0} được gỡ khỏi lịch, các ca khác giữ nguyên. Nghỉ có lương thì dùng «Xin nghỉ phép».",
+   "관리자가 승인하면 {0}이(가) 일정에서 제거되고 다른 근무조는 그대로 유지됩니다. 유급 휴무는 «휴가 신청»을 이용하세요."
+  ],
+  [
    "Quản lý {0}",
    "{0} 관리"
   ],
@@ -33396,6 +33401,14 @@
   [
    "Xem đủ {0} mặt hàng",
    "{0}개 품목 모두 보기"
+  ],
+  [
+   "Xin bỏ {0}",
+   "{0} 취소 요청"
+  ],
+  [
+   "Xin bỏ {0}?",
+   "{0} 취소를 요청할까요?"
   ],
   [
    "Xoá chương trình «{0}»?",
@@ -36474,6 +36487,10 @@
    "{0} · 카드 유효기간 {1}"
   ],
   [
+   "{0} · trùng giờ",
+   "{0} · 시간 겹침"
+  ],
+  [
    "{0} · trạng thái: Đã hủy",
    "{0} · 상태: 취소됨"
   ],
@@ -36656,6 +36673,10 @@
   [
    "{0} · Đã có trong lịch",
    "{0} · 이미 일정에 있음"
+  ],
+  [
+   "{0} · đang có",
+   "{0} · 배정됨"
   ],
   [
    "{0} · đang mất kết nối",
@@ -38492,6 +38513,10 @@
   [
    "Đã gửi tới app SBOX BOSS của chủ / quản lý · còn {0}:{1}",
    "점주 / 관리자의 SBOX BOSS 앱으로 전송됨 · 남은 시간 {0}:{1}"
+  ],
+  [
+   "Đã gửi xin bỏ {0} — chờ quản lý duyệt",
+   "{0} 취소 요청을 보냈습니다 — 관리자 승인 대기 중"
   ],
   [
    "Đã gửi yêu cầu báo cáo cho {0}",

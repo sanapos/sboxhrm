@@ -122,9 +122,11 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
         name: r['employeeName']?.toString() ?? '',
         title: r['isDayOff'] == true
             ? 'Xin nghỉ ngày này'
-            : (r['replaceShiftName']?.toString() ?? '').isNotEmpty
-                ? 'Đổi ${r['replaceShiftName']} → ${r['shiftName'] ?? 'ca'}'
-                : 'Đăng ký ${r['shiftName'] ?? 'ca'}',
+            : (r['replaceShiftName']?.toString() ?? '').isNotEmpty && r['shiftId'] == null
+                ? 'Xin bỏ ${r['replaceShiftName']}'
+                : (r['replaceShiftName']?.toString() ?? '').isNotEmpty
+                    ? 'Đổi ${r['replaceShiftName']} → ${r['shiftName'] ?? 'ca'}'
+                    : 'Đăng ký ${r['shiftName'] ?? 'ca'}',
         when: _d(r['date']),
         detail: r['note']?.toString(),
         createdAt: _dt(r['createdAt']),

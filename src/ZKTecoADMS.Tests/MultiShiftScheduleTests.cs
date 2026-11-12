@@ -142,6 +142,36 @@ public class MultiShiftScheduleTests
     }
 
     [Fact]
+    public async Task Duyet_xin_bo_ca_go_dung_ca_do_hoan_duyet_xep_lai()
+    {
+        var (db, emp, sang, chieu, _) = Seed();
+        var day = new DateTime(2026, 11, 20);
+        db.Set<WorkSchedule>().AddRange(Row(emp, day, sang.Id), Row(emp, day, chieu.Id));
+        db.SaveChanges();
+        db.ChangeTracker.Clear(); // như một request mới (production: mỗi request một DbContext)
+        // Xin bỏ Ca Chiều (không thay bằng ca khác): ShiftId null, ReplaceShiftId = ca bỏ.
+        var reg = new ScheduleRegistration
+        {
+            Id = Guid.NewGuid(), StoreId = Store, EmployeeUserId = emp, Date = day, ShiftId = null, ReplaceShiftId = chieu.Id,
+        };
+        var repo = Repo<WorkSchedule>(db);
+
+        await ApproveScheduleRegistrationHandler.ApplyApprovedScheduleAsync(reg, Store, repo, Repo<ShiftTemplate>(db), default);
+
+        var left = db.Set<WorkSchedule>().AsNoTracking().Where(w => w.EmployeeUserId == emp && w.Deleted == null).ToList();
+        Assert.Single(left);
+        Assert.Equal(sang.Id, left[0].ShiftId);
+        Assert.NotNull(reg.AppliedWorkScheduleId);
+
+        await RegistrationScheduleCleanup.RemoveAppliedScheduleAsync(reg, Store, repo, default);
+
+        var back = db.Set<WorkSchedule>().AsNoTracking().Where(w => w.EmployeeUserId == emp && w.Deleted == null)
+            .Select(w => w.ShiftId).ToList();
+        Assert.Equal(2, back.Count);
+        Assert.Contains(chieu.Id, back);
+    }
+
+    [Fact]
     public async Task Doi_ca_khi_ca_cu_da_bi_go_thi_them_ca_moi()
     {
         var (db, emp, sang, chieu, _) = Seed();

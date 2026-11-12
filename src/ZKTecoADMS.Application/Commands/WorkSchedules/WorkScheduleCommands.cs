@@ -500,6 +500,7 @@ public class CreateScheduleRegistrationHandler(
                              && r.StoreId == request.StoreId
                              && r.ShiftId == request.ShiftId
                              && r.IsDayOff == request.IsDayOff
+                             && r.ReplaceShiftId == (request.IsDayOff ? null : request.ReplaceShiftId)
                              && r.Status != ScheduleRegistrationStatus.Rejected,
                 cancellationToken: cancellationToken);
             if (duplicateReg != null)
@@ -507,16 +508,22 @@ public class CreateScheduleRegistrationHandler(
                 return AppResponse<ScheduleRegistrationDto>.Error(
                     request.IsDayOff
                         ? "Đã có đăng ký nghỉ cho ngày này"
-                        : "Đã có đăng ký ca này cho ngày");
+                        : request.ShiftId == null
+                            ? "Đã có đăng ký bỏ ca này cho ngày"
+                            : "Đã có đăng ký ca này cho ngày");
             }
 
-            // Một người làm được nhiều ca / ngày: đăng ký thêm ca (ReplaceShiftId null) hoặc đổi một ca đang xếp
-            // sang ca khác (ReplaceShiftId = ca bỏ). Ca mới không được trùng / chồng giờ các ca còn giữ.
+            // Một người làm được nhiều ca / ngày: đăng ký thêm ca (ReplaceShiftId null), đổi một ca đang xếp
+            // sang ca khác (ReplaceShiftId = ca bỏ) hoặc xin bỏ ca (ReplaceShiftId, không có ShiftId).
+            // Ca mới không được trùng / chồng giờ các ca còn giữ.
             var replaceId = request.IsDayOff ? null : request.ReplaceShiftId;
+            var isDrop = replaceId.HasValue && !request.ShiftId.HasValue;
             ShiftTemplate? replaceShift = null;
-            if (replaceId.HasValue && (!request.ShiftId.HasValue || replaceId == request.ShiftId))
+            if (!request.IsDayOff && !request.ShiftId.HasValue && !replaceId.HasValue)
+                return AppResponse<ScheduleRegistrationDto>.Error("Hãy chọn ca muốn đăng ký");
+            if (replaceId.HasValue && replaceId == request.ShiftId)
                 return AppResponse<ScheduleRegistrationDto>.Error("Đổi ca: hãy chọn một ca khác ca đang làm");
-            if (!request.IsDayOff && request.ShiftId.HasValue)
+            if (!request.IsDayOff && (request.ShiftId.HasValue || isDrop))
             {
                 var dayStart = request.Date.Date;
                 var dayEnd = dayStart.AddDays(1);
@@ -524,14 +531,14 @@ public class CreateScheduleRegistrationHandler(
                     ws => ws.EmployeeUserId == employee.Id && ws.StoreId == request.StoreId
                           && ws.Date >= dayStart && ws.Date < dayEnd && !ws.IsDayOff && ws.ShiftId != null,
                     cancellationToken: cancellationToken);
-                if (daySchedules.Any(ws => ws.ShiftId == request.ShiftId))
+                if (request.ShiftId.HasValue && daySchedules.Any(ws => ws.ShiftId == request.ShiftId))
                     return AppResponse<ScheduleRegistrationDto>.Error("Bạn đã có ca này trong ngày");
                 if (replaceId.HasValue && !daySchedules.Any(ws => ws.ShiftId == replaceId))
                     return AppResponse<ScheduleRegistrationDto>.Error("Ca muốn đổi không còn trên lịch ngày này — hãy tải lại lịch");
                 var templates = (await shiftRepository.GetAllAsync(t => t.StoreId == request.StoreId, cancellationToken: cancellationToken))
                     .ToDictionary(t => t.Id);
                 if (replaceId.HasValue) templates.TryGetValue(replaceId.Value, out replaceShift);
-                if (templates.TryGetValue(request.ShiftId.Value, out var wanted))
+                if (request.ShiftId.HasValue && templates.TryGetValue(request.ShiftId.Value, out var wanted))
                 {
                     var overlap = WorkScheduleDuplicateHelper.OverlapError(
                         daySchedules.Where(ws => ws.ShiftId != replaceId).Select(ws => ws.ShiftId), wanted, templates);
@@ -594,7 +601,8 @@ public class CreateScheduleRegistrationHandler(
                 {
                     // «Cần duyệt đăng ký lịch» / «Nguyễn Văn An · 12/11 · Ca Sáng 07:00–11:00 · Cấp 1/2»
                     var slot = request.IsDayOff ? "Xin nghỉ" : ScheduleNotifyText.Slot(result?.Shift);
-                    if (replaceShift != null) slot = $"Đổi {ScheduleNotifyText.ShiftName(replaceShift)} → {slot}";
+                    if (isDrop) slot = $"Xin bỏ {ScheduleNotifyText.ShiftName(replaceShift) ?? "ca"}";
+                    else if (replaceShift != null) slot = $"Đổi {ScheduleNotifyText.ShiftName(replaceShift)} → {slot}";
                     await notificationService.CreateAndSendToUsersAsync(
                         firstApprover, NotificationType.ApprovalRequired,
                         "Cần duyệt đăng ký lịch",
@@ -962,6 +970,7 @@ public class ApproveScheduleRegistrationHandler(
     /// <summary>«Ca Sáng 07:00–11:00» / «Ngày nghỉ» cho thông báo duyệt đăng ký lịch.</summary>
     private string RegistrationSlot(ScheduleRegistration registration) =>
         registration.IsDayOff ? "Ngày nghỉ"
+        : registration.ShiftId == null && registration.ReplaceShiftId != null ? $"Bỏ {_replaceName ?? "ca"}"
         : _replaceName != null ? $"Đổi {_replaceName} → {ScheduleNotifyText.Slot(registration.Shift)}"
         : ScheduleNotifyText.Slot(registration.Shift);
 
@@ -1036,6 +1045,16 @@ public class ApproveScheduleRegistrationHandler(
                 if (overlap != null)
                     throw new InvalidOperationException(overlap);
             }
+        }
+
+        // Xin bỏ ca: gỡ dòng lịch ca đó (đã gỡ sẵn thì thôi); hoàn duyệt / xóa phiếu xếp lại ca.
+        if (!registration.IsDayOff && registration.ShiftId == null && registration.ReplaceShiftId != null)
+        {
+            if (replaced != null)
+                await workScheduleRepository.DeleteAsync(replaced, cancellationToken);
+            registration.AppliedWorkScheduleId = replaced?.Id;
+            registration.AppliedCreatedNewSchedule = false;
+            return;
         }
 
         // Đổi ca: dòng lịch ca cũ chuyển thành ca mới (không cộng thêm ca); hoàn duyệt / xóa phiếu trả lại ca cũ.

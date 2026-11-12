@@ -1071,7 +1071,7 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
                 decoration: BoxDecoration(color: SboxColors.warning.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(
-                      tr('Nhân viên đăng ký: ${reg['isDayOff'] == true ? 'nghỉ ngày này' : reg['replaceShiftId'] != null ? 'đổi ${_tpl(reg['replaceShiftId'])?['name'] ?? 'ca'} → ${_tpl(reg['shiftId'])?['name'] ?? 'ca'}' : '${_tpl(reg['shiftId'])?['name'] ?? 'ca'}'}'),
+                      tr('Nhân viên đăng ký: ${reg['isDayOff'] == true ? 'nghỉ ngày này' : reg['replaceShiftId'] != null && reg['shiftId'] == null ? 'xin bỏ ${_tpl(reg['replaceShiftId'])?['name'] ?? 'ca'}' : reg['replaceShiftId'] != null ? 'đổi ${_tpl(reg['replaceShiftId'])?['name'] ?? 'ca'} → ${_tpl(reg['shiftId'])?['name'] ?? 'ca'}' : '${_tpl(reg['shiftId'])?['name'] ?? 'ca'}'}'),
                       style: const TextStyle(fontWeight: FontWeight.w700)),
                   if ((reg['note']?.toString() ?? '').isNotEmpty) Text(tr('Ghi chú: ${reg['note']}')),
                   const SizedBox(height: 8),
