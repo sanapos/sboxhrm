@@ -322,7 +322,7 @@ class _LanScanSheetState extends State<_LanScanSheet> {
     final u = _udpFor(h.host);
     return ListTile(
       leading: const Icon(Icons.print, color: PosTheme.kiotBlue),
-      title: Text(h.title),
+      title: Text(u?.model != null ? '${u!.model} · ${h.host}:${h.port}' : h.title),
       subtitle: Text(
         tr(
           (h.brand == PosThermalPrinterBrand.generic

@@ -336,6 +336,7 @@ class _IpDialogState extends State<_IpDialog> {
               TextField(
                 controller: _ip,
                 enabled: !_busy,
+                onChanged: (_) => setState(() {}), // nhãn nút «Lưu IP tĩnh» / «Đổi IP»
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: digits,
                 decoration: InputDecoration(labelText: tr('IP mới (tĩnh)')),
@@ -386,7 +387,7 @@ class _IpDialogState extends State<_IpDialog> {
           TextButton(onPressed: _suggest, child: Text(tr('Gợi ý IP khác'))),
         FilledButton(
           onPressed: _busy ? null : _apply,
-          child: Text(tr('Đổi IP')),
+          child: Text(tr(_ip.text.trim() == widget.device.ip ? 'Lưu IP tĩnh' : 'Đổi IP')),
         ),
       ],
     );

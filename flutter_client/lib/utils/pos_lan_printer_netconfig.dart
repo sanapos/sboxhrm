@@ -29,7 +29,7 @@ import 'pos_thermal_printer_settings.dart';
 /// Ghi chú nghiên cứu đầy đủ: docs/printers/lan-printer-ip-protocols.md.
 enum PosLanNetProto {
   xprinter('Xprinter / tương thích', 9000),
-  rongta('Rongta / tương thích', 1460),
+  rongta('Rongta / Zywell / tương thích', 1460),
   epson('Epson (ENPC)', 3289);
 
   const PosLanNetProto(this.label, this.udpPort);
