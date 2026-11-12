@@ -9,6 +9,8 @@
   " gần đầy": " almost full",
   " lên máy chủ…": " to server…",
   " và ": " and ",
+  " · DHCP — IP có thể nhảy": " · DHCP — IP may change",
+  " · IP tĩnh": " · Static IP",
   " · gồm dư 0": " · including remainder 0",
   " · Đang thiếu người": " · Understaffed",
   " · Đã đủ người": " · Fully staffed",
@@ -82,6 +84,8 @@
   "*** PHIẾU RA MÓN ***": "*** SERVING SLIP ***",
   "**Báo lỗi & Góp ý** trong phần Cài đặt": "**Report a bug & Feedback** in Settings",
   "**Báo lỗi & Góp ý** trong phần Thiết lập": "**Report a bug & Feedback** in Setup",
+  "**Cài đặt → Xóa tài khoản**": "**Settings → Delete account**",
+  "**Thêm → Xóa tài khoản**": "**More → Delete account**",
   "+ Bán hàng tiền mặt": "+ Cash sales",
   "+ Thu cọc": "+ Deposit received",
   "+ Thu khác": "+ Other income",
@@ -150,6 +154,7 @@
   "1. Tạo yêu cầu: chọn ca của bạn, đồng nghiệp và ca/ngày muốn đổi.\n\n": "1. Create a request: choose your shift, a colleague and the shift/day to swap.\n\n",
   "1. Upload file .mp4 (khuyến nghị 1280×720 H.264) lên Google Drive\n": "1. Upload the .mp4 file (recommended 1280×720 H.264) to Google Drive\n",
   "1. Vào bot.zapps.me (Zalo Bot Platform), đăng nhập Zalo và tạo bot.\n": "1. Go to bot.zapps.me (Zalo Bot Platform), log in to Zalo and create a bot.\n",
+  "1. Xem IP hiện tại: tắt máy in, giữ nút FEED rồi bật nguồn, nhả khi máy in trang tự kiểm tra (Self-test). Trang này ghi IP, mask, gateway, DHCP.": "1. Check the current IP: turn the printer off, hold the FEED button and power it on, then release when the printer prints a self-test page. This page shows the IP, mask, gateway and DHCP.",
   "1. Điện thoại cùng WiFi với gateway (không dùng 4G).\n": "1. The phone must be on the same WiFi as the gateway (not 4G).\n",
   "100 = miễn phí": "100 = free",
   "100 là hoàn hảo. Từ 85 xanh, 60–84 vàng, dưới 60 đỏ.": "100 is perfect. 85 and above is green, 60–84 yellow, below 60 red.",
@@ -158,6 +163,7 @@
   "12 tháng": "12 months",
   "125 Lê Lợi, Q.1, TP.HCM": "125 Lê Lợi, Q.1, TP.HCM",
   "14 báo cáo POS tách riêng — tick từng loại": "14 separate POS reports — tick each one",
+  "14 ngày": "14 days",
   "14 ngày gần nhất": "Last 14 days",
   "16:9, 1280×720 hoặc 1920×1080, MP4 H.264, nên dưới 50MB · video tự tắt tiếng, phát hết rồi chuyển mục": "16:9, 1280×720 or 1920×1080, MP4 H.264, preferably under 50MB · video plays muted and moves to the next item when finished",
   "16–30 phút": "16–30 minutes",
@@ -182,6 +188,7 @@
   "2. Mẫu bắt đầu": "2. Starter template",
   "2. Sao chép token bot và link chia sẻ bot, dán vào hai ô dưới rồi bấm Lưu.\n": "2. Copy the bot token and the bot share link, paste them into the two fields below and tap Save.\n",
   "2. Đồng nghiệp vào tab「Cần phản hồi」để Đồng ý hoặc Từ chối.\n\n": "2. The colleague opens the “Needs response” tab to accept or decline.\n\n",
+  "2. Đổi IP bằng máy tính: đặt tạm IP tĩnh cho máy tính cùng lớp với máy in (vd. máy in 192.168.123.100 → máy tính 192.168.123.50, mask 255.255.255.0), nối chung switch/router.": "2. Change the IP from a computer: temporarily give the computer a static IP in the same subnet as the printer (e.g. printer 192.168.123.100 → computer 192.168.123.50, mask 255.255.255.0), and connect both to the same switch/router.",
   "3 cấp": "3 levels",
   "3 năm": "3 years",
   "3 tháng": "3 months",
@@ -194,6 +201,7 @@
   "3. Bấm «Kiểm tra kết nối» trên VTP → phải thành công.\n": "3. Tap “Check connection” on VTP → it must succeed.\n",
   "3. Copy link (dạng /file/d/…/view) → dán vào «Thêm link video»\n": "3. Copy the link (/file/d/…/view format) → paste into “Add video link”\n",
   "3. Lên đơn / check giá / tra hành trình từ màn thu ngân hoặc đơn online.\n": "3. Create orders / check rates / track shipments from the cashier screen or online orders.\n",
+  "3. Mở trình duyệt vào http://<IP máy in> (trang cấu hình) hoặc công cụ của hãng (Xprinter «Printer Tool», Rongta «Ethernet Setting», HPRT «Printer Utility», Gprinter «Ethernet Tool»), đặt IP tĩnh cùng lớp Wi‑Fi cửa hàng (vd. 192.168.1.200), lưu, tắt/bật máy in.": "3. Open http://<printer IP> in a browser (configuration page) or use the vendor's tool (Xprinter «Printer Tool», Rongta «Ethernet Setting», HPRT «Printer Utility», Gprinter «Ethernet Tool»), set a static IP in the same subnet as the store Wi‑Fi (e.g. 192.168.1.200), save, then turn the printer off and on.",
   "3. Nhân viên vào Cài đặt › Liên kết Zalo, lấy mã 6 số và gửi mã cho bot.": "3. Employees go to Settings › Link Zalo, get the 6-digit code and send it to the bot.",
   "3. Quay lại danh sách → Dò tìm lại (IP có thể đã đổi).\n": "3. Go back to the list → Rescan (the IP may have changed).\n",
   "3. Quản lý vào tab「Chờ QL duyệt」(hoặc mục Duyệt lịch → Đổi ca) để phê duyệt.\n\n": "3. The manager approves in the “Awaiting manager approval” tab (or Schedule approval → Shift swap).\n\n",
@@ -209,6 +217,7 @@
   "4. Lưu cấu hình trên VTP.\n": "4. Save the configuration on VTP.\n",
   "4. Phần mềm tự đổi sang link phát trực tiếp\n": "4. The software automatically converts it to a streaming link\n",
   "4. Thử mở http://sboxadms.local hoặc IP gateway trên trình duyệt cùng WiFi.\n": "4. Try opening http://sboxadms.local or the gateway IP in a browser on the same WiFi.\n",
+  "4. Trả máy tính về «Obtain an IP address automatically», rồi quét lại trong app.": "4. Set the computer back to «Obtain an IP address automatically», then scan again in the app.",
   "45 Lê Lợi, Q.1, TP. Hồ Chí Minh": "45 Lê Lợi, Q.1, TP. Hồ Chí Minh",
   "475A Điện Biên Phủ, Phường 25, Bình Thạnh, Thành phố Hồ Chí Minh": "475A Điện Biên Phủ, Phường 25, Bình Thạnh, Thành phố Hồ Chí Minh",
   "4G / di động": "4G / mobile",
@@ -394,6 +403,7 @@
   "Bán dưới giá vốn": "Sold below cost",
   "Bán gần nhất": "Last sold",
   "Bán hàng & khuyến mãi": "Sales & promotions",
+  "Bán hàng & khách hàng": "Sales & customers",
   "Bán hàng + Nhân sự": "Sales + HR",
   "Bán hàng nhanh\nQuản lý cửa hàng chuẩn": "Fast selling\nProper store management",
   "Bán hàng, hàng hóa, kho, hóa đơn, báo cáo": "Sales, products, stock, invoices, reports",
@@ -873,6 +883,7 @@
   "Bấm để sửa / xoá": "Tap to edit / delete",
   "Bấm để thêm giờ bị thiếu": "Tap to add the missing time",
   "Bấm để xem bảng công của phiếu": "Tap to see the slip's attendance summary",
+  "Bấm để xem chứng từ còn nợ": "Tap to view outstanding documents",
   "Bấm để xem giỏ hàng": "Tap to view the cart",
   "Bấm để xem lớn": "Tap to enlarge",
   "Bấm để xem tiền két, thực thu (Cuối ngày)": "Tap to see drawer cash and actual receipts (End of day)",
@@ -978,6 +989,7 @@
   "Bỏ Chủ nhật / ngày nghỉ hằng tuần theo hồ sơ lương và ngày lễ trong khoảng nghỉ": "Exclude Sundays / weekly days off per the payroll profile and holidays within the leave period",
   "Bỏ PT phụ trách": "Remove assigned trainer",
   "Bỏ bộ lọc": "Clear filter",
+  "Bỏ ca": "Remove shift",
   "Bỏ chặn": "Unblock",
   "Bỏ chọn hết": "Deselect all",
   "Bỏ chọn để gửi vào hàng chờ duyệt": "Untick to send to the approval queue",
@@ -1083,6 +1095,7 @@
   "Ca được hưởng": "Eligible shifts",
   "Ca, phân lịch, đổi ca, ngày lễ": "Shifts, scheduling, shift swaps, holidays",
   "Camera": "Camera",
+  "Camera chỉ dùng để quét mã. Cấp quyền trong Cài đặt của máy rồi mở lại màn này.": "The camera is only used to scan codes. Grant permission in the device Settings, then reopen this screen.",
   "Canh bí": "Squash soup",
   "Cao 40, bo 10, viền xanh khi đang nhập": "Height 40, radius 10, blue border while typing",
   "Catalog mẫu": "Sample catalog",
@@ -1468,6 +1481,7 @@
   "Chưa có phác đồ. PT giao bài tập / lịch tuần / dinh dưỡng — khách xem qua «Link cho khách».": "No programs yet. The trainer assigns exercises / weekly schedule / nutrition — clients view them via the «Client link».",
   "Chưa có phòng ban nào": "No departments yet",
   "Chưa có phụ cấp": "No allowances",
+  "Chưa có quyền dùng camera": "No camera permission",
   "Chưa có quyền micro": "No microphone permission",
   "Chưa có quản lý": "No managers yet",
   "Chưa có seri nào.\nSeri xuất hiện khi nhập hàng bắt buộc seri vào kho.": "No serials yet.\nSerials appear when you receive goods that require serial numbers into stock.",
@@ -1653,6 +1667,7 @@
   "Chưa đăng ký vân tay / khuôn mặt": "Fingerprint / face not enrolled",
   "Chưa đăng ký được. Máy chủ phải có tên miền https công khai.": "Registration failed. The server must have a public https domain.",
   "Chưa đăng nhập": "Not signed in",
+  "Chưa được cấp quyền vị trí": "Location permission not granted",
   "Chưa đạt mục tiêu": "Target not met",
   "Chưa đặt được lịch": "Could not book",
   "Chưa đặt định mức": "Quota not set",
@@ -1668,6 +1683,7 @@
   "Chương trình chưa có hóa đơn nào áp dụng — xem lại điều kiện, thời gian hoặc dừng nếu không còn cần.": "No invoices have used this program yet — review the conditions and dates, or stop it if no longer needed.",
   "Chương trình đang tắt.": "The program is off.",
   "Chương trình ưu đãi khi cửa hàng kích hoạt key theo gói": "Promotions applied when a store activates a key for a package",
+  "Chạm ca đã xếp (✓) để bỏ; chạm ca khác để thêm ca hoặc đổi ca": "Tap an assigned shift (✓) to remove it; tap another shift to add or change shifts",
   "Chạm vào chữ trên trang để sửa như Word. Bôi đen rồi chọn đậm / font / màu.": "Tap text on the page to edit it like Word. Select it, then choose bold / font / color.",
   "Chạm vào một ca để xem chi tiết tài khoản / tiền két": "Tap a shift to see account / cash drawer details",
   "Chạm ô để chọn nhân viên cho ca ngày đó · Chạm ngày để xem bảng từng ngày": "Tap a cell to pick employees for that shift and day · Tap a day to open the daily board",
@@ -2194,6 +2210,7 @@
   "Cách chiếu ảnh / video lúc chưa có đơn": "How photos / videos play when there is no order",
   "Cách chấm công": "Punch method",
   "Cách chặn các kẽ hở — làm một lần, dùng lâu dài.": "How to close the loopholes — set up once, use for the long term.",
+  "Cách chống nhảy IP: vào trang quản trị router → DHCP → «Address Reservation» / «Giữ IP theo MAC», ": "To stop the IP from changing: open the router admin page → DHCP → «Address Reservation» / «Reserve IP by MAC», ",
   "Cách chức": "Dismissal from position",
   "Cách cũ: nối WiFi SoftAP (mất mạng tạm)": "Old method: connect to WiFi SoftAP (internet drops temporarily)",
   "Cách cấu hình (khuyên dùng)": "How to configure (recommended)",
@@ -2363,6 +2380,7 @@
   "Công nợ khách": "Customer debts",
   "Công nợ khách hàng": "Customer receivables/payables",
   "Công nợ nhà cung cấp": "Supplier debts",
+  "Công nợ tổng hợp": "Debt summary",
   "Công nợ, lịch sử mua, điểm và thao tác (sửa, thu nợ…) hiện ở đây": "Debt, purchase history, points and actions (edit, collect debt…) appear here",
   "Công nợ, lịch sử nhập / trả và thao tác (sửa, trả nợ, đối chiếu…) hiện ở đây": "Debt, purchase / return history and actions (edit, pay debt, reconcile…) appear here",
   "Công nợ: thanh toán một phần, thu nợ sau tại khách hoặc báo cáo Công nợ": "Debt: partial payment, collect the rest later from the customer or in the Debts report",
@@ -2837,6 +2855,7 @@
   "Dịch vụ tiền phòng: Cách tính «Theo ngày (khách sạn)» cho qua đêm, «Theo giờ» cho nghỉ giờ — mỗi hạng phòng một dịch vụ giá riêng": "Room-charge services: pricing «By day (hotel)» for overnight, «By hour» for short stays — one service with its own price per room class",
   "Dịch vụ tiền phòng: bật «Số lượng tính theo thời gian sử dụng?», «Giá tính theo» chọn «Ngày / đêm» cho qua đêm, «Giờ» cho nghỉ giờ — mỗi hạng phòng một dịch vụ giá riêng": "Room charge service: turn on “Quantity based on usage time?”, set “Price by” to “Day / night” for overnight stays or “Hour” for short stays — one service with its own price per room class",
   "Dịch vụ tính quá giờ": "Overtime-charged service",
+  "Dịch vụ vị trí của máy đang tắt": "Location services are turned off on this device",
   "Dịch vụ đặt trước": "Pre-booked services",
   "Dịch vụ: mục «Tính giờ / gói buổi» — giá cố định, theo giờ / phút / block / ngày, gói nhiều buổi, gói giờ đếm ngược (xem tab Ngành hàng)": "Services: «Timed / session packs» section — fixed price, by hour / minute / block / day, multi-session packs, countdown-hours packs (see the Industry tab)",
   "Dịp": "Occasion",
@@ -2879,6 +2898,8 @@
   "Email nhận hóa đơn": "Email to receive the invoice",
   "Email này đã đăng ký cửa hàng khác — hãy đăng nhập hoặc dùng email khác": "This email is already registered to another store — log in or use a different email",
   "Email này đã được dùng để đăng ký. Hãy đăng nhập hoặc dùng email khác.": "This email has already been used to register. Log in or use a different email.",
+  "Epson: app chưa đổi IP được qua mạng. Cách nhanh nhất:": "Epson: the app cannot change the IP over the network yet. Quickest way:",
+  "Epson: không có gói đổi IP đã xác minh": "Epson: no verified IP-change packet",
   "Excel: xuất/nhập tên, mã, nhóm, giá, thuế, ngành. Ảnh upload riêng.": "Excel: export/import name, code, category, price, tax, industry. Images are uploaded separately.",
   "F&B: sau khi order, gửi bếp để in phiếu / hiện KDS. Phiếu bếp in giờ gọi một lần ở đầu phiếu.": "F&B: after ordering, send to the kitchen to print the ticket / show on KDS. The kitchen ticket prints the order time once at the top.",
   "F7 = lấy lại khối lượng cho dòng vừa chọn.": "F7 = re-read the weight for the line just selected.",
@@ -2901,8 +2922,10 @@
   "GIÁ & ĐƠN VỊ": "PRICE & UNIT",
   "GTGT theo % doanh thu; TNCN tính trên thu nhập = doanh thu trừ chi phí. Sổ S2b đến S2e.": "VAT as a % of revenue; personal income tax on income = revenue minus expenses. Ledgers S2b to S2e.",
   "Gateway WiFi cho máy chấm công đời cũ": "WiFi gateway for older attendance devices",
+  "Gateway không hợp lệ.": "Invalid gateway.",
   "Gateway không trả lời kịp.\n\n": "The gateway did not respond in time.\n\n",
   "Gateway là mạch WiFi nhỏ cắm nguồn trong cùng mạng với máy chấm ": "The gateway is a small WiFi board powered on the same network as the attendance device ",
+  "Gateway phải cùng lớp mạng với IP mới.": "The gateway must be in the same subnet as the new IP.",
   "Gateway đồng bộ lên máy chủ trước rồi mới xóa log trên máy. ": "The gateway syncs to the server first, then clears the logs on the device. ",
   "Gateway đồng bộ lên server trước rồi mới xóa. ": "The gateway syncs to the server first, then deletes. ",
   "Gemini API key (mỗi dòng một key)": "Gemini API key (one key per line)",
@@ -3179,6 +3202,7 @@
   "Giữ 35 ngày.": "Kept for 35 days.",
   "Giữ WiFi hiện tại, sang gán đèn": "Keep current WiFi, go to light assignment",
   "Giữ bàn / phòng / ghế cho khách theo giờ, thu cọc, nhận khách khi đến; salon tự xếp thợ rảnh.": "Hold tables / rooms / chairs for customers by time, collect deposits, check guests in on arrival; salons auto-assign a free staff member.",
+  "Giữ ca đang có, làm thêm ca này": "Keep your current shift and also work this one",
   "Giữ chỗ": "Reserve stock",
   "Giữ chỗ tồn tự đối soát lại với các đơn đang mở mỗi đêm (3 giờ sáng)": "Reserved stock is auto-reconciled against open orders every night (3 AM)",
   "Giữ giá cũ": "Keep old price",
@@ -3317,6 +3341,7 @@
   "Gỡ thiết bị": "Remove device",
   "Gỡ tất cả": "Remove all",
   "Gợi ý 1 tiêu đề ngắn gọn (tối đa 100 ký tự). Chỉ trả về tiêu đề.": "Suggest 1 short title (max 100 characters). Return only the title.",
+  "Gợi ý IP khác": "Suggest another IP",
   "Gợi ý SEO (lần lưu trước)": "SEO suggestion (previous save)",
   "Gợi ý in tạm tính sau xác nhận": "Suggest printing the provisional bill after confirmation",
   "Gợi ý nhập hàng": "Purchase suggestions",
@@ -3733,6 +3758,7 @@
   "Hồ sơ đã hoàn tất.": "Records completed.",
   "Hồ sơ đã đủ": "Records complete",
   "Hồ sơ, mật khẩu, giao diện, ngôn ngữ, phiên bản": "Profile, password, theme, language, version",
+  "Hồ sơ, đổi mật khẩu, ngôn ngữ, thông báo": "Profile, change password, language, notifications",
   "Hỗ trợ chip CH340, PL2303, CP210x, FTDI.": "Supports CH340, PL2303, CP210x, FTDI chips.",
   "Hỗ trợ {Token} — vd. HÓA ĐƠN BÁN HÀNG": "Supports {Token} — e.g. SALES INVOICE",
   "Hộ chiếu": "Passport",
@@ -3811,7 +3837,11 @@
   "Hủy: theo NĐ 70/2025, hóa đơn đã gửi CQT thường phải thay thế / điều chỉnh thay vì hủy — hãng có thể từ chối lệnh hủy": "Cancel: under Decree 70/2025, an invoice already sent to the tax authority normally must be replaced / adjusted rather than cancelled — the provider may refuse a cancel request",
   "Hủy: «Hủy lịch» / «Hủy đặt» — đã thu cọc thì chọn «Hoàn cọc» hoặc «Mất cọc»": "Cancel: «Cancel booking» / «Cancel reservation» — if a deposit was collected, choose «Refund deposit» or «Forfeit deposit»",
   "IMEI máy mới": "New device IMEI",
+  "IP / mask / gateway không hợp lệ": "Invalid IP / mask / gateway",
   "IP máy có thể bị trùng": "Device IP may be duplicated",
+  "IP mới (tĩnh)": "New IP (static)",
+  "IP mới không hợp lệ.": "Invalid new IP.",
+  "IP tĩnh": "Static IP",
   "Import hỗn hợp (cột Loại hàng)": "Mixed import (Product type column)",
   "In / giao hàng": "Print / delivery",
   "In 2 liên": "Print 2 copies",
@@ -4416,6 +4446,7 @@
   "Không thấy màn hình thứ 2. Cắm thêm màn rồi bấm lại, hoặc copy link sang máy/TV khác.": "2nd screen not found. Plug in another display and tap again, or copy the link to another device / TV.",
   "Không thấy máy in cổng 9100.\nKiểm tra máy in cùng Wi‑Fi/LAN, bật RAW 9100, rồi quét lại.": "No port-9100 printer found.\nCheck the printer is on the same Wi‑Fi/LAN, turn on RAW 9100, then scan again.",
   "Không thấy máy in cổng 9100.\nKiểm tra máy in cùng Wi‑Fi/LAN, bật RAW 9100, rồi quét lại. Biết IP thì nhập thẳng vào ô IP LAN rồi In thử.": "No printer found on port 9100.\nCheck that the printer is on the same Wi‑Fi/LAN with RAW 9100 enabled, then scan again. If you know the IP, enter it in the LAN IP box and run a test print.",
+  "Không thấy máy in? Hướng dẫn đổi IP": "Can't find the printer? IP change guide",
   "Không thấy một thẻ báo cáo: thiếu quyền module PosReport… — tick trong Phân quyền / gói dịch vụ.": "A report card is missing: no PosReport… module permission — tick it in Permissions / service plan.",
   "Không thấy rác app.": "No app junk found.",
   "Không thể kéo về «Chờ xác nhận»": "Cannot move back to \"Awaiting confirmation\"",
@@ -4440,6 +4471,7 @@
   "Không tìm thấy khách": "Guest not found",
   "Không tìm thấy mã số thuế": "Tax code not found",
   "Không tìm thấy thiết lập": "Settings not found",
+  "Không tìm được IP trống — nhập tay một IP chưa dùng.": "No free IP found — enter an unused IP manually.",
   "Không tính": "Not counted",
   "Không tính PC": "Exclude allowances",
   "Không tính VAT": "No VAT",
@@ -4588,6 +4620,7 @@
   "Không đóng BHXH": "No social insurance",
   "Không đúng vị trí được phân công": "Not at the assigned location",
   "Không đăng ký được": "Cannot register",
+  "Không đặt IP tĩnh qua app được": "Can't set a static IP from the app",
   "Không đặt lại được mật khẩu.": "Cannot reset the password.",
   "Không đặt được mặc định": "Cannot set as default",
   "Không đến": "No-show",
@@ -4820,6 +4853,7 @@
   "Làm mới số vân tay": "Refresh fingerprint count",
   "Làm ngay": "Do now",
   "Làm ngày lễ cố định": "Work on fixed holidays",
+  "Làm nhiều ca trong ngày: xếp ca đầu, mở lại ô để thêm ca": "Multiple shifts a day: assign the first shift, then reopen the cell to add more",
   "Làm theo thứ tự — việc «Làm ngay» ảnh hưởng trực tiếp tới bán hàng.": "Work in order — \"Do now\" items directly affect selling.",
   "Làm theo từng bước · SBOX HRM - SBOX POS · Hỗ trợ cài đặt từ xa": "Follow step by step · SBOX HRM - SBOX POS · Remote setup support",
   "Làm thêm giờ": "Overtime",
@@ -4901,6 +4935,7 @@
   "Lưu & nối cân": "Save & connect scale",
   "Lưu & sao chép": "Save & copy",
   "Lưu 30 ngày": "Keep 30 days",
+  "Lưu IP tĩnh": "Save static IP",
   "Lưu PDF": "Save PDF",
   "Lưu Tingee": "Save Tingee",
   "Lưu Tingee platform": "Save Tingee platform",
@@ -4974,6 +5009,7 @@
   "Lương đóng bảo hiểm không được thấp hơn lương tối thiểu vùng": "Insured salary must not be lower than the regional minimum wage",
   "Lương — phần đã ứng trước": "Salary — portion already advanced",
   "Lương, thu chi, công nợ, hóa đơn": "Payroll, income & expense, debts, invoices",
+  "Lương, thưởng, phạt, ứng theo kỳ": "Salary, bonuses, penalties, advances by period",
   "Lương, thưởng, phụ cấp chịu thuế": "Taxable salary, bonuses, allowances",
   "Lương, thưởng, ứng": "Salary, bonus, advances",
   "Lượng nguyên liệu cho 1 món (vd 1 ly trà sữa = 30 g bột trà + 100 ml sữa). Bán món là kho tự trừ nguyên liệu.": "Ingredient amount per item (e.g. 1 milk tea = 30 g tea powder + 100 ml milk). Selling the item automatically deducts the ingredients from stock.",
@@ -5143,6 +5179,7 @@
   "Lợi nhuận ròng = LN gộp − hao hụt kho + phụ thu, phí giao hàng − cước hãng − khấu hao − chi phí + cọc khách bỏ + thu khác. ": "Net profit = gross profit − stock shrinkage + surcharges, delivery fees − carrier fees − depreciation − expenses + forfeited customer deposits + other income. ",
   "Lợi nhuận theo khách": "Profit by customer",
   "Lợi nhuận · Chi phí · Kết quả kinh doanh (P&L)": "Profit · Expenses · Business results (P&L)",
+  "MAC phải 6 byte": "MAC must be 6 bytes",
   "MISA (chưa hỗ trợ — hãy đổi)": "MISA (not supported — please change)",
   "MISA chưa hỗ trợ xuất. Chọn Viettel SInvoice hoặc Easy Invoice.": "MISA does not support export yet. Choose Viettel SInvoice or Easy Invoice.",
   "MST công ty": "Company tax code",
@@ -5282,6 +5319,7 @@
   "Máy in hóa đơn lỗi. Phiếu treo — không chuyển máy khác.": "Receipt printer error. Ticket on hold — not switched to another device.",
   "Máy in hóa đơn offline. Phiếu treo — không chuyển máy khác.": "Receipt printer offline. Ticket on hold — not switched to another device.",
   "Máy in hệ thống": "System printer",
+  "Máy in khác lớp mạng (cần đổi IP)": "Printer on a different subnet (IP change needed)",
   "Máy in kim (TM-U220…)": "Dot-matrix printer (TM-U220…)",
   "Máy in laser A4": "A4 laser printer",
   "Máy in lỗi": "Label printer (Bluetooth / LAN / USB)",
@@ -5296,6 +5334,9 @@
   "Máy in văn phòng · giấy decal A4 3×8": "Office printer · A4 sticker paper 3×8",
   "Máy in đang chia sẻ ({0})": "Shared printers ({0})",
   "Máy in đang in phiếu này": "The printer is printing this slip",
+  "Máy in đang để DHCP": "Printer is set to DHCP",
+  "Máy in đang để DHCP — router có thể đổi IP, app sẽ mất máy in.": "Printer is set to DHCP — the router may change its IP and the app will lose the printer.",
+  "Máy in đã dùng IP tĩnh": "Printer already uses a static IP",
   "Máy in đã gỡ": "Removed printer",
   "Máy in đã xóa": "Deleted printer",
   "Máy in đã đăng ký nhưng không Agent nào đang nhận. ": "The printer is registered but no Agent is receiving. ",
@@ -5459,6 +5500,7 @@
   "Mạng": "Network",
   "Mạng chậm hoặc lưu bị lỗi. Rời bàn bây giờ thì món vừa thêm sẽ mất.": "Network is slow or saving failed. Leaving the table now will lose the items just added.",
   "Mạng có đủ ổn định để order / in qua mạng": "Is the network stable enough for ordering / network printing",
+  "Mạng của máy này": "This device's network",
   "Mạng cửa hàng": "Store network",
   "Mạng hay rớt hoặc rất chậm — order qua mạng / in phiếu có thể treo. Nên bật «Bán offline» ": "The network drops often or is very slow — network ordering / slip printing may hang. Turn on «Offline selling» ",
   "Mạng không ổn định": "Unstable network",
@@ -5578,6 +5620,7 @@
   "Mặt hàng hết": "Out-of-stock items",
   "Mặt hàng nhập nhiều nhất": "Most purchased-in items",
   "Mặt hàng theo dõi tồn": "Stock-tracked items",
+  "Mẹo: nhiều máy in có nút reset mạng (giữ FEED ~10 giây khi đang bật) để về DHCP — router sẽ cấp IP đúng lớp.": "Tip: many printers have a network reset (hold FEED ~10 seconds while on) to return to DHCP — the router will assign an IP in the right subnet.",
   "Mệt / thiếu ngủ": "Tired / lack of sleep",
   "Mọi CN": "All branches",
   "Mọi báo cáo nhân sự nằm ở nhóm menu Báo cáo (sidebar web, hoặc tìm trên app). Chọn khoảng ngày → lọc phòng ban/NV → xem bảng → Xuất Excel nếu cần gửi kế toán.": "All HR reports are in the Reports menu group (web sidebar, or search in the app). Pick a date range → filter department / employee → view the table → Export Excel if you need to send it to accounting.",
@@ -5699,6 +5742,7 @@
   "Mở Cài đặt của máy → cấp quyền Micro cho ứng dụng.": "Open the device Settings → grant Microphone permission to the app.",
   "Mở Google Maps": "Open Google Maps",
   "Mở Hồ sơ nhân sự › nút ⋮ trên nhân viên › «Salary Settings» (Thiết lập lương); thẻ «Chưa thiết lập» lọc người chưa có lương": "Open HR records › the ⋮ button on an employee › «Salary Settings» (Salary settings); the «Not set up» card filters people without a salary",
+  "Mở Hồ sơ nhân sự › nút ⋮ trên nhân viên › «Thiết lập lương»; thẻ «Chưa thiết lập» lọc người chưa có lương": "Open HR profiles › ⋮ button on an employee › «Salary settings»; the «Not set up» tab filters employees without a salary",
   "Mở Máy in cloud → bật Agent và chip máy hóa đơn (Sunmi), không gán Hóa đơn cho máy bếp.": "Open Cloud printers → turn on the Agent and the receipt printer chip (Sunmi); do not assign Invoice to the kitchen device.",
   "Mở POS › Đặt lịch (màn «Đặt chỗ / lịch hẹn») → bấm «Thêm»; hoặc trên màn bán: Menu › «Đặt bàn» / «Đặt phòng» / «Đặt lịch» tùy ngành": "Open POS › Bookings (screen «Reservations / appointments») → tap «Add»; or on the sell screen: Menu › «Book table» / «Book room» / «Book appointment» depending on the industry",
   "Mở SDK chọn ngân hàng": "Open bank selection SDK",
@@ -5893,6 +5937,7 @@
   "Ngày công theo nhân viên": "Work days by employee",
   "Ngày công thực tế": "Actual work days",
   "Ngày công và chấm công": "Work days & attendance",
+  "Ngày công, giờ làm từng nhân viên": "Work days and hours per employee",
   "Ngày cột cao = bán nhiều (hoặc định lượng bất thường).": "A tall bar = heavy sales (or unusual recipe quantity).",
   "Ngày dùng": "Date used",
   "Ngày dự kiến nhận": "Expected receive date",
@@ -5983,6 +6028,7 @@
   "Người nhận được tính lại đúng giờ gửi. Có thể hủy trong «Đã gửi» trước giờ hẹn.": "Recipients are recalculated at send time. You can cancel from «Sent» before the scheduled time.",
   "Người nhận: ": "Recipient: ",
   "Người nộp": "Submitted by",
+  "Người nộp / nhận": "Payer / payee",
   "Người nộp / nhận tiền": "Payer / payee",
   "Người phụ thuộc của nhân viên": "Employee dependants",
   "Người phụ thuộc: Cài đặt → Thuế TNCN → mục «Người phụ thuộc của nhân viên»; tham gia BH bật trên Thiết lập lương từng NV": "Dependants: Settings → Personal income tax → “Employees' dependants” section; insurance participation is turned on in each employee's Salary setup",
@@ -6335,6 +6381,8 @@
   "Nếu chưa đếm, quay lại nhập SL.": "If you haven't counted yet, go back and enter the quantity.",
   "Nếu có nhiều điểm bán: Thiết lập SBOX › Cửa hàng › Chi nhánh (khi gói hỗ trợ)": "If you have several sales points: SBOX Setup › Store › Branches (when the plan supports it)",
   "Nếu gói có POS: sang tab POS — ngành hàng → hàng hóa → máy in → bán thử → xem Báo cáo POS": "If your plan includes POS: go to the POS tab — business type → goods → printer → trial sale → see POS Reports",
+  "Nếu router hay cấp IP này cho máy khác, chọn IP ngoài dải DHCP hoặc giữ IP theo MAC trên router.": "If the router often gives this IP to another device, pick an IP outside the DHCP range or reserve the IP by MAC on the router.",
+  "Nếu vẫn không được: in trang tự kiểm tra (giữ FEED khi bật nguồn) xem IP thực tế.": "If it still doesn't work: print a self-test page (hold FEED while powering on) to see the actual IP.",
   "Nếu điền, SPX phải gọi URL có ?hash= khớp chuỗi này": "If filled in, SPX must call a URL whose ?hash= matches this string",
   "Nếu đã đếm và thấy đúng bằng tồn hệ thống, chọn «Khớp tồn». ": "If you counted and it equals system stock, choose «Stock matches». ",
   "Nền nhạt + chữ đậm cùng tông, bo tròn": "Light background + bold text in the same tone, rounded corners",
@@ -6588,6 +6636,7 @@
   "Phạt thủ công đã duyệt": "Approved manual penalties",
   "Phạt tất cả ai đi trễ hôm nay theo nội quy": "Fine everyone who was late today per the rules",
   "Phạt tự động": "Automatic penalty",
+  "Phạt đi trễ / về sớm tự động, chờ duyệt, đã thu": "Automatic late / early-leave penalties, pending approval, collected",
   "Phạt đã duyệt": "Approved penalties",
   "Phải thu (gồm VAT, phí)": "Receivable (incl. VAT, fees)",
   "Phải thu (gồm VAT, phụ thu, phí giao)": "Receivable (incl. VAT, surcharges, delivery fees)",
@@ -6631,6 +6680,7 @@
   "Phụ thu, phí giao hàng và các tham số chung": "Surcharges, delivery fees and general parameters",
   "Phụ thu, phí giao hàng và dữ liệu mẫu": "Surcharges, delivery fees and sample data",
   "Phụ thu:": "Surcharge:",
+  "Phụ trội ca đêm": "Night shift premium",
   "Phục hồi chấn thương": "Injury rehabilitation",
   "Phục vụ": "Server",
   "Ping gửi": "Ping sent",
@@ -6672,6 +6722,7 @@
   "Quyết toán công tác đã duyệt": "Approved business trip settlements",
   "Quyền Admin luôn đủ mọi module": "Admin permission always includes every module",
   "Quyền lợi bị ảnh hưởng, cần xem xét và trả lời": "Your rights are affected; review and respond",
+  "Quyền vị trí đã bị chặn, mở Cài đặt của máy để cấp lại": "Location permission is blocked; open the device Settings to grant it again",
   "Quyền để «Giữ nguyên» sẽ không đổi.": "Permissions left as \"Keep as is\" will not change.",
   "Quyền: Xem / Tạo / Sửa / Duyệt theo từng module (Phân quyền). Thanh toán, đổi giá, chiết khấu, hủy cần quyền Duyệt": "Permissions: View / Create / Edit / Approve per module (Permissions). Payment, price change, discount and cancel need Approve",
   "Quyển số": "Book no.",
@@ -6774,6 +6825,7 @@
   "Reset thiết bị": "Reset device",
   "Reset thiết bị truy cập": "Reset access device",
   "Reset và đăng xuất": "Reset and log out",
+  "Rongta / Zywell / tương thích": "Rongta / Zywell / compatible",
   "Rút gọn": "Compact",
   "Rảnh tay (tự nghe sau khi đọc)": "Hands-free (listen again after reading)",
   "Rảnh tay: menu ⋮ › «Rảnh tay» — đọc xong tự nghe tiếp; nói «xác nhận», «bỏ», «hoàn tác», «xác nhận thẻ 2»; thẻ xóa / hủy phải nói «chắc chắn xác nhận»; nói «dừng» để tắt": "Hands-free: menu ⋮ › «Hands-free» — after reading it listens again; say «confirm», «discard», «undo», «confirm card 2»; delete / cancel cards need «yes, I'm sure, confirm»; say «stop» to turn it off",
@@ -6893,6 +6945,7 @@
   "Soạn tiếp": "Continue composing",
   "Soạn với trợ lý AI": "Compose with AI assistant",
   "Spam, quảng cáo": "Spam, advertising",
+  "Subnet mask không hợp lệ (vd. 255.255.255.0).": "Invalid subnet mask (e.g. 255.255.255.0).",
   "Sunmi T1 (ảnh welcome + bill)": "Sunmi T1 (welcome image + bill)",
   "SuperAdmin bán gói lượt": "SuperAdmin sells credit packs",
   "SuperAdmin vào Lượt CK Tingee → Tạo merchant + shop cho cửa hàng này.": "SuperAdmin: go to Tingee transfer turns → create the merchant + shop for this store.",
@@ -7017,6 +7070,7 @@
   "Số lần": "Times",
   "Số lần chấm": "Punch count",
   "Số lần ứng tối đa / kỳ": "Max advances per period",
+  "Số lần, số phút theo ca trong thiết lập lương": "Count and minutes by shift in salary settings",
   "Số máy chấm công tối đa": "Max attendance devices",
   "Số mình còn nợ NCC (đúng)": "Amount we still owe suppliers (accurate)",
   "Số món": "No. of dishes",
@@ -7795,6 +7849,7 @@
   "Tiền": "Money",
   "Tiền\nphép": "Leave\npay",
   "Tiền & ca": "Cash & shift",
+  "Tiền & công nợ": "Money & debts",
   "Tiền (đ)": "Amount (đ)",
   "Tiền 1 ngày = lương tháng ÷ số công (lương ngày/giờ/ca lấy đơn giá ngày)": "Pay for 1 day = monthly salary ÷ work days (daily/hourly/shift pay uses the daily rate)",
   "Tiền bán offline": "Offline sales amount",
@@ -7963,6 +8018,7 @@
   "Tròn 1.000đ": "Round to 1,000đ",
   "Tròn 100đ": "Round to 100đ",
   "Tròn 500đ": "Round to 500đ",
+  "Trùng IP gateway (router).": "Same IP as the gateway (router).",
   "Trùng giờ": "Time clash",
   "Trùng tên trong năm": "Duplicate name this year",
   "Trước + sau": "Before + after",
@@ -8230,6 +8286,7 @@
   "Tên, địa chỉ, logo, VAT, phụ thu, phí giao hàng": "Name, address, logo, VAT, surcharges, delivery fee",
   "Tìm NCC theo tên, mã, SĐT, MST…": "Search suppliers by name, code, phone, tax ID…",
   "Tìm PIN / tên...": "Search PIN / name...",
+  "Tìm Zywell / Xprinter / HPRT (cổng 9100) trên mạng nội bộ, ": "Finds Zywell / Xprinter / HPRT (port 9100) on the local network, ",
   "Tìm Zywell / Xprinter / HPRT (cổng 9100) trên mạng nội bộ.": "Find Zywell / Xprinter / HPRT (port 9100) on the local network.",
   "Tìm bài": "Search articles",
   "Tìm báo cáo (doanh thu, tồn kho, công nợ…)": "Search reports (revenue, stock, debts…)",
@@ -8355,6 +8412,7 @@
   "Tính sau khi trừ voucher": "Calculated after voucher deduction",
   "Tính theo": "Calculate by",
   "Tính theo ngày khách trả hàng (đơn gốc có thể bán ở kỳ khác). Bấm phiếu để mở hóa đơn gốc.": "Based on the date the customer returned goods (the original order may have been sold in another period). Tap a voucher to open the original invoice.",
+  "Tính theo phiếu nhập còn nợ. Đã có": "Based on unpaid purchase receipts. There are",
   "Tính theo số tháng làm việc: (phép năm ÷ 12) × số tháng, lẻ từ 0,5 làm tròn lên": "Based on months worked: (annual leave ÷ 12) × months, fractions of 0.5 or more rounded up",
   "Tính theo tiền đã trả trên từng hóa đơn hoàn thành trong kỳ.": "Based on the amount paid on each invoice completed in the period.",
   "Tính theo đêm: bật «Tính tiền phòng theo đêm», đặt Giờ nhận phòng / Giờ trả phòng và «Ân hạn (phút)» để trả trễ ít phút không tính thêm đêm. Tắt = tính theo khối 24 giờ kể từ lúc nhận": "Per-night billing: turn on \"Charge rooms per night\", set Check-in / Check-out times and \"Grace (minutes)\" so a few minutes late checkout doesn't add a night. Off = billed in 24-hour blocks from check-in",
@@ -8517,6 +8575,7 @@
   "Tải mẫu Excel": "Download Excel template",
   "Tải phiếu đăng ký (PDF / ảnh)": "Upload registration form (PDF / image)",
   "Tải phần mềm / APK lên server": "Upload software / APK to server",
+  "Tải thêm phiếu": "Load more vouchers",
   "Tải trạng thái": "Load status",
   "Tải từ máy": "Download from device",
   "Tải từ máy về SBOX": "Download from device to SBOX",
@@ -9155,6 +9214,7 @@
   "Xoá yêu cầu tư vấn của ": "Delete consultation request of ",
   "Xoá ảnh": "Delete photo",
   "Xoá ảnh?": "Delete photo?",
+  "Xprinter / tương thích": "Xprinter / compatible",
   "Xu hướng chấm công 30 ngày": "30-day attendance trend",
   "Xu hướng chấm công 7 ngày": "7-day attendance trend",
   "Xu hướng theo tháng": "Monthly trend",
@@ -9341,6 +9401,7 @@
   "bộ đèn bi-a SBOX": "SBOX billiard light set",
   "ca có lịch": "Scheduled shift",
   "ca mẫu": "sample shift",
+  "ca này": "this shift",
   "ca thiếu người": "understaffed shift",
   "ca thu ngân": "cashier shift",
   "ca đêm": "night shift",
@@ -9365,6 +9426,7 @@
   "chưa so được": "no comparison yet",
   "chưa thu": "not collected",
   "chưa trả": "not paid",
+  "chưa tải hết": "not all loaded",
   "chưa xếp ca": "no shift assigned",
   "chấm": "punch",
   "chấm công bù": "make-up punch",
@@ -9537,6 +9599,8 @@
   "kho hàng": "warehouse",
   "khoản mục": "category",
   "khung giờ đặc biệt": "special time slot",
+  "khuôn mặt|vị trí|GPS|sinh trắc": "face|location|GPS|biometric",
+  "khuôn mặt|vị trí|GPS|sinh trắc|Gemini|Trợ lý ảo": "face|location|GPS|biometric|Gemini|virtual assistant",
   "khuôn mặt|vị trí|GPS|sinh trắc|chấm công": "face|location|GPS|biometric|attendance",
   "khuôn mặt|vị trí|nhân sự": "face|location|HR",
   "khách chấp nhận (khóa sửa báo giá), sau đó lập hợp đồng.": "the customer accepts (quote locked for editing), then create the contract.",
@@ -9837,6 +9901,7 @@
   "trả NCC": "pay supplier",
   "trả hàng": "return",
   "trả hàng nhập": "purchase return",
+  "trả hàng, trả nợ chưa gắn phiếu": "in returns and debt payments not linked to a receipt",
   "trả khách": "return to customer",
   "trả nợ NCC": "pay supplier debt",
   "trả nợ ncc": "pay supplier debt",
@@ -9904,6 +9969,7 @@
   "vnđ": "vnđ",
   "voucher / điểm khi offline. Chủ quán xem «Bán offline & kiểm soát» (lịch sử cài app, số chưa về).": "vouchers / points when offline. The owner can view “Offline sales & control” (app install history, pending count).",
   "và làm ngay các việc bên dưới.": "and do the items below right away.",
+  "và máy in Xprinter / Rongta / Epson còn IP khác lớp mạng (dò broadcast).": "and Xprinter / Rongta / Epson printers whose IP is on a different subnet (broadcast discovery).",
   "và thay bằng kết quả đọc mới.": "and replaced with the new reading results.",
   "vân tay và khuôn mặt": "fingerprints and faces",
   "vận chuyển": "shipping",
@@ -10229,6 +10295,7 @@
   "Đánh số": "Numbering",
   "Đánh số báo giá & hợp đồng": "Quote & contract numbering",
   "Đây là DẤU HIỆU cần kiểm tra, không phải kết luận nhân viên gian lận — nhiều trường hợp có lý do chính đáng.": "This is a SIGN to check, not a conclusion that an employee is cheating — many cases have a legitimate reason.",
+  "Đây là IP của chính máy này.": "This is this device's own IP.",
   "Đây là file OTA đang dùng. Xóa sẽ làm mất link cập nhật.": "This is the OTA file currently in use. Deleting it will break the update link.",
   "Đây là máy bạn đang dùng. Sau khi gỡ, bạn sẽ phải đăng nhập lại và máy chiếm lại 1 chỗ nếu gói còn chỗ.": "This is the device you are using. After removing it you must log in again and the device takes a slot again if the plan has room.",
   "Đây là tài khoản của bạn — đổi mật khẩu trong Hồ sơ cá nhân.": "This is your account — change the password in your personal profile.",
@@ -10643,6 +10710,7 @@
   "Đã đăng ký đủ máy": "Device limit reached",
   "Đã đăng xuất mọi thiết bị": "Logged out of all devices",
   "Đã đầy": "Full",
+  "Đã đặt IP tĩnh": "Static IP set",
   "Đã đặt hạn xử lý": "Resolution deadline set",
   "Đã đối soát COD": "COD reconciled",
   "Đã đồng bộ HĐĐT": "E-invoices synced",
@@ -10677,6 +10745,7 @@
   "Đóng không xử lý": "Close without action",
   "Đóng lúc": "Closed at",
   "Đóng lượt": "End session",
+  "Đóng màn này rồi mở lại. Nếu vẫn lỗi, kiểm tra app khác có đang dùng camera không.": "Close this screen and reopen it. If the error persists, check whether another app is using the camera.",
   "Đóng màn này → Máy in nội bộ → Gán sản phẩm lại ": "Close this screen → Internal printer → Reassign products ",
   "Đóng phiếu": "Close voucher",
   "Đóng phiếu (không xử lý)": "Close ticket (no action)",
@@ -10707,6 +10776,7 @@
   "Đăng ký nghỉ ngày này": "Register day off for this day",
   "Đăng ký thiết bị chấm công": "Register attendance device",
   "Đăng ký thành công! Thiết bị đã được duyệt.": "Registered successfully! Device approved.",
+  "Đăng ký thêm ca / đổi ca": "Register an extra shift / change shift",
   "Đăng ký thêm máy khác": "Register another device",
   "Đăng ký trên điện thoại": "Register on phone",
   "Đăng ký từ xa: menu của nhân viên › «Quản lý vân tay» (chọn ngón → «Đăng ký», nhân viên đặt ngón lên máy 3 lần) hoặc «Quản lý khuôn mặt» (nhìn vào màn hình máy, cách 0,5–1 m); app chờ tối đa 2 phút": "Remote enrollment: employee menu › «Fingerprint management» (choose a finger → «Register», the employee places the finger on the device 3 times) or «Face management» (look at the device screen from 0.5–1 m); the app waits up to 2 minutes",
@@ -10825,6 +10895,7 @@
   "Đưa khối xuống": "Move block down",
   "Đưa lên": "Move up",
   "Đưa lên trên": "Bring to front",
+  "Đưa máy in về cùng lớp mạng": "Move the printer to the same subnet",
   "Đưa mã vào tâm khung — chạm màn hình để lấy nét. Ưu tiên đầu quét gắn sẵn trên máy nếu có.": "Center the code in the frame — tap the screen to focus. Use the device's built-in scanner if it has one.",
   "Đưa xuống": "Move down",
   "Đưa xuống dưới": "Send to back",
@@ -10863,6 +10934,9 @@
   "Đậm": "Bold",
   "ĐẶT": "BOOK",
   "Đặng Ngọc Hân": "Đặng Ngọc Hân",
+  "Đặt IP tĩnh": "Set static IP",
+  "Đặt IP tĩnh (chống nhảy IP)": "Set static IP (prevents IP changes)",
+  "Đặt IP tĩnh cho máy in": "Set a static IP for the printer",
   "Đặt bàn & cọc": "Table booking & deposit",
   "Đặt bàn F&B: chọn giờ, số khách, bàn — đổi trạng thái khi khách đến": "F&B table booking: choose time, party size, table — change status when the guest arrives",
   "Đặt bàn — không mở khách vãng lai": "Table booking — does not open a walk-in guest",
@@ -10903,6 +10977,7 @@
   "Đề nghị thanh toán": "Payment request",
   "Đề nghị thanh toán / tạm ứng theo hợp đồng.": "Payment / advance request under the contract.",
   "Đề xuất thay đổi, cải tiến": "Suggestions for change and improvement",
+  "Để DHCP": "Keep DHCP",
   "Để biết": "FYI",
   "Để trống 2 ô này nếu quán không tính giá riêng cho giờ đầu.": "Leave these 2 fields empty if the shop does not charge a separate price for the first hour.",
   "Để trống 2 ô này nếu quán không tính giá riêng cho giờ đầu. ": "Leave these 2 fields empty if the shop does not charge a separate price for the first hour. ",
@@ -11002,6 +11077,7 @@
   "Đổi / cài thêm": "Change / install more",
   "Đổi / thêm mẫu ngành": "Change / add industry template",
   "Đổi IP": "Change IP",
+  "Đổi IP máy in": "Change printer IP",
   "Đổi PT": "Change PT",
   "Đổi bảng giá": "Change price list",
   "Đổi bộ lọc hoặc tạo việc mới.": "Change the filter or create a new task.",
@@ -11263,6 +11339,7 @@
   "• Gán món chỉ hiện với máy báo bếp / báo kho / in tem.\n": "• Assigned items only show on kitchen-notice / stock-notice / label-printing printers.\n",
   "• Hoàn công nợ / điểm / voucher (nếu có)\n": "• Refund receivables / points / vouchers (if any)\n",
   "• Hoàn kho hàng đã bán\n": "• Restore stock of sold goods\n",
+  "• Hoặc EpsonNet Config (Epson) — vẫn thấy máy in theo MAC dù khác lớp mạng.": "• Or EpsonNet Config (Epson) — finds the printer by MAC even on a different subnet.",
   "• Hết hạn / hết buổi → KHÔNG mở, máy hiện «THE TAP HET HAN - MOI GAP LE TAN», quầy có âm báo.\n": "• Expired / no sessions left → does NOT open, the device shows “THE TAP HET HAN - MOI GAP LE TAN” and the counter beeps.\n",
   "• Hội viên còn hạn quét → máy chủ gửi lệnh mở cửa (chờ khoảng 2–6 giây).\n": "• A member with a valid pass scans → the server sends the open-door command (wait about 2–6 seconds).\n",
   "• Không chia sẻ thông tin cá nhân của người khác khi chưa được đồng ý.\n\n": "• Do not share other people's personal information without their consent.\n\n",
@@ -11277,6 +11354,7 @@
   "• Máy in hiện trong danh sách máy in của Windows thì bấm Thử lại.\n": "• If the printer shows in the Windows printer list, tap Retry.\n",
   "• Máy in mạng: chọn kết nối LAN và nhập IP máy in (nhanh, không cần driver).": "• Network printer: choose LAN connection and enter the printer IP (fast, no driver needed).",
   "• Máy in nhiệt: hóa đơn, báo bếp, báo kho… · Máy tem: tem mã vạch / tem bếp.\n": "• Thermal printer: invoices, kitchen notices, stock notices… · Label printer: barcode labels / kitchen labels.\n",
+  "• Máy tính Windows cùng mạng: mở SBOX Print Agent → «Khác lớp mạng…» → chọn máy Epson → «Đổi IP» (dùng ARP + ping, cần quyền quản trị).": "• Windows computer on the same network: open SBOX Print Agent → «Different subnet…» → choose the Epson printer → «Change IP» (uses ARP + ping, requires administrator rights).",
   "• Mã NV: nếu trống sẽ lấy SĐT hoặc CCCD làm mã\n": "• Employee code: if empty, the phone number or ID number is used as the code\n",
   "• Mạch ESP vẫn hoạt động bình thường (WiFi, IP máy giữ nguyên).\n": "• The ESP board keeps working normally (WiFi and device IP unchanged).\n",
   "• Mạng WiFi đang kết nối\n": "• The currently connected WiFi network\n",
@@ -12457,6 +12535,10 @@
    "You and {0} others"
   ],
   [
+   "Bạn đang có {0} ngày này",
+   "You already have {0} on this day"
+  ],
+  [
    "Bạn đang đăng ký qua mã đại lý: {0}",
    "You are registering via agent code: {0}"
   ],
@@ -12647,6 +12729,14 @@
   [
    "Bỏ {0} phiếu chưa in?",
    "Discard {0} unprinted tickets?"
+  ],
+  [
+   "Bỏ {0} {1}–{2}, xếp ca này thay",
+   "Remove {0} {1}–{2} and assign this shift instead"
+  ],
+  [
+   "Bỏ {0}, làm {1} thay (sau khi quản lý duyệt)",
+   "Drop {0} and work {1} instead (after manager approval)"
   ],
   [
    "Bỏ ảnh {0}",
@@ -13105,6 +13195,10 @@
    "{0} is not connected via Bluetooth"
   ],
   [
+   "Chưa kết nối được {0}:9100. Tắt rồi bật lại máy in, chờ ~10 giây, bấm «Thử kết nối lại». ",
+   "Could not connect to {0}:9100. Turn the printer off and on, wait ~10 seconds, then tap «Try reconnecting». "
+  ],
+  [
    "Chưa liên kết ({0})",
    "Not linked ({0})"
   ],
@@ -13119,6 +13213,10 @@
   [
    "Chưa lấy vân tay / khuôn mặt ({0})",
    "No fingerprint / face captured ({0})"
+  ],
+  [
+   "Chưa mở cổng 9100. {0}",
+   "Port 9100 is not open. {0}"
   ],
   [
    "Chưa thu {0} đ",
@@ -14765,6 +14863,10 @@
    "First hour: the first {0} minutes are charged at the full price above, then at the selling price. "
   ],
   [
+   "Giữ IP {0} và tắt DHCP để IP không nhảy (có thể sửa). ",
+   "Keep IP {0} and turn off DHCP so the IP doesn't change (editable). "
+  ],
+  [
    "Giữ nguyên... {0}%",
    "Keeping... {0}%"
   ],
@@ -14913,6 +15015,10 @@
    "Remove {0}?"
   ],
   [
+   "Gợi ý {0} (chưa thấy máy nào dùng). Có thể sửa.",
+   "Suggested {0} (no device seen using it). Editable."
+  ],
+  [
    "Gửi cho toàn bộ {0} nhân viên đang làm có tài khoản ",
    "Send to all {0} active employees who have an account "
   ],
@@ -14943,6 +15049,10 @@
   [
    "Gửi lệnh khởi động lại đến \"{0}\"?\n",
    "Send a restart command to \"{0}\"?\n"
+  ],
+  [
+   "Gửi lệnh thất bại: {0}",
+   "Failed to send command: {0}"
   ],
   [
    "Gửi nhắc nhở: {0}",
@@ -15235,6 +15345,10 @@
   [
    "Hôm nay ({0})",
    "Today ({0})"
+  ],
+  [
+   "Hôm nay làm {0} ca",
+   "Working {0} shifts today"
   ],
   [
    "Hôm nay {0}",
@@ -15549,8 +15663,20 @@
    "Cancelled: {0}"
   ],
   [
+   "IP {0} không cùng lớp mạng với máy này ({1}).",
+   "IP {0} is not in the same subnet as this device ({1})."
+  ],
+  [
+   "IP {0} là địa chỉ mạng / broadcast.",
+   "IP {0} is a network / broadcast address."
+  ],
+  [
    "IP {0} đang thấy trên: {1}. ",
    "IP {0} is seen on: {1}. "
+  ],
+  [
+   "IP {0} đã có thiết bị dùng — chọn IP khác.",
+   "IP {0} is already used by a device — choose another IP."
   ],
   [
    "Import Excel Lần {0}",
@@ -15707,6 +15833,10 @@
   [
    "Khuôn mặt đã xác thực, nhưng chưa đủ điều kiện khác: {0}",
    "Face verified, but other conditions are not met: {0}"
+  ],
+  [
+   "Khác lớp mạng với máy này — chưa in được. {0}",
+   "Different subnet from this device — cannot print yet. {0}"
   ],
   [
    "Khách chưa trả — ghi công nợ toàn bộ {0} đ",
@@ -16389,6 +16519,10 @@
    "Check label printer «{0}» (100×150 paper, connection)."
   ],
   [
+   "Kiểm tra {0} chưa có máy dùng…",
+   "Checking that {0} is not in use…"
+  ],
+  [
    "Kiểm đếm ({0})",
    "Counting ({0})"
   ],
@@ -16591,6 +16725,10 @@
   [
    "Làm lại {0} lần",
    "Redo {0} times"
+  ],
+  [
+   "Làm thêm {0}",
+   "Also work {0}"
   ],
   [
    "Làm từ {0}",
@@ -17175,6 +17313,14 @@
   [
    "Máy in {0} hết giấy",
    "Printer {0} is out of paper"
+  ],
+  [
+   "Máy in {0} không trả lời dò cấu hình (hãng chưa hỗ trợ: HPRT, Gprinter, Epson…).\n\n",
+   "Printer {0} did not respond to the configuration probe (unsupported brands: HPRT, Gprinter, Epson…).\n\n"
+  ],
+  [
+   "Máy in {0} đang ở {1} — khác lớp mạng nên chưa in được.",
+   "Printer {0} is at {1} — on a different subnet, so it cannot print yet."
   ],
   [
    "Máy in «{0}»",
@@ -17943,6 +18089,10 @@
   [
    "Nên làm: {0} — {1}",
    "Recommended: {0} — {1}"
+  ],
+  [
+   "Nên đặt IP tĩnh ngay (giữ IP {0}, tắt DHCP trên máy in).",
+   "Set a static IP now (keep IP {0}, turn off DHCP on the printer)."
   ],
   [
    "Năm trước: {0}",
@@ -19361,6 +19511,10 @@
    "Add {0}"
   ],
   [
+   "Thêm {0} (làm {1} ca)",
+   "Add {0} ({1} shifts)"
+  ],
+  [
    "Thêm {0} ngày lễ chuẩn",
    "Add {0} standard holidays"
   ],
@@ -19703,6 +19857,14 @@
   [
    "Trên máy ZKTeco: vào {0}, nhập Địa chỉ máy chủ: {1}, Port: {2}.",
    "On the ZKTeco device: go to {0}, enter Server address: {1}, Port: {2}."
+  ],
+  [
+   "Trùng giờ {0} — chỉ đổi ca được",
+   "Overlaps {0} — can only change shift"
+  ],
+  [
+   "Trùng giờ {0} — chỉ đổi được",
+   "Overlaps {0} — can only swap"
   ],
   [
    "Trước TT ({0})",
@@ -20949,6 +21111,10 @@
    "There are still {0} rows of the same kind on the server. Please try saving again."
   ],
   [
+   "Vẫn trùng giờ {0}",
+   "Still overlaps {0}"
+  ],
+  [
    "Vắng {0}",
    "Absent {0}"
   ],
@@ -21595,6 +21761,10 @@
   [
    "gói {0}",
    "{0} package"
+  ],
+  [
+   "gắn IP {0} cho máy in. Hoặc đặt IP tĩnh trong trang cấu hình máy in (http://{1}).",
+   "assign IP {0} to the printer. Or set a static IP on the printer's configuration page (http://{1})."
   ],
   [
    "gồm phí mở phòng {0}",
@@ -24033,6 +24203,10 @@
    "{0} · no Agent device is on"
   ],
   [
+   "{0} · chạm ngày xem ai trễ / vắng",
+   "{0} · tap a day to see who was late / absent"
+  ],
+  [
    "{0} · chậm khi đủ bán ≥ {1} ngày",
    "{0} · slow when sellable ≥ {1} days"
   ],
@@ -24309,6 +24483,10 @@
    "{0} · owes {1}"
   ],
   [
+   "{0} · Đã có trong lịch",
+   "{0} · Already scheduled"
+  ],
+  [
    "{0} · đang mất kết nối",
    "{0} · connection lost"
   ],
@@ -24397,6 +24575,10 @@
    "{0} in stock.\n"
   ],
   [
+   "{0} đang có {1}",
+   "{0} currently has {1}"
+  ],
+  [
    "{0} đang có {1}. Đặt ngày nghỉ sẽ bỏ các ca này.",
    "{0} has {1}. Setting a day off will remove these shifts."
   ],
@@ -24463,6 +24645,10 @@
   [
    "{0} đã nhận {1}",
    "{0} received {1}"
+  ],
+  [
+   "{0} đã tắt DHCP — IP sẽ không nhảy.",
+   "{0} has DHCP turned off — the IP will no longer change."
   ],
   [
    "{0} đã xem · {1} đã xác nhận · {2} người nhận",
@@ -24917,6 +25103,10 @@
    "{0}: +{1} days"
   ],
   [
+   "{0}: IP do router cấp nên có thể đổi khi router khởi động lại — app sẽ mất kết nối máy in.\n\n",
+   "{0}: the IP is assigned by the router, so it may change when the router restarts — the app will lose the printer connection.\n\n"
+  ],
+  [
    "{0}: bấm Báo bếp để báo phần bổ sung cho bếp",
    "{0}: tap Notify Kitchen to send the add-on to the kitchen"
   ],
@@ -25053,6 +25243,10 @@
    "{0}: {1}/{2} cups with toppings ({3})"
   ],
   [
+   "{0}: {1}:{2} — IP không còn nhảy",
+   "{0}: {1}:{2} — IP no longer changes"
+  ],
+  [
    "{0}: {1}đ",
    "{0}: {1}đ"
   ],
@@ -25083,6 +25277,10 @@
   [
    "{0}: đã mở bán lại",
    "{0}: back on sale"
+  ],
+  [
+   "{0}: đặt IP tĩnh bằng SBOX Print Agent trên máy tính Windows, hoặc giữ IP theo MAC trên router.",
+   "{0}: set a static IP with SBOX Print Agent on a Windows computer, or reserve the IP by MAC on the router."
   ],
   [
    "{0}:00 hôm sau",
@@ -25369,6 +25567,10 @@
    "Pending ({0})"
   ],
   [
+   "Đang chờ máy in lên IP {0} (tối đa 20 giây)…",
+   "Waiting for the printer to come up at IP {0} (up to 20 seconds)…"
+  ],
+  [
    "Đang chờ máy thu ngân… (mã {0}) — mở bán hàng và bấm truyền màn phụ",
    "Waiting for the cashier device… (code {0}) — open Sales and tap cast to second screen"
   ],
@@ -25389,12 +25591,20 @@
    "Using {0}/{1} {2} branches."
   ],
   [
+   "Đang gửi cấu hình tới máy in {0}…",
+   "Sending configuration to printer {0}…"
+  ],
+  [
    "Đang gửi nền cho {0} người — xem tiến độ ở «Đã gửi»",
    "Sending in the background to {0} people — see progress in «Sent»"
   ],
   [
    "Đang hiện 60/{0} — gõ tên để tìm",
    "Showing 60/{0} — type a name to search"
+  ],
+  [
+   "Đang hỏi cấu hình mạng máy in {0}…",
+   "Querying network configuration of printer {0}…"
   ],
   [
    "Đang in lại {0}/{1}…",
@@ -25499,6 +25709,10 @@
   [
    "Đang trả lời {0}",
    "Replying to {0}"
+  ],
+  [
+   "Đang tìm IP trống trong lớp {0}/{1}…",
+   "Looking for a free IP in subnet {0}/{1}…"
   ],
   [
    "Đang tính: {0}. Đổi gói sẽ hoàn 1 buổi cho gói cũ và trừ 1 buổi gói mới ",
@@ -26141,6 +26355,10 @@
    "Sent {0}:{1} · {2} recipients · {3}"
   ],
   [
+   "Đã gửi đăng ký đổi {0} → {1} — chờ quản lý duyệt",
+   "Request to change {0} → {1} sent — awaiting manager approval"
+  ],
+  [
    "Đã hoàn duyệt {0} đăng ký",
    "Revoked approval of {0} registrations"
   ],
@@ -26471,6 +26689,10 @@
   [
    "Đã thêm user PIN={0} vào \"{1}\"",
    "Added user PIN={0} to \"{1}\""
+  ],
+  [
+   "Đã thêm {0}",
+   "Added {0}"
   ],
   [
    "Đã thêm {0} lần chấm",
@@ -26903,6 +27125,10 @@
   [
    "Đã đổi quyền {0} thành {1}",
    "Changed role of {0} to {1}"
+  ],
+  [
+   "Đã đổi {0} → {1}",
+   "Changed {0} → {1}"
   ],
   [
    "Đã đủ {0} bản ghi (khớp máy {1})",
@@ -27373,12 +27599,20 @@
    "Swap with: {0}"
   ],
   [
+   "Đổi {0} sang {1}",
+   "Change {0} to {1}"
+  ],
+  [
    "Đổi {0} với đồng nghiệp",
    "Swap {0} with a colleague"
   ],
   [
    "Đổi {0} điểm",
    "Redeem {0} points"
+  ],
+  [
+   "Đổi {0} → {1}",
+   "Change {0} → {1}"
   ],
   [
    "Đổi điểm (có {0} · 1đ = {1} đ)",

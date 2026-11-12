@@ -53,6 +53,8 @@ public class AttendanceStatsDto
 public class EmployeeDashboardDto
 {
     public ShiftInfoDto? TodayShift { get; set; }
+    /// <summary>Mọi ca xếp cho hôm nay trên lịch (Ca làm việc), theo giờ vào — một người có thể làm nhiều ca.</summary>
+    public List<ShiftInfoDto> TodayShifts { get; set; } = new();
     public ShiftInfoDto? NextShift { get; set; }
     public AttendanceInfoDto? CurrentAttendance { get; set; }
     public AttendanceStatsDto AttendanceStats { get; set; } = new();

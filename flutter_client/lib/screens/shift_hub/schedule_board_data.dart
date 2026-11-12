@@ -69,13 +69,19 @@ class BoardData {
     return h == null || m == null ? null : h * 60 + m;
   }
 
-  /// Hai ca mẫu trùng giờ (ca qua đêm tính sang hôm sau).
-  bool overlaps(Map<String, dynamic> a, Map<String, dynamic> b) {
+  /// Hai ca mẫu trùng giờ (ca qua đêm tính sang hôm sau) — cùng quy tắc máy chủ (WorkScheduleDuplicateHelper).
+  bool overlaps(Map<String, dynamic> a, Map<String, dynamic> b) => shiftsOverlap(a, b);
+
+  /// Hai ca trùng giờ: ca qua đêm chồng cả ca sớm hôm sau; ca linh hoạt (giờ vào = giờ ra) không xét.
+  static bool shiftsOverlap(Map<String, dynamic> a, Map<String, dynamic> b) {
+    if (a['id'] != null && a['id'].toString() == b['id']?.toString()) return true;
     int? s1 = minutes(a['start']), e1 = minutes(a['end']), s2 = minutes(b['start']), e2 = minutes(b['end']);
     if (s1 == null || e1 == null || s2 == null || e2 == null) return false;
-    if (e1 <= s1) e1 += 1440;
-    if (e2 <= s2) e2 += 1440;
-    return s1 < e2 && s2 < e1;
+    if (s1 == e1 || s2 == e2) return false;
+    if (e1 < s1) e1 += 1440;
+    if (e2 < s2) e2 += 1440;
+    bool hit(int a1, int b1, int a2, int b2) => a1 < b2 && a2 < b1;
+    return hit(s1, e1, s2, e2) || hit(s1 + 1440, e1 + 1440, s2, e2) || hit(s1, e1, s2 + 1440, e2 + 1440);
   }
 
   /// Tên các ca đã xếp trong ô, theo thứ tự giờ.

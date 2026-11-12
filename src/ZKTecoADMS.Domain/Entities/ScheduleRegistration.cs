@@ -78,6 +78,12 @@ public class ScheduleRegistration : AuditableEntity<Guid>
     /// </summary>
     public bool AppliedCreatedNewSchedule { get; set; }
 
+    /// <summary>
+    /// Đăng ký «đổi sang ca khác»: ca đang xếp mà nhân viên muốn bỏ. Duyệt thì dòng lịch ca này đổi thành [ShiftId]
+    /// (không cộng thêm ca); hoàn duyệt / xóa phiếu thì trả lại ca này. Null = đăng ký thêm ca.
+    /// </summary>
+    public Guid? ReplaceShiftId { get; set; }
+
     // Navigation Properties
     public virtual Store Store { get; set; } = null!;
     public virtual Employee Employee { get; set; } = null!;

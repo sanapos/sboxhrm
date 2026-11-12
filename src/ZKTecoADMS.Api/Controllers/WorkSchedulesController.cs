@@ -168,7 +168,8 @@ public class WorkSchedulesController(IMediator mediator) : AuthenticatedControll
             request.Date,
             request.ShiftId,
             request.IsDayOff,
-            request.Note);
+            request.Note,
+            request.ReplaceShiftId);
         
         var result = await mediator.Send(command);
         return Ok(result);

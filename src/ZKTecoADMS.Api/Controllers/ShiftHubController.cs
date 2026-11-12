@@ -178,7 +178,7 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
         var regs = await db.ScheduleRegistrations.AsNoTracking()
             .Where(r => r.StoreId == storeId && r.Deleted == null && r.Status == ScheduleRegistrationStatus.Pending
                         && empIds.Contains(r.EmployeeUserId) && r.Date >= f && r.Date < toEx)
-            .Select(r => new { r.Id, r.EmployeeUserId, r.Date, r.ShiftId, r.IsDayOff, r.Note, r.CreatedAt })
+            .Select(r => new { r.Id, r.EmployeeUserId, r.Date, r.ShiftId, r.ReplaceShiftId, r.IsDayOff, r.Note, r.CreatedAt })
             .ToListAsync(ct);
         var leaves = await db.Leaves.AsNoTracking()
             .Where(l => l.StoreId == storeId && l.Deleted == null && userIds.Contains(l.EmployeeUserId)
@@ -241,7 +241,7 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
                     note = ws?.Note,
                     moreShifts,
                     items = dayRows.Select(r => new { scheduleId = r.Id, shiftId = r.ShiftId, isDayOff = r.IsDayOff }),
-                    registration = reg == null ? null : new { id = reg.Id, shiftId = reg.ShiftId, isDayOff = reg.IsDayOff, note = reg.Note },
+                    registration = reg == null ? null : new { id = reg.Id, shiftId = reg.ShiftId, replaceShiftId = reg.ReplaceShiftId, isDayOff = reg.IsDayOff, note = reg.Note },
                     leave = lv == null ? null : new { id = lv.Id, status = lv.Status.ToString(), type = lv.Type.ToString(), halfShift = lv.IsHalfShift },
                     swapPending = swap,
                 };
@@ -318,7 +318,7 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
         var regs = await db.ScheduleRegistrations.AsNoTracking()
             .Where(r => r.StoreId == storeId && r.Deleted == null && r.EmployeeUserId == empId && r.Date >= f && r.Date < toEx)
             .OrderByDescending(r => r.CreatedAt)
-            .Select(r => new { r.Id, r.Date, r.ShiftId, r.IsDayOff, r.Status, r.RejectionReason, r.Note })
+            .Select(r => new { r.Id, r.Date, r.ShiftId, r.ReplaceShiftId, r.IsDayOff, r.Status, r.RejectionReason, r.Note })
             .ToListAsync(ct);
         var leaves = await db.Leaves.AsNoTracking()
             .Where(l => l.StoreId == storeId && l.Deleted == null && l.EmployeeUserId == uid
@@ -395,7 +395,7 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
                 }),
                 registration = reg == null ? null : new
                 {
-                    id = reg.Id, shiftId = reg.ShiftId, isDayOff = reg.IsDayOff,
+                    id = reg.Id, shiftId = reg.ShiftId, replaceShiftId = reg.ReplaceShiftId, isDayOff = reg.IsDayOff,
                     status = reg.Status.ToString(), rejectionReason = reg.RejectionReason, note = reg.Note,
                 },
                 leaves = lv.Select(l => new

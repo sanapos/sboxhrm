@@ -212,6 +212,12 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
       );
     }
     final shift = _map('todayShift');
+    // Mọi ca xếp hôm nay (một người có thể làm nhiều ca) — máy chủ cũ không có thì dùng ca hôm nay.
+    final todayShifts = [
+      for (final x in (_data?['todayShifts'] as List?) ?? const [])
+        if (x is Map) Map<String, dynamic>.from(x),
+    ];
+    final shiftLines = todayShifts.isNotEmpty ? todayShifts : [if (shift != null) shift];
     final next = _map('nextShift');
     final att = _map('currentAttendance');
     final status = att?['status']?.toString() ?? 'not-started';
@@ -257,13 +263,19 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            shift == null
-                ? tr('Hôm nay không có ca')
-                : '${tr('Ca')} ${_hm(_time(shift['startTime']))} – ${_hm(_time(shift['endTime']))}'
-                    '${(shift['description']?.toString() ?? '').isEmpty ? '' : ' · ${shift['description']}'}',
-            style: const TextStyle(fontSize: 14, color: SboxColors.textSecondary),
-          ),
+          if (shiftLines.isEmpty)
+            Text(tr('Hôm nay không có ca'), style: const TextStyle(fontSize: 14, color: SboxColors.textSecondary))
+          else ...[
+            if (shiftLines.length > 1)
+              Text(tr('Hôm nay làm ${shiftLines.length} ca'),
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: SboxColors.textSecondary)),
+            for (final x in shiftLines)
+              Text(
+                '${tr('Ca')} ${_hm(_time(x['startTime']))} – ${_hm(_time(x['endTime']))}'
+                '${(x['description']?.toString() ?? '').isEmpty ? '' : ' · ${x['description']}'}',
+                style: const TextStyle(fontSize: 14, color: SboxColors.textSecondary),
+              ),
+          ],
           const SizedBox(height: 14),
           Row(
             children: [

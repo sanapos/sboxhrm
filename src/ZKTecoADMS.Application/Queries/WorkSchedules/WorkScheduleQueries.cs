@@ -186,7 +186,8 @@ public record GetMyScheduleRegistrationsQuery(
 
 public class GetMyScheduleRegistrationsHandler(
     IRepository<ScheduleRegistration> registrationRepository,
-    IRepository<Employee> employeeRepository
+    IRepository<Employee> employeeRepository,
+    IRepository<ShiftTemplate> shiftTemplateRepository
 ) : IQueryHandler<GetMyScheduleRegistrationsQuery, AppResponse<PagedResult<ScheduleRegistrationDto>>>
 {
     public async Task<AppResponse<PagedResult<ScheduleRegistrationDto>>> Handle(GetMyScheduleRegistrationsQuery request, CancellationToken cancellationToken)
@@ -223,8 +224,10 @@ public class GetMyScheduleRegistrationsHandler(
                 take: request.PageSize,
                 cancellationToken: cancellationToken);
 
+            var dtos = items.Adapt<List<ScheduleRegistrationDto>>();
+            await ReplaceShiftNames.FillAsync(dtos, shiftTemplateRepository, cancellationToken);
             var result = new PagedResult<ScheduleRegistrationDto>(
-                items.Adapt<List<ScheduleRegistrationDto>>(),
+                dtos,
                 totalCount,
                 request.Page,
                 request.PageSize);
@@ -251,7 +254,8 @@ public record GetScheduleRegistrationsQuery(
 
 public class GetScheduleRegistrationsHandler(
     IRepository<ScheduleRegistration> registrationRepository,
-    IRepository<Employee> employeeRepository
+    IRepository<Employee> employeeRepository,
+    IRepository<ShiftTemplate> shiftTemplateRepository
 ) : IQueryHandler<GetScheduleRegistrationsQuery, AppResponse<PagedResult<ScheduleRegistrationDto>>>
 {
     public async Task<AppResponse<PagedResult<ScheduleRegistrationDto>>> Handle(GetScheduleRegistrationsQuery request, CancellationToken cancellationToken)
@@ -305,8 +309,10 @@ public class GetScheduleRegistrationsHandler(
                 take: request.PageSize,
                 cancellationToken: cancellationToken);
 
+            var dtos = items.Adapt<List<ScheduleRegistrationDto>>();
+            await ReplaceShiftNames.FillAsync(dtos, shiftTemplateRepository, cancellationToken);
             var result = new PagedResult<ScheduleRegistrationDto>(
-                items.Adapt<List<ScheduleRegistrationDto>>(),
+                dtos,
                 totalCount,
                 request.Page,
                 request.PageSize);
@@ -317,5 +323,21 @@ public class GetScheduleRegistrationsHandler(
         {
             return AppResponse<PagedResult<ScheduleRegistrationDto>>.Error(ex.Message);
         }
+    }
+}
+
+/// <summary>Phiếu đổi ca: điền tên ca bị thay để màn duyệt ghi «Đổi Ca Sáng → Ca Chiều».</summary>
+internal static class ReplaceShiftNames
+{
+    public static async Task FillAsync(
+        List<ScheduleRegistrationDto> dtos, IRepository<ShiftTemplate> shifts, CancellationToken ct)
+    {
+        var ids = dtos.Where(d => d.ReplaceShiftId.HasValue).Select(d => d.ReplaceShiftId!.Value).Distinct().ToList();
+        if (ids.Count == 0) return;
+        var names = (await shifts.GetAllAsync(t => ids.Contains(t.Id), cancellationToken: ct))
+            .ToDictionary(t => t.Id, t => t.Name);
+        foreach (var d in dtos)
+            if (d.ReplaceShiftId is Guid id && names.TryGetValue(id, out var n))
+                d.ReplaceShiftName = n;
     }
 }

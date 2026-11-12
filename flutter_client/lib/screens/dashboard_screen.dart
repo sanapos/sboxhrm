@@ -11540,8 +11540,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (todayShift != null) ...[
-            _shiftRow('Hôm nay', todayShift, SboxColors.success),
+          // Một người có thể làm nhiều ca / ngày: hiện đủ các ca xếp hôm nay (máy chủ cũ chỉ có todayShift).
+          if (_todayShiftList(todayShift).isNotEmpty) ...[
+            for (final (i, x) in _todayShiftList(todayShift).indexed) ...[
+              if (i > 0) const SizedBox(height: 8),
+              _shiftRow(i == 0 ? 'Hôm nay' : 'Ca ${i + 1}', x, SboxColors.success),
+            ],
           ] else
             _emptyRow('Không có ca hôm nay'),
           if (nextShift != null) ...[
@@ -11551,6 +11555,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
     );
+  }
+
+  List<Map<String, dynamic>> _todayShiftList(Map<String, dynamic>? todayShift) {
+    final list = [
+      for (final x in (_employeeDashboard['todayShifts'] as List?) ?? const [])
+        if (x is Map) Map<String, dynamic>.from(x),
+    ];
+    return list.isNotEmpty ? list : [if (todayShift != null) todayShift];
   }
 
   Widget _shiftRow(String label, Map<String, dynamic> shift, Color color) {

@@ -23,6 +23,8 @@
   " tại ": " にて ",
   " tỷ": " 十億",
   " và ": " と ",
+  " · DHCP — IP có thể nhảy": " · DHCP — IPが変わる可能性あり",
+  " · IP tĩnh": " · 固定IP",
   " · Ngoài công ty: bắt buộc chụp ảnh công trình": " · 社外: 現場写真の撮影が必須",
   " · Tại công ty: không cần ảnh công trình": " · 社内: 現場写真は不要",
   " · gồm dư 0": " · 余剰0を含む",
@@ -156,6 +158,8 @@
   "*** PHIẾU RA MÓN ***": "*** 提供伝票 ***",
   "**Báo lỗi & Góp ý** trong phần Cài đặt": "個人設定の **不具合報告・ご意見**",
   "**Báo lỗi & Góp ý** trong phần Thiết lập": "設定の **不具合報告・ご意見**",
+  "**Cài đặt → Xóa tài khoản**": "**個人設定 → アカウント削除**",
+  "**Thêm → Xóa tài khoản**": "**その他 → アカウント削除**",
   "+ Bán hàng tiền mặt": "+ 現金販売",
   "+ Gửi phản ánh": "+ フィードバックを送る",
   "+ Hồ sơ công tác": "+ 出張記録",
@@ -289,6 +293,7 @@
   "1. Upload file .mp4 (khuyến nghị 1280×720 H.264) lên Google Drive": "1. .mp4ファイル(推奨 1280×720 H.264)をGoogle Driveにアップロード",
   "1. Upload file .mp4 (khuyến nghị 1280×720 H.264) lên Google Drive\n": "1. .mp4ファイル(推奨 1280×720 H.264)をGoogle Driveにアップロードします\n",
   "1. Vào bot.zapps.me (Zalo Bot Platform), đăng nhập Zalo và tạo bot.\n": "1. bot.zapps.me (Zalo Bot Platform) にアクセスし、Zaloにログインしてボットを作成します。\n",
+  "1. Xem IP hiện tại: tắt máy in, giữ nút FEED rồi bật nguồn, nhả khi máy in trang tự kiểm tra (Self-test). Trang này ghi IP, mask, gateway, DHCP.": "1. 現在のIPを確認：プリンターの電源を切り、FEEDボタンを押したまま電源を入れ、セルフテスト（Self-test）ページが印刷されたら離します。このページにIP、マスク、ゲートウェイ、DHCPが記載されています。",
   "1. Điện thoại cùng WiFi với gateway (không dùng 4G).": "1. スマートフォンがゲートウェイと同じWiFiに接続されていること (4Gは不可)。",
   "1. Điện thoại cùng WiFi với gateway (không dùng 4G).\n": "1. スマートフォンをゲートウェイと同じWiFiに接続してください(4G不可)。\n",
   "1. Đăng ký ca làm việc": "1. シフトの登録",
@@ -315,6 +320,7 @@
   "13 nhóm tính năng HR toàn diện, thiết kế riêng cho doanh nghiệp Việt Nam": "ベトナム企業向けに設計された13のHR機能グループ",
   "14 báo cáo": "14種類のレポート",
   "14 báo cáo POS tách riêng — tick từng loại": "POSレポート14種を個別に提供 — 項目ごとにチェック",
+  "14 ngày": "14日間",
   "14 ngày gần nhất": "直近14日",
   "1440 = 1 ngày": "1440 = 1日",
   "15 giây": "15秒",
@@ -365,6 +371,7 @@
   "2. Đồng nghiệp vào tab「Cần phản hồi」để Đồng ý hoặc Từ chối": "2. 同僚は「要返信」タブで承諾または拒否します",
   "2. Đồng nghiệp vào tab「Cần phản hồi」để Đồng ý hoặc Từ chối.": "2. 同僚は「要返信」タブで承諾または拒否します。",
   "2. Đồng nghiệp vào tab「Cần phản hồi」để Đồng ý hoặc Từ chối.\n\n": "2. 同僚が「要返答」タブで承諾または拒否します。\n\n",
+  "2. Đổi IP bằng máy tính: đặt tạm IP tĩnh cho máy tính cùng lớp với máy in (vd. máy in 192.168.123.100 → máy tính 192.168.123.50, mask 255.255.255.0), nối chung switch/router.": "2. パソコンでIPを変更：パソコンにプリンターと同じサブネットの固定IPを一時的に設定し（例：プリンター 192.168.123.100 → パソコン 192.168.123.50、マスク 255.255.255.0）、同じスイッチ／ルーターに接続します。",
   "2.100.000 đ": "2.100.000 đ",
   "2.300.000 đ": "2.300.000 đ",
   "2.500.000 đ": "2.500.000 đ",
@@ -393,6 +400,7 @@
   "3. Copy link (dạng /file/d/…/view) → dán vào «Thêm link video»": "3. リンクをコピー (/file/d/…/view 形式) → «動画リンクを追加»に貼り付け",
   "3. Copy link (dạng /file/d/…/view) → dán vào «Thêm link video»\n": "3. リンク(/file/d/…/view形式)をコピー → 「動画リンクを追加」に貼り付け\n",
   "3. Lên đơn / check giá / tra hành trình từ màn thu ngân hoặc đơn online.\n": "3. レジ画面またはオンライン注文から、注文作成 / 料金確認 / 配送追跡を行います。\n",
+  "3. Mở trình duyệt vào http://<IP máy in> (trang cấu hình) hoặc công cụ của hãng (Xprinter «Printer Tool», Rongta «Ethernet Setting», HPRT «Printer Utility», Gprinter «Ethernet Tool»), đặt IP tĩnh cùng lớp Wi‑Fi cửa hàng (vd. 192.168.1.200), lưu, tắt/bật máy in.": "3. ブラウザで http://<プリンターのIP>（設定ページ）を開くか、メーカーのツール（Xprinter «Printer Tool»、Rongta «Ethernet Setting»、HPRT «Printer Utility»、Gprinter «Ethernet Tool»）で、店舗のWi‑Fiと同じサブネットの固定IP（例：192.168.1.200）を設定して保存し、プリンターの電源を入れ直します。",
   "3. Nhân viên vào Cài đặt › Liên kết Zalo, lấy mã 6 số và gửi mã cho bot.": "3. 従業員は 個人設定 › Zalo連携 で6桁のコードを取得し、ボットに送信します。",
   "3. Quay lại danh sách → Dò tìm lại (IP có thể đã đổi).": "3. リストに戻る → 再検索 (IPが変わった可能性があります)。",
   "3. Quay lại danh sách → Dò tìm lại (IP có thể đã đổi).\n": "3. 一覧に戻って再検索してください(IPが変わっている可能性があります)。\n",
@@ -426,6 +434,7 @@
   "4. Sao chép lịch tháng": "4. 月単位でスケジュールをコピー",
   "4. Thử mở http://sboxadms.local hoặc IP gateway trên trình duyệt cùng WiFi.": "4. 同じWiFiのブラウザで http://sboxadms.local またはゲートウェイのIPを開いてみてください。",
   "4. Thử mở http://sboxadms.local hoặc IP gateway trên trình duyệt cùng WiFi.\n": "4. 同じWiFiのブラウザでhttp://sboxadms.localまたはゲートウェイのIPを開いてみてください。\n",
+  "4. Trả máy tính về «Obtain an IP address automatically», rồi quét lại trong app.": "4. パソコンを «Obtain an IP address automatically» に戻し、アプリで再スキャンします。",
   "4. Vẫn lỗi: dùng nút \"Thêm theo IP\" để nhập IP gateway vào mạng.": "4. それでもエラーになる場合: 「IPで追加」ボタンでネットワーク上のゲートウェイIPを入力します。",
   "45 Lê Lợi, Q.1, TP. Hồ Chí Minh": "45 Lê Lợi, Q.1, TP. Hồ Chí Minh",
   "475A Điện Biên Phủ, Phường 25, Bình Thạnh, Thành phố Hồ Chí Minh": "475A Điện Biên Phủ, Phường 25, Bình Thạnh, Thành phố Hồ Chí Minh",
@@ -782,6 +791,7 @@
   "Bán gần nhất": "最近の販売",
   "Bán hàng": "販売",
   "Bán hàng & khuyến mãi": "販売・キャンペーン",
+  "Bán hàng & khách hàng": "販売・顧客",
   "Bán hàng + Nhân sự": "販売＋人事",
   "Bán hàng POS": "POS販売",
   "Bán hàng POS (Order / Thu ngân)": "POS販売 (注文 / レジ担当)",
@@ -1624,6 +1634,7 @@
   "Bấm để tìm và chọn...": "押して検索・選択...",
   "Bấm để xem bảng công của phiếu": "タップすると伝票の勤怠集計を表示します",
   "Bấm để xem chi tiết": "押して詳細を表示",
+  "Bấm để xem chứng từ còn nợ": "タップして未払いの伝票を表示",
   "Bấm để xem giỏ hàng": "押してカートを表示",
   "Bấm để xem lớn": "タップして拡大",
   "Bấm để xem tiền két, thực thu (Cuối ngày)": "タップしてレジ現金・実収入を表示（日次締め）",
@@ -1820,6 +1831,7 @@
   "Bỏ PT phụ trách": "担当トレーナーを解除",
   "Bỏ bản đã chốt, dựng lại theo mẫu và số liệu mới nhất.": "確定版を破棄し、最新の数値でテンプレートから作り直します。",
   "Bỏ bộ lọc": "フィルターを解除",
+  "Bỏ ca": "シフトを外す",
   "Bỏ chặn": "ブロック解除",
   "Bỏ chọn": "選択解除",
   "Bỏ chọn hết": "すべて選択解除",
@@ -2016,6 +2028,7 @@
   "Camera": "カメラ",
   "Camera chưa sẵn sàng": "カメラの準備ができていません",
   "Camera chưa sẵn sàng — nhấn Huỷ và thử lại": "カメラの準備ができていません — キャンセルを押して再試行してください",
+  "Camera chỉ dùng để quét mã. Cấp quyền trong Cài đặt của máy rồi mở lại màn này.": "カメラはコードの読み取りにのみ使用します。端末の設定で権限を許可してから、この画面を開き直してください。",
   "Camera không khả dụng": "カメラを利用できません",
   "Camera sẽ mở và chụp 5 ảnh khuôn mặt: thẳng, trái, phải, trên, dưới": "カメラが起動し、顔写真を5枚撮影します:正面、左、右、上、下",
   "Camera đang được sử dụng bởi ứng dụng khác.": "カメラは他のアプリで使用中です。",
@@ -2813,6 +2826,7 @@
   "Chưa có phòng ban nào": "部署がありません",
   "Chưa có phản ánh nào": "フィードバックがありません",
   "Chưa có phụ cấp": "手当なし",
+  "Chưa có quyền dùng camera": "カメラの使用権限がありません",
   "Chưa có quyền micro": "マイクの許可がありません",
   "Chưa có quản lý": "管理者がいません",
   "Chưa có quỹ phép năm (gắn hồ sơ lương trong Thiết lập lương).": "年次有給枠がありません（給与設定で給与プロファイルを紐付けてください）。",
@@ -3162,6 +3176,7 @@
   "Chưa đăng ký vân tay / khuôn mặt": "指紋 / 顔 未登録",
   "Chưa đăng ký được. Máy chủ phải có tên miền https công khai.": "登録できませんでした。サーバーには公開 https ドメインが必要です。",
   "Chưa đăng nhập": "未ログイン",
+  "Chưa được cấp quyền vị trí": "位置情報の権限が許可されていません",
   "Chưa đạt": "未達成",
   "Chưa đạt mục tiêu": "目標未達成",
   "Chưa đạt đủ điều kiện xác thực": "認証条件を満たしていません",
@@ -3187,6 +3202,7 @@
   "Chương trình đào tạo, khóa học nội bộ": "研修プログラム、社内講座",
   "Chương trình ưu đãi khi cửa hàng kích hoạt key theo gói": "店舗がパッケージのキーを有効化したときに適用される特典",
   "Chạm bàn → Sửa/Xóa · giữ nhóm → đổi tên · «Sắp nhóm» để kéo thứ tự.": "テーブルをタップ → 編集/削除 · グループ長押し → 名前変更 · «グループ並べ替え»で順序をドラッグ。",
+  "Chạm ca đã xếp (✓) để bỏ; chạm ca khác để thêm ca hoặc đổi ca": "割り当て済みのシフト（✓）をタップすると外れます。別のシフトをタップするとシフトを追加・変更します",
   "Chạm kéo bàn · kéo nền trống để xem thêm · thả ra dính ô": "テーブルをタッチしてドラッグ · 空の背景をドラッグしてさらに表示 · 離すとマスに吸着",
   "Chạm thẻ nhân viên để xem bảng chi tiết điểm danh theo ngày": "従業員カードをタップして日別の勤怠詳細表を表示",
   "Chạm thẻ để xem chi tiết: điểm danh, ca, đi trễ, về sớm theo ngày": "カードをタップして詳細を表示：日別の打刻、シフト、遅刻、早退",
@@ -4289,6 +4305,7 @@
   "Cách chiếu ảnh / video lúc chưa có đơn": "注文がないときの写真・動画の表示方法",
   "Cách chấm công": "打刻方法",
   "Cách chặn các kẽ hở — làm một lần, dùng lâu dài.": "抜け穴を防ぐ方法 — 一度設定すれば長く使えます。",
+  "Cách chống nhảy IP: vào trang quản trị router → DHCP → «Address Reservation» / «Giữ IP theo MAC», ": "IPの変動を防ぐには：ルーターの管理画面 → DHCP → «Address Reservation» / «MACでIPを予約» で、 ",
   "Cách chức": "解任",
   "Cách cũ: nối WiFi SoftAP (mất mạng tạm)": "従来の方法: WiFi SoftAPに接続(一時的にネット接続が切れます)",
   "Cách cấu hình (khuyên dùng)": "設定方法 (推奨)",
@@ -4543,6 +4560,7 @@
   "Công nợ khách": "顧客売掛金",
   "Công nợ khách hàng": "顧客の債権債務",
   "Công nợ nhà cung cấp": "仕入先買掛金",
+  "Công nợ tổng hợp": "債権債務集計",
   "Công nợ, lịch sử mua, điểm và thao tác (sửa, thu nợ…) hiện ở đây": "売掛残高、購入履歴、ポイントと操作（編集、売掛回収…）はここに表示されます",
   "Công nợ, lịch sử nhập / trả và thao tác (sửa, trả nợ, đối chiếu…) hiện ở đây": "買掛残高、仕入 / 返品履歴と操作（編集、支払い、照合…）はここに表示されます",
   "Công nợ: 0 đ": "債権債務：0 đ",
@@ -5442,6 +5460,7 @@
   "Dịch vụ tính giờ / block / ngày": "時間／ブロック／日単位課金のサービス",
   "Dịch vụ tính quá giờ": "超過時間課金のサービス",
   "Dịch vụ tính theo giờ/phút": "時間／分単位で課金されるサービス",
+  "Dịch vụ vị trí của máy đang tắt": "端末の位置情報サービスがオフになっています",
   "Dịch vụ đặt trước": "事前予約サービス",
   "Dịch vụ: mục «Tính giờ / gói buổi» — giá cố định, theo giờ / phút / block / ngày, gói nhiều buổi, gói giờ đếm ngược (xem tab Ngành hàng)": "サービス:「時間制 / 回数券」項目 — 固定価格、時間 / 分 / ブロック / 日単位、複数回パック、カウントダウン時間パック(業種タブ参照)",
   "Dịp": "シーン",
@@ -5534,6 +5553,8 @@
   "Email đăng nhập cổng đại lý": "代理店ポータルのログイン用メール",
   "Email đại lý": "代理店メール",
   "Engine Flutter thứ 2 + video/ảnh — máy mạnh / màn phụ chuẩn Android": "2つ目のFlutterエンジン＋動画／画像 — 高性能端末／Android標準のサブ画面",
+  "Epson: app chưa đổi IP được qua mạng. Cách nhanh nhất:": "Epson：アプリからはまだネットワーク経由でIPを変更できません。最も早い方法：",
+  "Epson: không có gói đổi IP đã xác minh": "Epson：検証済みのIP変更パケットがありません",
   "Excel: xuất/nhập tên, mã, nhóm, giá, thuế, ngành. Ảnh upload riêng.": "Excel:名称、コード、カテゴリ、価格、税、業種をエクスポート/インポート。画像は別途アップロードします。",
   "Eximbank - NH TMCP Xuất Nhập khẩu Việt Nam": "Eximbank - ベトナム輸出入商業株式銀行",
   "Export Excel không khả dụng (404)": "Excel出力は利用できません (404)",
@@ -5598,11 +5619,13 @@
   "Gateway chấm công WiFi": "WiFi勤怠ゲートウェイ",
   "Gateway không bắt được WiFi 2.4GHz nào. Đưa gần router hơn rồi quét lại.": "ゲートウェイが2.4GHzのWiFiを検出できません。ルーターに近づけて再スキャンしてください。",
   "Gateway không còn mật khẩu": "ゲートウェイにパスワードが設定されていません",
+  "Gateway không hợp lệ.": "ゲートウェイが無効です。",
   "Gateway không trả lời kịp.": "ゲートウェイが時間内に応答しませんでした。",
   "Gateway không trả lời kịp.\n\n": "ゲートウェイが時間内に応答しませんでした。\n\n",
   "Gateway là mạch WiFi nhỏ cắm nguồn trong cùng mạng với máy chấm": "ゲートウェイは、勤怠端末と同じネットワーク内で電源に接続する小型のWiFi基板です",
   "Gateway là mạch WiFi nhỏ cắm nguồn trong cùng mạng với máy chấm ": "ゲートウェイは、勤怠端末と同じネットワーク内で電源を接続して使う小型のWiFi基板です ",
   "Gateway làm được gì": "ゲートウェイでできること",
+  "Gateway phải cùng lớp mạng với IP mới.": "ゲートウェイは新しいIPと同じサブネットである必要があります。",
   "Gateway sẽ khởi động lại sau khi nạp xong. Giữ điện thoại cùng mạng WiFi.": "書き込み完了後、ゲートウェイが再起動します。スマートフォンを同じWiFiネットワークに接続したままにしてください。",
   "Gateway đang khóa": "ゲートウェイはロックされています",
   "Gateway đang khóa — cần mật khẩu quản trị": "ゲートウェイはロックされています — 管理者パスワードが必要です",
@@ -6108,6 +6131,7 @@
   "Giữ WiFi hiện tại, sang gán đèn": "現在のWiFiを維持して、ライトの割り当てへ進む",
   "Giữ app mở — nhận lệnh in cloud (LAN/BT/USB)": "アプリを開いたままにしてください — クラウド印刷コマンドを受信（LAN/BT/USB）",
   "Giữ bàn / phòng / ghế cho khách theo giờ, thu cọc, nhận khách khi đến; salon tự xếp thợ rảnh.": "時間ごとにテーブル/部屋/席を確保し、保証金を受け取り、来店時に受付。サロンは空いているスタッフを自動割り当て。",
+  "Giữ ca đang có, làm thêm ca này": "今のシフトはそのままで、このシフトも追加で勤務",
   "Giữ chỗ": "在庫引当",
   "Giữ chỗ tồn tự đối soát lại với các đơn đang mở mỗi đêm (3 giờ sáng)": "在庫引当は毎晩(午前3時)、開いている注文と自動で照合されます",
   "Giữ cố định bản in hiện tại rồi sửa từng chữ; số liệu không tự cập nhật nữa.": "現在の印刷内容を固定して文言を修正します。数値は自動更新されなくなります。",
@@ -6347,6 +6371,7 @@
   "Gợi ý 1 tiêu đề ngắn gọn (tối đa 100 ký tự) cho phản ánh này.": "この報告に対する短いタイトル（最大100文字）を提案してください。",
   "Gợi ý 1 tiêu đề ngắn gọn (tối đa 100 ký tự) cho phản ánh này. ": "この報告に対する短いタイトル（最大100文字）を提案してください。 ",
   "Gợi ý 1 tiêu đề ngắn gọn (tối đa 100 ký tự). Chỉ trả về tiêu đề.": "短いタイトルを1つ提案してください(最大100文字)。タイトルのみ返してください。",
+  "Gợi ý IP khác": "別のIPを提案",
   "Gợi ý SEO (lần lưu trước)": "SEOの提案（前回保存時）",
   "Gợi ý in tạm tính sau xác nhận": "確認後に仮計算書の印刷を提案",
   "Gợi ý nhập hàng": "仕入のおすすめ",
@@ -7089,6 +7114,7 @@
   "Hồ sơ đã đóng": "クローズ済みファイル",
   "Hồ sơ đã đủ": "書類が揃っています",
   "Hồ sơ, mật khẩu, giao diện, ngôn ngữ, phiên bản": "プロフィール、パスワード、テーマ、言語、バージョン",
+  "Hồ sơ, đổi mật khẩu, ngôn ngữ, thông báo": "プロフィール、パスワード変更、言語、通知",
   "HỖ TRỢ": "サポート",
   "Hỗ trợ": "サポート",
   "Hỗ trợ 2 định dạng file:": "2種類のファイル形式に対応：",
@@ -7217,13 +7243,17 @@
   "ID máy chấm công (PIN)": "勤怠端末ID（PIN）",
   "IMEI (tuỳ chọn)": "IMEI（任意）",
   "IMEI máy mới": "新端末のIMEI",
+  "IP / mask / gateway không hợp lệ": "IP / マスク / ゲートウェイが無効です",
   "IP máy": "端末IP",
   "IP máy chấm công trong LAN": "LAN内の勤怠端末IP",
   "IP máy có thể bị trùng": "端末のIPが重複している可能性があります",
   "IP máy in": "プリンターIP",
   "IP máy in (LAN/WiFi)": "プリンターIP（LAN/WiFi）",
   "IP máy in tem": "ラベルプリンターIP",
+  "IP mới (tĩnh)": "新しいIP（固定）",
+  "IP mới không hợp lệ.": "新しいIPが無効です。",
   "IP thiết bị": "デバイスIP",
+  "IP tĩnh": "固定IP",
   "Import Excel giúp thêm hàng loạt nhân viên nhanh hơn nhập tay.": "Excelインポートを使うと、手入力より素早く複数の従業員を追加できます。",
   "Import Excel không khả dụng (404)": "Excelインポートは利用できません（404）",
   "Import chấm công": "勤怠インポート",
@@ -8387,6 +8417,7 @@
   "Không thấy máy in Bluetooth": "Bluetoothプリンターが見つかりません",
   "Không thấy máy in cổng 9100.\nKiểm tra máy in cùng Wi‑Fi/LAN, bật RAW 9100, rồi quét lại.": "ポート9100のプリンターが見つかりません。\nプリンターが同じWi‑Fi/LANにあるか確認し、RAW 9100をオンにして再スキャンしてください。",
   "Không thấy máy in cổng 9100.\nKiểm tra máy in cùng Wi‑Fi/LAN, bật RAW 9100, rồi quét lại. Biết IP thì nhập thẳng vào ô IP LAN rồi In thử.": "ポート9100のプリンターが見つかりません。\nプリンターが同じWi‑Fi/LANにあり、RAW 9100が有効か確認して再スキャンしてください。IPが分かる場合はLAN IP欄に直接入力してテスト印刷してください。",
+  "Không thấy máy in? Hướng dẫn đổi IP": "プリンターが見つかりませんか？IP変更ガイド",
   "Không thấy mạng": "ネットワークがありません",
   "Không thấy một thẻ báo cáo: thiếu quyền module PosReport… — tick trong Phân quyền / gói dịch vụ.": "レポートカードが1つ表示されない：PosReport… モジュール権限がありません — 権限 / サービスプランでチェックしてください。",
   "Không thấy rác app.": "アプリの不要ファイルは見つかりません。",
@@ -8789,6 +8820,7 @@
   "Không tìm thấy đại lý": "代理店が見つかりません",
   "Không tìm thấy đặt bàn": "予約が見つかりません",
   "Không tìm thấy đợt kiểm kê": "棚卸の回が見つかりません",
+  "Không tìm được IP trống — nhập tay một IP chưa dùng.": "空いているIPが見つかりません — 未使用のIPを手入力してください。",
   "Không tính": "計算しない",
   "Không tính PC": "手当を計算しない",
   "Không tính VAT": "VAT対象外",
@@ -9052,6 +9084,7 @@
   "Không đúng vị trí được phân công": "指定された場所ではありません",
   "Không đăng ký được": "登録できません",
   "Không được vượt số tiền yêu cầu": "申請金額を超えることはできません",
+  "Không đặt IP tĩnh qua app được": "アプリから固定IPを設定できません",
   "Không đặt hạn hiển thị banner": "バナーの表示期限を設定しない",
   "Không đặt lại được mật khẩu.": "パスワードを再設定できません。",
   "Không đặt được": "配置できません",
@@ -9581,6 +9614,7 @@
   "Làm mới số vân tay": "指紋数を更新",
   "Làm ngay": "今すぐ対応",
   "Làm ngày lễ cố định": "固定祝日の勤務",
+  "Làm nhiều ca trong ngày: xếp ca đầu, mở lại ô để thêm ca": "1日に複数シフト：最初のシフトを割り当て、セルを開き直してシフトを追加します",
   "Làm theo thứ tự dưới đây trong tuần đầu để cửa hàng chạy được chấm công và tính lương. Mỗi mục tương ứng một bước hướng dẫn chi tiết trong tab Triển khai.": "最初の週に下記の順で進めると、店舗で勤怠と給与計算が利用できます。各項目は導入タブの詳細ガイドの手順に対応しています。",
   "Làm theo thứ tự — việc «Làm ngay» ảnh hưởng trực tiếp tới bán hàng.": "順番に進めてください — 「今すぐ対応」の項目は販売に直接影響します。",
   "Làm theo từng bước · SBOX HRM - SBOX POS · Hỗ trợ cài đặt từ xa": "ステップごとに進めましょう · SBOX HRM - SBOX POS · リモート設定サポート",
@@ -9718,6 +9752,7 @@
   "Lưu 30 ngày": "30日間保存",
   "Lưu FAQ": "FAQを保存",
   "Lưu HTML thuần": "プレーンHTMLを保存",
+  "Lưu IP tĩnh": "固定IPを保存",
   "Lưu PDF": "PDFを保存",
   "Lưu Tingee": "Tingeeを保存",
   "Lưu Tingee platform": "Tingeeプラットフォームを保存",
@@ -9894,6 +9929,7 @@
   "Lương — phần đã ứng trước": "給与 — 前払い済みの部分",
   "Lương, thu chi, công nợ, hóa đơn": "給与、入出金、債権債務、伝票",
   "Lương, thưởng, phạt, tạm ứng": "給与、賞与、罰金、前払い",
+  "Lương, thưởng, phạt, ứng theo kỳ": "期間別の給与・賞与・罰金・前払い",
   "Lương, thưởng, phụ cấp chịu thuế": "課税対象の給与・賞与・手当",
   "Lương, thưởng, ứng": "給与、賞与、前払い",
   "Lương_KPI": "給与_KPI",
@@ -10318,6 +10354,7 @@
   "Lợi nhuận theo khách": "顧客別利益",
   "Lợi nhuận · Chi phí · Kết quả kinh doanh (P&L)": "利益・費用・経営成績（P&L）",
   "Lựa chọn khác": "その他の選択",
+  "MAC phải 6 byte": "MACは6バイトである必要があります",
   "MB Bank - NH TMCP Quân đội": "MB Bank - 軍隊商業株式銀行",
   "MISA (chưa hỗ trợ — hãy đổi)": "MISA(未対応 — 変更してください)",
   "MISA Invoice (sắp có)": "MISA Invoice (近日対応)",
@@ -10578,6 +10615,7 @@
   "Máy in hóa đơn lỗi. Phiếu treo — không chuyển máy khác.": "レシートプリンターのエラー。伝票は保留中 — 他の端末には切り替わりません。",
   "Máy in hóa đơn offline. Phiếu treo — không chuyển máy khác.": "レシートプリンターがオフライン。伝票は保留中 — 他の端末には切り替わりません。",
   "Máy in hệ thống": "システムプリンター",
+  "Máy in khác lớp mạng (cần đổi IP)": "プリンターが別のサブネットにあります（IP変更が必要）",
   "Máy in không còn trong cấu hình cửa hàng": "プリンターが店舗設定にありません",
   "Máy in không hợp lệ": "無効なプリンター",
   "Máy in không tồn tại": "プリンターが存在しません",
@@ -10612,6 +10650,9 @@
   "Máy in xuất kho": "出庫プリンター",
   "Máy in đang chia sẻ ({0})": "共有中のプリンター（{0}）",
   "Máy in đang in phiếu này": "プリンターがこの伝票を印刷中です",
+  "Máy in đang để DHCP": "プリンターはDHCP設定です",
+  "Máy in đang để DHCP — router có thể đổi IP, app sẽ mất máy in.": "プリンターはDHCP設定です — ルーターがIPを変更すると、アプリからプリンターが見えなくなります。",
+  "Máy in đã dùng IP tĩnh": "プリンターは固定IPを使用しています",
   "Máy in đã ghép": "ペアリング済みプリンター",
   "Máy in đã gỡ": "削除されたプリンター",
   "Máy in đã xóa": "削除済みプリンター",
@@ -10955,6 +10996,7 @@
   "Mạng": "ネットワーク",
   "Mạng chậm hoặc lưu bị lỗi. Rời bàn bây giờ thì món vừa thêm sẽ mất.": "ネットワークが遅いか保存に失敗しました。今テーブルを離れると、追加した品目は失われます。",
   "Mạng có đủ ổn định để order / in qua mạng": "注文／ネットワーク印刷ができるほどネットワークが安定しているか",
+  "Mạng của máy này": "この端末のネットワーク",
   "Mạng cửa hàng": "店舗ネットワーク",
   "Mạng hay rớt hoặc rất chậm — order qua mạng / in phiếu có thể treo. Nên bật «Bán offline» ": "ネットワークが頻繁に切れる、または非常に遅い — ネットワーク注文／伝票印刷が止まる可能性があります。「オフライン販売」をオンにしてください ",
   "Mạng không ổn định": "ネットワークが不安定",
@@ -11163,6 +11205,7 @@
   "Mặt hàng theo dõi tồn": "在庫管理対象の商品",
   "Mẹo": "ヒント",
   "Mẹo / lưu ý (tuỳ chọn)": "ヒント / 注意 (任意)",
+  "Mẹo: nhiều máy in có nút reset mạng (giữ FEED ~10 giây khi đang bật) để về DHCP — router sẽ cấp IP đúng lớp.": "ヒント：多くのプリンターにはネットワークリセット（電源オンの状態でFEEDを約10秒長押し）があり、DHCPに戻せます — ルーターが正しいサブネットのIPを割り当てます。",
   "Mệt / thiếu ngủ": "疲労／睡眠不足",
   "Mỉm cười": "笑顔",
   "Mọi CN": "全支店",
@@ -11322,6 +11365,7 @@
   "Mở Google Maps": "Google Mapsを開く",
   "Mở Google Sheet và chia sẻ (Share) với email đó với quyền Editor": "Google Sheetを開き、そのメールアドレスに編集者権限で共有(Share)してください",
   "Mở Hồ sơ nhân sự › nút ⋮ trên nhân viên › «Salary Settings» (Thiết lập lương); thẻ «Chưa thiết lập» lọc người chưa có lương": "人事記録 › 従業員の⋮ボタン › «Salary Settings»（給与設定）を開きます。«未設定»カードで給与未設定の人を絞り込めます",
+  "Mở Hồ sơ nhân sự › nút ⋮ trên nhân viên › «Thiết lập lương»; thẻ «Chưa thiết lập» lọc người chưa có lương": "人事記録 › 従業員の ⋮ ボタン › «給与設定» を開きます。«未設定» タブで給与未設定の人を絞り込めます",
   "Mở Máy in cloud → bật Agent và chip máy hóa đơn (Sunmi), không gán Hóa đơn cho máy bếp.": "クラウドプリンターを開き、Agentとレシートプリンターのチップ(Sunmi)をオンにしてください。キッチン端末には伝票を割り当てないでください。",
   "Mở POS › Đặt lịch (màn «Đặt chỗ / lịch hẹn») → bấm «Thêm»; hoặc trên màn bán: Menu › «Đặt bàn» / «Đặt phòng» / «Đặt lịch» tùy ngành": "POS › 予約を開く(「予約/アポイント」画面)→「追加」。または販売画面:メニュー › 業種に応じて「テーブル予約」/「部屋予約」/「予約」",
   "Mở SBOX HRM": "SBOX HRMを開く",
@@ -11731,6 +11775,7 @@
   "Ngày công theo nhân viên": "従業員別の出勤日数",
   "Ngày công thực tế": "実出勤日数",
   "Ngày công và chấm công": "出勤日数と打刻",
+  "Ngày công, giờ làm từng nhân viên": "従業員ごとの出勤日数・勤務時間",
   "Ngày cũ": "変更前の日付",
   "Ngày cần bổ sung": "追加が必要な日付",
   "Ngày cột cao = bán nhiều (hoặc định lượng bất thường).": "棒が高い日＝販売が多い日（または分量が異常）。",
@@ -11919,6 +11964,7 @@
   "Người nhận: ": "受信者： ",
   "Người nhập": "入力者",
   "Người nộp": "提出者",
+  "Người nộp / nhận": "入金者 / 受取人",
   "Người nộp / nhận tiền": "入金者 / 受取人",
   "Người phản hồi": "回答者",
   "Người phụ thuộc": "扶養家族",
@@ -12622,7 +12668,9 @@
   "Nếu lệch vị trí, chỉnh khe giấy (GAP).": "位置がずれる場合は、用紙の間隔（GAP）を調整してください。",
   "Nếu máy kia đã về sơ đồ bàn: bấm": "他の端末がテーブル配置図に戻っている場合：押してください",
   "Nếu máy kia đã về sơ đồ bàn: bấm «Lấy quyền» để mở sửa.": "他の端末がテーブル配置図に戻っている場合：「権限を取得」を押して編集を開いてください。",
+  "Nếu router hay cấp IP này cho máy khác, chọn IP ngoài dải DHCP hoặc giữ IP theo MAC trên router.": "ルーターがこのIPを他の機器によく割り当てる場合は、DHCP範囲外のIPを選ぶか、ルーターでMACによるIP予約を設定してください。",
   "Nếu tháng đích ít ngày hơn, các ngày thừa sẽ bị bỏ qua.": "対象月の日数が少ない場合、余った日は無視されます。",
+  "Nếu vẫn không được: in trang tự kiểm tra (giữ FEED khi bật nguồn) xem IP thực tế.": "それでも駄目な場合：セルフテストページを印刷して（電源投入時にFEEDを長押し）実際のIPを確認してください。",
   "Nếu vẫn lỗi ràng buộc, dùng Vô hiệu hóa để giải phóng slot gói.": "バインドエラーが続く場合は、「無効化」でパッケージのスロットを解放してください。",
   "Nếu điền, SPX phải gọi URL có ?hash= khớp chuỗi này": "入力した場合、SPXは ?hash= がこの文字列と一致するURLを呼び出す必要があります",
   "Nếu đây là lần cài đầu tiên, bấm \"Thêm gateway\" ở trên.": "初めての設置の場合は、上の「ゲートウェイを追加」を押してください。",
@@ -13150,6 +13198,7 @@
   "Phạt về sớm": "早退の罰金",
   "Phạt đi trễ": "遅刻の罰金",
   "Phạt đi trễ / vắng": "遅刻 / 欠勤の罰金",
+  "Phạt đi trễ / về sớm tự động, chờ duyệt, đã thu": "遅刻 / 早退の自動罰金、承認待ち、徴収済み",
   "Phạt đã duyệt": "承認済みの罰金",
   "Phải": "右",
   "Phải giữ ít nhất 1 hóa đơn": "伝票を最低1件は残す必要があります",
@@ -13228,6 +13277,7 @@
   "Phụ thu, phí giao hàng và dữ liệu mẫu": "追加料金、配送料とサンプルデータ",
   "Phụ thu:": "追加料金：",
   "Phụ thuộc đã tồn tại": "既に登録済みの扶養家族です",
+  "Phụ trội ca đêm": "深夜シフト手当",
   "Phục hồi chấn thương": "ケガのリハビリ",
   "Phục vụ": "ホール",
   "Ping gửi": "Ping送信",
@@ -13320,6 +13370,7 @@
   "Quyền hạn chung": "共通権限",
   "Quyền lợi bị ảnh hưởng, cần xem xét và trả lời": "権利に影響があるため、確認と返答が必要です",
   "Quyền tổng quan": "概要の権限",
+  "Quyền vị trí đã bị chặn, mở Cài đặt của máy để cấp lại": "位置情報の権限がブロックされています。端末の設定を開いて再度許可してください",
   "Quyền để «Giữ nguyên» sẽ không đổi.": "「変更なし」にした権限は変更されません。",
   "Quyền: Xem / Tạo / Sửa / Duyệt theo từng module (Phân quyền). Thanh toán, đổi giá, chiết khấu, hủy cần quyền Duyệt": "権限：モジュールごとに表示 / 作成 / 編集 / 承認（権限管理）。支払い、価格変更、割引、取消には承認権限が必要です",
   "Quyển số": "帳簿番号",
@@ -13606,6 +13657,7 @@
   "Reset và đăng xuất": "リセットしてログアウト",
   "Restore thành công!": "復元に成功しました！",
   "Restore thất bại:": "復元に失敗しました:",
+  "Rongta / Zywell / tương thích": "Rongta / Zywell / 互換機",
   "Rút gọn": "簡略表示",
   "Rảnh tay (tự nghe sau khi đọc)": "ハンズフリー(読み上げ後に自動で聞き取り)",
   "Rảnh tay: menu ⋮ › «Rảnh tay» — đọc xong tự nghe tiếp; nói «xác nhận», «bỏ», «hoàn tác», «xác nhận thẻ 2»; thẻ xóa / hủy phải nói «chắc chắn xác nhận»; nói «dừng» để tắt": "ハンズフリー:メニュー ⋮ ›「ハンズフリー」— 読み上げ後に再び聞き取り。「確認」「破棄」「元に戻す」「カード2を確認」と話す。削除/取消カードは「確かに確認」。「停止」でオフ",
@@ -13853,6 +13905,7 @@
   "Stamp/realtime (không QUERY từ máy)": "Stamp/リアルタイム（端末からのQUERYなし）",
   "Stamp/realtime (máy pull-deny)": "Stamp/リアルタイム（pull-deny端末）",
   "Store không tồn tại": "Storeが存在しません",
+  "Subnet mask không hợp lệ (vd. 255.255.255.0).": "サブネットマスクが無効です（例：255.255.255.0）。",
   "Sunmi (máy tích hợp)": "Sunmi（一体型端末）",
   "Sunmi T1 (ảnh welcome + bill)": "Sunmi T1（ウェルカム画像 + 伝票）",
   "Sunmi chưa đăng ký Agent lên server. Mở app Sunmi → Bật Agent + chọn chip": "SunmiがサーバーにAgentを登録していません。Sunmiアプリを開く → Agentをオン + チップを選択",
@@ -14130,6 +14183,7 @@
   "Số lần tái phạm": "再犯回数",
   "Số lần về sớm": "早退回数",
   "Số lần ứng tối đa / kỳ": "期間あたりの前払い上限回数",
+  "Số lần, số phút theo ca trong thiết lập lương": "給与設定のシフト別の回数・分数",
   "Số máy chấm công tối đa": "勤怠端末の最大数",
   "Số mình còn nợ NCC (đúng)": "仕入先への未払い残高（正確）",
   "Số món": "品数",
@@ -15878,6 +15932,7 @@
   "Tiền": "資金",
   "Tiền\nphép": "休暇\n手当",
   "Tiền & ca": "現金＆シフト",
+  "Tiền & công nợ": "資金・債権債務",
   "Tiền (đ)": "金額 (đ)",
   "Tiền 1 ngày = lương tháng ÷ số công (lương ngày/giờ/ca lấy đơn giá ngày)": "1日分の金額＝月給 ÷ 出勤日数（日給/時給/シフト給は日額単価を使用）",
   "Tiền NCC trả (F8)": "仕入先支払額 (F8)",
@@ -16153,6 +16208,7 @@
   "Tròn 100đ": "100đ に丸め",
   "Tròn 500đ": "500đ に丸め",
   "Trùng": "重複",
+  "Trùng IP gateway (router).": "ゲートウェイ（ルーター）のIPと重複しています。",
   "Trùng bản ghi phân quyền trong cơ sở dữ liệu. Vui lòng thử lại hoặc liên hệ quản trị.": "データベースで権限レコードが重複しています。もう一度お試しいただくか、管理者にお問い合わせください。",
   "Trùng giờ": "時間が重複",
   "Trùng lặp": "重複",
@@ -16696,6 +16752,7 @@
   "Tìm NCC theo tên, mã, SĐT, MST…": "名前・コード・電話番号・税番号で仕入先を検索…",
   "Tìm PIN / tên...": "PIN / 名前で検索...",
   "Tìm SP hoặc «Thêm nhiều SP» để gắn giá.": "商品を検索するか「複数商品を追加」で価格を設定してください。",
+  "Tìm Zywell / Xprinter / HPRT (cổng 9100) trên mạng nội bộ, ": "ローカルネットワーク上の Zywell / Xprinter / HPRT（ポート9100）と、 ",
   "Tìm Zywell / Xprinter / HPRT (cổng 9100) trên mạng nội bộ.": "社内ネットワークでZywell / Xprinter / HPRT(ポート9100)を検索します。",
   "Tìm bài": "記事を検索",
   "Tìm bàn": "テーブルを検索",
@@ -16957,6 +17014,7 @@
   "Tính sau khi trừ voucher": "バウチャー控除後に計算",
   "Tính theo": "計算基準",
   "Tính theo ngày khách trả hàng (đơn gốc có thể bán ở kỳ khác). Bấm phiếu để mở hóa đơn gốc.": "顧客の返品日基準（元の注文は別の期間に販売された可能性があります）。伝票をタップすると元の請求書を開きます。",
+  "Tính theo phiếu nhập còn nợ. Đã có": "未払いの仕入伝票に基づく計算です。すでに",
   "Tính theo số tháng làm việc: (phép năm ÷ 12) × số tháng, lẻ từ 0,5 làm tròn lên": "勤務月数で計算：(年次有給 ÷ 12) × 月数、0.5以上の端数は切り上げ",
   "Tính theo tiền đã trả trên từng hóa đơn hoàn thành trong kỳ.": "期間内に完了した請求書ごとの入金額に基づきます。",
   "Tính theo đêm: bật «Tính tiền phòng theo đêm», đặt Giờ nhận phòng / Giờ trả phòng và «Ân hạn (phút)» để trả trễ ít phút không tính thêm đêm. Tắt = tính theo khối 24 giờ kể từ lúc nhận": "宿泊日数計算: 「客室料金を宿泊日数で計算」をオンにし、チェックイン / チェックアウト時刻と「猶予(分)」を設定すると、数分の遅れなら1泊分が加算されません。オフの場合はチェックインから24時間単位で計算します",
@@ -17350,6 +17408,7 @@
   "Tải phiếu đăng ký (PDF / ảnh)": "申込書をアップロード（PDF / 画像）",
   "Tải phiếu đăng ký (PDF/ảnh)": "申請書をアップロード（PDF/画像）",
   "Tải phần mềm / APK lên server": "ソフトウェア / APKをサーバーにアップロード",
+  "Tải thêm phiếu": "伝票をさらに読み込む",
   "Tải trạng thái": "ステータスを読み込み",
   "Tải từ máy": "端末から取得",
   "Tải từ máy về SBOX": "端末からSBOXへ取り込む",
@@ -18767,6 +18826,7 @@
   "Xoá yêu cầu tư vấn của ": "次のお客様の相談依頼を削除： ",
   "Xoá ảnh": "写真を削除",
   "Xoá ảnh?": "写真を削除しますか？",
+  "Xprinter / tương thích": "Xprinter / 互換機",
   "Xu hướng chấm công 30 ngày": "30日間の勤怠推移",
   "Xu hướng chấm công 7 ngày": "7日間の勤怠推移",
   "Xu hướng theo tháng": "月別の推移",
@@ -19271,6 +19331,7 @@
   "ca lúc": "シフト時刻",
   "ca mẫu": "サンプルシフト",
   "ca mới": "新しいシフト",
+  "ca này": "このシフト",
   "ca thiếu người": "人員不足のシフト",
   "ca thu ngân": "レジ担当シフト",
   "ca đêm": "夜勤",
@@ -19320,6 +19381,7 @@
   "chưa thu": "未収",
   "chưa thấy bản ghi mới (tổng": "新しい記録はありません（合計",
   "chưa trả": "未払い",
+  "chưa tải hết": "一部のみ読み込み済み",
   "chưa xếp ca": "シフト未割り当て",
   "chưa được cấu hình (0đ). Vui lòng vào Thiết lập phạt để cài đặt": "未設定です（0đ）。罰金設定で設定してください",
   "chưa đọc được": "まだ読み取れません",
@@ -19636,6 +19698,8 @@
   "khu vực": "エリア",
   "khung giờ đặc biệt": "特別時間帯",
   "khuôn mặt": "顔",
+  "khuôn mặt|vị trí|GPS|sinh trắc": "顔|位置|GPS|生体",
+  "khuôn mặt|vị trí|GPS|sinh trắc|Gemini|Trợ lý ảo": "顔|位置|GPS|生体|Gemini|AIアシスタント",
   "khuôn mặt|vị trí|GPS|sinh trắc|chấm công": "顔|位置|GPS|生体|勤怠",
   "khuôn mặt|vị trí|nhân sự": "顔|位置|人事",
   "khác để thay đổi": "別のものを選んで変更",
@@ -20264,6 +20328,7 @@
   "trả NCC": "仕入先へ支払い",
   "trả hàng": "返品",
   "trả hàng nhập": "仕入返品",
+  "trả hàng, trả nợ chưa gắn phiếu": "分の返品・支払いが伝票に紐付いていません",
   "trả khách": "顧客へ返却",
   "trả nợ NCC": "仕入先債務の返済",
   "trả nợ ncc": "仕入先への支払い",
@@ -20379,6 +20444,7 @@
   "và hoàn hàng về kho": "および商品を倉庫へ戻す",
   "và hoàn tồn kho về trước khi cân bằng": "および在庫を調整前の状態に戻す",
   "và làm ngay các việc bên dưới.": "そして、下の項目をすぐに対応してください。",
+  "và máy in Xprinter / Rongta / Epson còn IP khác lớp mạng (dò broadcast).": "別のサブネットのIPを持つ Xprinter / Rongta / Epson プリンターを検索します（ブロードキャスト探索）。",
   "và mật khẩu mới": "と新しいパスワード",
   "và phần mềm kia có thể đang dùng kết nối LAN (TCP 4370) chứ không phải ADMS.": "また、他のソフトウェアはADMSではなくLAN接続(TCP 4370)を使用している可能性があります。",
   "và thay bằng kết quả đọc mới.": "新しい読み取り結果に置き換えられます。",
@@ -21016,6 +21082,7 @@
   "Đánh số": "番号を振る",
   "Đánh số báo giá & hợp đồng": "見積書・契約書の採番",
   "Đây là DẤU HIỆU cần kiểm tra, không phải kết luận nhân viên gian lận — nhiều trường hợp có lý do chính đáng.": "これは確認が必要な兆候であり、スタッフの不正と断定するものではありません — 正当な理由があるケースも多くあります。",
+  "Đây là IP của chính máy này.": "この端末自身のIPです。",
   "Đây là chỗ nhập ảnh chiếu trên màn phụ. Upload từ máy hoặc dán URL.": "サブ画面に表示する画像を入力する場所です。端末からアップロードするかURLを貼り付けてください。",
   "Đây là file OTA đang dùng. Xóa sẽ làm mất link cập nhật.": "現在使用中のOTAファイルです。削除すると更新リンクが失われます。",
   "Đây là hàng tùy chọn thêm": "追加オプションの商品です",
@@ -21999,6 +22066,7 @@
   "Đã đầy": "満員",
   "Đã đẩy lên máy chủ": "サーバーに送信しました",
   "Đã đặt": "予約済み",
+  "Đã đặt IP tĩnh": "固定IPを設定しました",
   "Đã đặt bàn": "テーブルを予約しました",
   "Đã đặt hạn xử lý": "対応期限を設定しました",
   "Đã đặt lại mật khẩu": "パスワードをリセットしました",
@@ -22068,6 +22136,7 @@
   "Đóng lúc": "クローズ日時",
   "Đóng lương cơ bản": "基本給の納付",
   "Đóng lượt": "利用終了",
+  "Đóng màn này rồi mở lại. Nếu vẫn lỗi, kiểm tra app khác có đang dùng camera không.": "この画面を閉じて開き直してください。それでもエラーが出る場合は、他のアプリがカメラを使用していないか確認してください。",
   "Đóng màn này → Máy in nội bộ → Gán sản phẩm lại": "この画面を閉じる → 内部プリンター → 商品を再割り当て",
   "Đóng màn này → Máy in nội bộ → Gán sản phẩm lại ": "この画面を閉じる → 社内プリンター → 商品を再割り当て ",
   "Đóng phiên": "セッション終了",
@@ -22140,6 +22209,7 @@
   "Đăng ký thành công!": "登録しました!",
   "Đăng ký thành công! Chờ quản lý duyệt.": "登録しました! 管理者の承認をお待ちください。",
   "Đăng ký thành công! Thiết bị đã được duyệt.": "登録が完了しました！端末が承認されました。",
+  "Đăng ký thêm ca / đổi ca": "シフト追加申請 / シフト変更",
   "Đăng ký thêm máy khác": "別の端末も登録",
   "Đăng ký thất bại": "登録に失敗しました",
   "Đăng ký trên điện thoại": "スマートフォンで登録",
@@ -22355,6 +22425,7 @@
   "Đưa khối xuống": "ブロックを下へ移動",
   "Đưa lên": "上へ",
   "Đưa lên trên": "前面へ移動",
+  "Đưa máy in về cùng lớp mạng": "プリンターを同じサブネットに戻す",
   "Đưa mã vào tâm khung · chạm màn hình để lấy nét nhanh hơn": "コードを枠の中央に合わせてください · 画面をタップするとピントが早く合います",
   "Đưa mã vào tâm khung — chạm màn hình để lấy nét. Ưu tiên quét cứng Sunmi nếu có.": "コードを枠の中央に合わせてください — 画面をタップするとピントが合います。Sunmiのハードウェアスキャナーがあれば優先して使います。",
   "Đưa mã vào tâm khung — chạm màn hình để lấy nét. Ưu tiên đầu quét gắn sẵn trên máy nếu có.": "コードを枠の中央に合わせてください — 画面をタップするとピントが合います。端末に内蔵スキャナーがあればそちらを優先してください。",
@@ -22425,6 +22496,9 @@
   "Đặng Ngọc Hân": "Đặng Ngọc Hân",
   "Đặt": "設定",
   "Đặt 06:00 → chấm công lúc 2h sáng tính cho ngày hôm trước (phù hợp ca đêm": "06:00に設定 → 午前2時の打刻は前日分として計算されます (夜勤シフト向け)",
+  "Đặt IP tĩnh": "固定IPを設定",
+  "Đặt IP tĩnh (chống nhảy IP)": "固定IPを設定（IPの変動を防止）",
+  "Đặt IP tĩnh cho máy in": "プリンターに固定IPを設定",
   "Đặt bàn": "テーブル予約",
   "Đặt bàn & cọc": "テーブル予約と保証金",
   "Đặt bàn / lịch hẹn": "テーブル予約 / 予約スケジュール",
@@ -22500,6 +22574,7 @@
   "Đề xuất bước trước": "前のステップの提案",
   "Đề xuất bước trước:": "前のステップの提案:",
   "Đề xuất thay đổi, cải tiến": "変更・改善の提案",
+  "Để DHCP": "DHCPのままにする",
   "Để biết": "参考",
   "Để sau": "後で",
   "Để trống 2 ô này nếu quán không tính giá riêng cho giờ đầu.": "最初の1時間に別料金を設定しない場合は、この2つの欄を空欄にしてください。",
@@ -22698,6 +22773,7 @@
   "Đổi / thêm mẫu ngành": "業種テンプレートの変更 / 追加",
   "Đổi HĐ": "伝票を変更",
   "Đổi IP": "IPを変更",
+  "Đổi IP máy in": "プリンターのIPを変更",
   "Đổi MK": "パスワード変更",
   "Đổi PT": "PT変更",
   "Đổi SL": "数量変更",
@@ -23249,6 +23325,7 @@
   "• Hoàn công nợ / điểm / voucher (nếu có)\n": "• 売掛・ポイント・バウチャーを戻す（ある場合）\n",
   "• Hoàn kho hàng đã bán": "• 販売済み商品の在庫を戻す",
   "• Hoàn kho hàng đã bán\n": "• 販売済み商品の在庫を戻す\n",
+  "• Hoặc EpsonNet Config (Epson) — vẫn thấy máy in theo MAC dù khác lớp mạng.": "• または EpsonNet Config（Epson）— 別のサブネットでもMACでプリンターを検出できます。",
   "• Hết hạn / hết buổi → KHÔNG mở, máy hiện «THE TAP HET HAN - MOI GAP LE TAN», quầy có âm báo.\n": "• 期限切れ・回数切れ → 開錠せず、端末に«THE TAP HET HAN - MOI GAP LE TAN»と表示され、カウンターで通知音が鳴ります。\n",
   "• Hội viên còn hạn quét → máy chủ gửi lệnh mở cửa (chờ khoảng 2–6 giây).\n": "• 有効な会員がスキャンすると、サーバーが開錠コマンドを送信します（約2〜6秒待機）。\n",
   "• Import đọc sheet «MauChamCong» / «ChamCong»": "• インポートは「MauChamCong」/「ChamCong」シートを読み込みます",
@@ -23272,6 +23349,7 @@
   "• Máy in nhiệt: hóa đơn, báo bếp, báo kho…": "• サーマルプリンター: 伝票、キッチン伝票、倉庫伝票など…",
   "• Máy in nhiệt: hóa đơn, báo bếp, báo kho… · Máy tem: tem mã vạch / tem bếp.\n": "• サーマルプリンター：伝票、厨房通知、在庫通知など · ラベルプリンター：バーコードラベル／厨房ラベル。\n",
   "• Máy in tem: tem mã vạch, tem bếp.": "• ラベルプリンター: バーコードラベル、キッチンラベル。",
+  "• Máy tính Windows cùng mạng: mở SBOX Print Agent → «Khác lớp mạng…» → chọn máy Epson → «Đổi IP» (dùng ARP + ping, cần quyền quản trị).": "• 同じネットワークのWindowsパソコン：SBOX Print Agent を開く → «別のサブネット…» → Epsonプリンターを選択 → «IP変更»（ARP + ping を使用、管理者権限が必要）。",
   "• Mã NV (bắt buộc)": "• 従業員コード (必須)",
   "• Mã NV — khớp đúng mã trên hệ thống": "• 従業員コード — システム上のコードと正確に一致させてください",
   "• Mã NV: nếu trống sẽ lấy SĐT hoặc CCCD làm mã": "• 従業員コード: 空欄の場合、電話番号または身分証番号をコードとして使用します",
@@ -24628,6 +24706,10 @@
    "あなた他{0}人"
   ],
   [
+   "Bạn đang có {0} ngày này",
+   "この日はすでに{0}があります"
+  ],
+  [
    "Bạn đang đăng ký qua mã đại lý: {0}",
    "代理店コードで登録中です: {0}"
   ],
@@ -24818,6 +24900,14 @@
   [
    "Bỏ {0} phiếu chưa in?",
    "未印刷の伝票{0}件を破棄しますか？"
+  ],
+  [
+   "Bỏ {0} {1}–{2}, xếp ca này thay",
+   "{0} {1}–{2} を外して、代わりにこのシフトを割り当て"
+  ],
+  [
+   "Bỏ {0}, làm {1} thay (sau khi quản lý duyệt)",
+   "{0}を外して代わりに{1}で勤務（管理者の承認後）"
   ],
   [
    "Bỏ ảnh {0}",
@@ -25276,6 +25366,10 @@
    "{0}がBluetoothで接続されていません"
   ],
   [
+   "Chưa kết nối được {0}:9100. Tắt rồi bật lại máy in, chờ ~10 giây, bấm «Thử kết nối lại». ",
+   "{0}:9100 に接続できません。プリンターの電源を入れ直し、約10秒待ってから «再接続を試す» をタップしてください。 "
+  ],
+  [
    "Chưa liên kết ({0})",
    "未連携 ({0})"
   ],
@@ -25290,6 +25384,10 @@
   [
    "Chưa lấy vân tay / khuôn mặt ({0})",
    "指紋 / 顔 未取得（{0}）"
+  ],
+  [
+   "Chưa mở cổng 9100. {0}",
+   "ポート9100が開いていません。{0}"
   ],
   [
    "Chưa thu {0} đ",
@@ -26936,6 +27034,10 @@
    "最初の時間：最初の{0}分は上記の価格全額で計算し、その後は販売価格で計算します。 "
   ],
   [
+   "Giữ IP {0} và tắt DHCP để IP không nhảy (có thể sửa). ",
+   "IP {0} を維持し、DHCPをオフにしてIPが変わらないようにします（変更可）。 "
+  ],
+  [
    "Giữ nguyên... {0}%",
    "維持中... {0}%"
   ],
@@ -27084,6 +27186,10 @@
    "{0}を外しますか？"
   ],
   [
+   "Gợi ý {0} (chưa thấy máy nào dùng). Có thể sửa.",
+   "{0} を提案（使用中の機器は見つかりません）。変更できます。"
+  ],
+  [
    "Gửi cho toàn bộ {0} nhân viên đang làm có tài khoản ",
    "アカウントを持つ在職中の従業員{0}名全員に送信 "
   ],
@@ -27114,6 +27220,10 @@
   [
    "Gửi lệnh khởi động lại đến \"{0}\"?\n",
    "\"{0}\"に再起動コマンドを送信しますか？\n"
+  ],
+  [
+   "Gửi lệnh thất bại: {0}",
+   "コマンド送信に失敗しました：{0}"
   ],
   [
    "Gửi nhắc nhở: {0}",
@@ -27406,6 +27516,10 @@
   [
    "Hôm nay ({0})",
    "今日（{0}）"
+  ],
+  [
+   "Hôm nay làm {0} ca",
+   "今日は{0}シフト勤務"
   ],
   [
    "Hôm nay {0}",
@@ -27720,8 +27834,20 @@
    "キャンセル：{0}"
   ],
   [
+   "IP {0} không cùng lớp mạng với máy này ({1}).",
+   "IP {0} はこの端末と同じサブネットではありません（{1}）。"
+  ],
+  [
+   "IP {0} là địa chỉ mạng / broadcast.",
+   "IP {0} はネットワーク / ブロードキャストアドレスです。"
+  ],
+  [
    "IP {0} đang thấy trên: {1}. ",
    "IP {0}は次で確認されています：{1}。 "
+  ],
+  [
+   "IP {0} đã có thiết bị dùng — chọn IP khác.",
+   "IP {0} はすでに他の機器が使用しています — 別のIPを選んでください。"
   ],
   [
    "Import Excel Lần {0}",
@@ -27878,6 +28004,10 @@
   [
    "Khuôn mặt đã xác thực, nhưng chưa đủ điều kiện khác: {0}",
    "顔は認証されましたが、他の条件を満たしていません：{0}"
+  ],
+  [
+   "Khác lớp mạng với máy này — chưa in được. {0}",
+   "この端末と別のサブネットです — まだ印刷できません。{0}"
   ],
   [
    "Khách chưa trả — ghi công nợ toàn bộ {0} đ",
@@ -28560,6 +28690,10 @@
    "ラベルプリンター「{0}」を確認 (100×150用紙、接続)。"
   ],
   [
+   "Kiểm tra {0} chưa có máy dùng…",
+   "{0} が未使用か確認中…"
+  ],
+  [
    "Kiểm đếm ({0})",
    "数量カウント（{0}）"
   ],
@@ -28762,6 +28896,10 @@
   [
    "Làm lại {0} lần",
    "{0}回やり直し"
+  ],
+  [
+   "Làm thêm {0}",
+   "{0}を追加で勤務"
   ],
   [
    "Làm từ {0}",
@@ -29346,6 +29484,14 @@
   [
    "Máy in {0} hết giấy",
    "プリンター {0} の用紙切れ"
+  ],
+  [
+   "Máy in {0} không trả lời dò cấu hình (hãng chưa hỗ trợ: HPRT, Gprinter, Epson…).\n\n",
+   "プリンター {0} が設定の問い合わせに応答しません（未対応メーカー：HPRT、Gprinter、Epson…）。\n\n"
+  ],
+  [
+   "Máy in {0} đang ở {1} — khác lớp mạng nên chưa in được.",
+   "プリンター {0} は {1} にあります — 別のサブネットのため、まだ印刷できません。"
   ],
   [
    "Máy in «{0}»",
@@ -30114,6 +30260,10 @@
   [
    "Nên làm: {0} — {1}",
    "おすすめ: {0} — {1}"
+  ],
+  [
+   "Nên đặt IP tĩnh ngay (giữ IP {0}, tắt DHCP trên máy in).",
+   "今すぐ固定IPを設定することをおすすめします（IP {0} を維持し、プリンターのDHCPをオフ）。"
   ],
   [
    "Năm trước: {0}",
@@ -31532,6 +31682,10 @@
    "{0} を追加"
   ],
   [
+   "Thêm {0} (làm {1} ca)",
+   "{0}を追加（{1}シフト勤務）"
+  ],
+  [
    "Thêm {0} ngày lễ chuẩn",
    "標準の祝日を{0}件追加"
   ],
@@ -31874,6 +32028,14 @@
   [
    "Trên máy ZKTeco: vào {0}, nhập Địa chỉ máy chủ: {1}, Port: {2}.",
    "ZKTeco端末で: {0}を開き、サーバーアドレス {1}、ポート {2} を入力してください。"
+  ],
+  [
+   "Trùng giờ {0} — chỉ đổi ca được",
+   "{0}と時間が重複 — シフト変更のみ可能"
+  ],
+  [
+   "Trùng giờ {0} — chỉ đổi được",
+   "{0}と時間が重複 — 変更のみ可能"
   ],
   [
    "Trước TT ({0})",
@@ -33120,6 +33282,10 @@
    "サーバーに同じ種類の行がまだ{0}件あります。もう一度保存してください。"
   ],
   [
+   "Vẫn trùng giờ {0}",
+   "まだ{0}と時間が重複しています"
+  ],
+  [
    "Vắng {0}",
    "欠勤 {0}"
   ],
@@ -33766,6 +33932,10 @@
   [
    "gói {0}",
    "{0} パッケージ"
+  ],
+  [
+   "gắn IP {0} cho máy in. Hoặc đặt IP tĩnh trong trang cấu hình máy in (http://{1}).",
+   "プリンターにIP {0} を割り当てます。またはプリンターの設定ページ（http://{1}）で固定IPを設定します。"
   ],
   [
    "gồm phí mở phòng {0}",
@@ -36204,6 +36374,10 @@
    "{0} · 有効な Agent 端末がありません"
   ],
   [
+   "{0} · chạm ngày xem ai trễ / vắng",
+   "{0} · 日付をタップして遅刻 / 欠勤者を表示"
+  ],
+  [
    "{0} · chậm khi đủ bán ≥ {1} ngày",
    "{0} · 販売可能日数が {1} 日以上で滞留"
   ],
@@ -36480,6 +36654,10 @@
    "{0} · 未収 {1}"
   ],
   [
+   "{0} · Đã có trong lịch",
+   "{0} · スケジュール登録済み"
+  ],
+  [
    "{0} · đang mất kết nối",
    "{0} · 接続が切断されています"
   ],
@@ -36568,6 +36746,10 @@
    "{0} 在庫あり。\n"
   ],
   [
+   "{0} đang có {1}",
+   "{0}には現在{1}があります"
+  ],
+  [
    "{0} đang có {1}. Đặt ngày nghỉ sẽ bỏ các ca này.",
    "{0} は {1} があります。休日にするとこれらのシフトは解除されます。"
   ],
@@ -36634,6 +36816,10 @@
   [
    "{0} đã nhận {1}",
    "{0} が {1} を受け取りました"
+  ],
+  [
+   "{0} đã tắt DHCP — IP sẽ không nhảy.",
+   "{0} のDHCPをオフにしました — IPは変わらなくなります。"
   ],
   [
    "{0} đã xem · {1} đã xác nhận · {2} người nhận",
@@ -37088,6 +37274,10 @@
    "{0}: +{1}日"
   ],
   [
+   "{0}: IP do router cấp nên có thể đổi khi router khởi động lại — app sẽ mất kết nối máy in.\n\n",
+   "{0}：IPはルーターが割り当てているため、ルーターの再起動時に変わることがあります — アプリがプリンターに接続できなくなります。\n\n"
+  ],
+  [
    "{0}: bấm Báo bếp để báo phần bổ sung cho bếp",
    "{0}: キッチン通知を押して追加分をキッチンに伝えてください"
   ],
@@ -37224,6 +37414,10 @@
    "{0}: トッピング付き {1}/{2} 杯 ({3})"
   ],
   [
+   "{0}: {1}:{2} — IP không còn nhảy",
+   "{0}: {1}:{2} — IPは固定されました"
+  ],
+  [
    "{0}: {1}đ",
    "{0}: {1}đ"
   ],
@@ -37254,6 +37448,10 @@
   [
    "{0}: đã mở bán lại",
    "{0}: 販売を再開しました"
+  ],
+  [
+   "{0}: đặt IP tĩnh bằng SBOX Print Agent trên máy tính Windows, hoặc giữ IP theo MAC trên router.",
+   "{0}：WindowsパソコンのSBOX Print Agentで固定IPを設定するか、ルーターでMACによるIP予約を設定してください。"
   ],
   [
    "{0}:00 hôm sau",
@@ -37540,6 +37738,10 @@
    "待機中 ({0})"
   ],
   [
+   "Đang chờ máy in lên IP {0} (tối đa 20 giây)…",
+   "プリンターがIP {0} で起動するのを待っています（最大20秒）…"
+  ],
+  [
    "Đang chờ máy thu ngân… (mã {0}) — mở bán hàng và bấm truyền màn phụ",
    "レジ端末を待っています… (コード {0}) — 販売画面を開いてサブ画面への送信をタップしてください"
   ],
@@ -37560,12 +37762,20 @@
    "{2} の支店を {0}/{1} 使用中。"
   ],
   [
+   "Đang gửi cấu hình tới máy in {0}…",
+   "プリンター {0} に設定を送信中…"
+  ],
+  [
    "Đang gửi nền cho {0} người — xem tiến độ ở «Đã gửi»",
    "{0} 名にバックグラウンドで送信中 — 「送信済み」で進捗を確認してください"
   ],
   [
    "Đang hiện 60/{0} — gõ tên để tìm",
    "{0} 件中 60 件を表示中 — 名前を入力して検索してください"
+  ],
+  [
+   "Đang hỏi cấu hình mạng máy in {0}…",
+   "プリンター {0} のネットワーク設定を問い合わせ中…"
   ],
   [
    "Đang in lại {0}/{1}…",
@@ -37670,6 +37880,10 @@
   [
    "Đang trả lời {0}",
    "{0} に返信中"
+  ],
+  [
+   "Đang tìm IP trống trong lớp {0}/{1}…",
+   "サブネット {0}/{1} で空きIPを検索中…"
   ],
   [
    "Đang tính: {0}. Đổi gói sẽ hoàn 1 buổi cho gói cũ và trừ 1 buổi gói mới ",
@@ -38312,6 +38526,10 @@
    "{0}:{1} 送信 · 受信者 {2}人 · {3}"
   ],
   [
+   "Đã gửi đăng ký đổi {0} → {1} — chờ quản lý duyệt",
+   "{0} → {1} の変更申請を送信しました — 管理者の承認待ち"
+  ],
+  [
    "Đã hoàn duyệt {0} đăng ký",
    "登録 {0}件の承認を取り消しました"
   ],
@@ -38642,6 +38860,10 @@
   [
    "Đã thêm user PIN={0} vào \"{1}\"",
    "「{1}」にユーザー PIN={0} を追加しました"
+  ],
+  [
+   "Đã thêm {0}",
+   "{0}を追加しました"
   ],
   [
    "Đã thêm {0} lần chấm",
@@ -39074,6 +39296,10 @@
   [
    "Đã đổi quyền {0} thành {1}",
    "{0} の権限を {1} に変更しました"
+  ],
+  [
+   "Đã đổi {0} → {1}",
+   "{0} → {1} に変更しました"
   ],
   [
    "Đã đủ {0} bản ghi (khớp máy {1})",
@@ -39544,12 +39770,20 @@
    "交代相手: {0}"
   ],
   [
+   "Đổi {0} sang {1}",
+   "{0}を{1}に変更"
+  ],
+  [
    "Đổi {0} với đồng nghiệp",
    "同僚と {0} を交換"
   ],
   [
    "Đổi {0} điểm",
    "{0} ポイントを使用"
+  ],
+  [
+   "Đổi {0} → {1}",
+   "{0} → {1} に変更"
   ],
   [
    "Đổi điểm (có {0} · 1đ = {1} đ)",

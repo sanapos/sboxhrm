@@ -27,5 +27,8 @@
   <ItemGroup>
     <ProjectReference Include="..\ZKTecoADMS.Domain\ZKTecoADMS.Domain.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="ZKTecoADMS.Tests" />
+  </ItemGroup>
 
 </Project>

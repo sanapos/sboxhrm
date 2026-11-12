@@ -72,6 +72,9 @@ public class ScheduleRegistrationDto
     public DateTime Date { get; set; }
     public Guid? ShiftId { get; set; }
     public string ShiftName { get; set; } = string.Empty;
+    /// <summary>Đăng ký đổi ca: ca bị thay (null = đăng ký thêm ca).</summary>
+    public Guid? ReplaceShiftId { get; set; }
+    public string? ReplaceShiftName { get; set; }
     public bool IsDayOff { get; set; }
     public string? Note { get; set; }
     public ScheduleRegistrationStatus Status { get; set; }
@@ -105,6 +108,8 @@ public class CreateScheduleRegistrationDto
     public Guid EmployeeUserId { get; set; }
     public DateTime Date { get; set; }
     public Guid? ShiftId { get; set; }
+    /// <summary>Đổi sang ca khác: ca đang xếp muốn bỏ. Bỏ trống = đăng ký thêm ca.</summary>
+    public Guid? ReplaceShiftId { get; set; }
     public bool IsDayOff { get; set; }
     public string? Note { get; set; }
 }

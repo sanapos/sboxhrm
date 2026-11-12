@@ -59,6 +59,20 @@ public class CreateWorkScheduleHandler(
             if (createError != null)
                 return AppResponse<WorkScheduleDto>.Error(createError);
 
+            // Thêm ca thứ hai trong ngày: không được chồng giờ ca đã xếp.
+            if (!request.IsDayOff && request.ShiftId.HasValue && existingSchedules.Any(e => !e.IsDayOff && e.ShiftId != null))
+            {
+                var templates = (await shiftRepository.GetAllAsync(t => t.StoreId == request.StoreId, cancellationToken: cancellationToken))
+                    .ToDictionary(t => t.Id);
+                if (templates.TryGetValue(request.ShiftId.Value, out var newShift))
+                {
+                    var overlap = WorkScheduleDuplicateHelper.OverlapError(
+                        existingSchedules.Where(e => !e.IsDayOff).Select(e => e.ShiftId), newShift, templates);
+                    if (overlap != null)
+                        return AppResponse<WorkScheduleDto>.Error(overlap);
+                }
+            }
+
             var workSchedule = new WorkSchedule
             {
                 StoreId = request.StoreId,
@@ -144,6 +158,11 @@ public class BulkCreateWorkSchedulesHandler(
             }
 
             var schedulesToCreate = new List<WorkSchedule>();
+            // Ca đã có trong ngày mà trùng giờ ca đang xếp → bỏ qua ngày đó (một người nhiều ca được, không chồng giờ).
+            var storeTemplates = shift == null
+                ? new Dictionary<Guid, ShiftTemplate>()
+                : (await shiftRepository.GetAllAsync(t => t.StoreId == request.StoreId, cancellationToken: cancellationToken))
+                    .ToDictionary(t => t.Id);
 
             foreach (var userId in request.EmployeeUserIds)
             {
@@ -173,6 +192,9 @@ public class BulkCreateWorkSchedulesHandler(
                     if (!request.WorkDays.Contains(date.DayOfWeek)) continue;
                     if (dayOffDates.Contains(date)) continue;
                     if (existingKeys.Contains((date, request.ShiftId))) continue;
+                    if (shift != null && WorkScheduleDuplicateHelper.OverlapError(
+                            existingSchedules.Where(ws => ws.Date.Date == date && !ws.IsDayOff).Select(ws => ws.ShiftId),
+                            shift, storeTemplates) != null) continue;
 
                     schedulesToCreate.Add(new WorkSchedule
                     {
@@ -294,6 +316,20 @@ public class UpdateWorkScheduleHandler(
             var updateError = WorkScheduleDuplicateHelper.Validate(sameDay, request.ShiftId, request.IsDayOff);
             if (updateError != null)
                 return AppResponse<WorkScheduleDto>.Error(updateError);
+
+            // Đổi ca khi ngày đó còn ca khác: ca mới không được chồng giờ các ca còn lại.
+            if (!request.IsDayOff && request.ShiftId.HasValue && sameDay.Any(w => !w.IsDayOff && w.ShiftId != null))
+            {
+                var templates = (await shiftRepository.GetAllAsync(t => t.StoreId == request.StoreId, cancellationToken: cancellationToken))
+                    .ToDictionary(t => t.Id);
+                if (templates.TryGetValue(request.ShiftId.Value, out var target))
+                {
+                    var overlap = WorkScheduleDuplicateHelper.OverlapError(
+                        sameDay.Where(w => !w.IsDayOff).Select(w => w.ShiftId), target, templates);
+                    if (overlap != null)
+                        return AppResponse<WorkScheduleDto>.Error(overlap);
+                }
+            }
 
             // Ca cũ (trước khi sửa) — để báo «Ca Sáng → Ca Chiều».
             var oldSlot = ScheduleNotifyText.Slot(
@@ -428,7 +464,8 @@ public record CreateScheduleRegistrationCommand(
     DateTime Date,
     Guid? ShiftId,
     bool IsDayOff,
-    string? Note) : ICommand<AppResponse<ScheduleRegistrationDto>>;
+    string? Note,
+    Guid? ReplaceShiftId = null) : ICommand<AppResponse<ScheduleRegistrationDto>>;
 
 public class CreateScheduleRegistrationHandler(
     IRepository<ScheduleRegistration> registrationRepository,
@@ -436,7 +473,9 @@ public class CreateScheduleRegistrationHandler(
     IRepository<AppSettings> appSettingsRepository,
     IRepository<Employee> employeeRepository,
     UserManager<ApplicationUser> userManager,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IRepository<WorkSchedule> workScheduleRepository,
+    IRepository<ShiftTemplate> shiftRepository
 ) : ICommandHandler<CreateScheduleRegistrationCommand, AppResponse<ScheduleRegistrationDto>>
 {
     public async Task<AppResponse<ScheduleRegistrationDto>> Handle(CreateScheduleRegistrationCommand request, CancellationToken cancellationToken)
@@ -471,6 +510,36 @@ public class CreateScheduleRegistrationHandler(
                         : "Đã có đăng ký ca này cho ngày");
             }
 
+            // Một người làm được nhiều ca / ngày: đăng ký thêm ca (ReplaceShiftId null) hoặc đổi một ca đang xếp
+            // sang ca khác (ReplaceShiftId = ca bỏ). Ca mới không được trùng / chồng giờ các ca còn giữ.
+            var replaceId = request.IsDayOff ? null : request.ReplaceShiftId;
+            ShiftTemplate? replaceShift = null;
+            if (replaceId.HasValue && (!request.ShiftId.HasValue || replaceId == request.ShiftId))
+                return AppResponse<ScheduleRegistrationDto>.Error("Đổi ca: hãy chọn một ca khác ca đang làm");
+            if (!request.IsDayOff && request.ShiftId.HasValue)
+            {
+                var dayStart = request.Date.Date;
+                var dayEnd = dayStart.AddDays(1);
+                var daySchedules = await workScheduleRepository.GetAllAsync(
+                    ws => ws.EmployeeUserId == employee.Id && ws.StoreId == request.StoreId
+                          && ws.Date >= dayStart && ws.Date < dayEnd && !ws.IsDayOff && ws.ShiftId != null,
+                    cancellationToken: cancellationToken);
+                if (daySchedules.Any(ws => ws.ShiftId == request.ShiftId))
+                    return AppResponse<ScheduleRegistrationDto>.Error("Bạn đã có ca này trong ngày");
+                if (replaceId.HasValue && !daySchedules.Any(ws => ws.ShiftId == replaceId))
+                    return AppResponse<ScheduleRegistrationDto>.Error("Ca muốn đổi không còn trên lịch ngày này — hãy tải lại lịch");
+                var templates = (await shiftRepository.GetAllAsync(t => t.StoreId == request.StoreId, cancellationToken: cancellationToken))
+                    .ToDictionary(t => t.Id);
+                if (replaceId.HasValue) templates.TryGetValue(replaceId.Value, out replaceShift);
+                if (templates.TryGetValue(request.ShiftId.Value, out var wanted))
+                {
+                    var overlap = WorkScheduleDuplicateHelper.OverlapError(
+                        daySchedules.Where(ws => ws.ShiftId != replaceId).Select(ws => ws.ShiftId), wanted, templates);
+                    if (overlap != null)
+                        return AppResponse<ScheduleRegistrationDto>.Error(overlap);
+                }
+            }
+
             var approvalLevels = await ScheduleApprovalChainHelper.GetApprovalLevelsAsync(
                 appSettingsRepository, request.StoreId, cancellationToken);
 
@@ -480,6 +549,7 @@ public class CreateScheduleRegistrationHandler(
                 EmployeeUserId = employee.Id,
                 Date = request.Date.Date,
                 ShiftId = request.ShiftId,
+                ReplaceShiftId = replaceId,
                 IsDayOff = request.IsDayOff,
                 Note = request.Note,
                 Status = ScheduleRegistrationStatus.Pending,
@@ -524,6 +594,7 @@ public class CreateScheduleRegistrationHandler(
                 {
                     // «Cần duyệt đăng ký lịch» / «Nguyễn Văn An · 12/11 · Ca Sáng 07:00–11:00 · Cấp 1/2»
                     var slot = request.IsDayOff ? "Xin nghỉ" : ScheduleNotifyText.Slot(result?.Shift);
+                    if (replaceShift != null) slot = $"Đổi {ScheduleNotifyText.ShiftName(replaceShift)} → {slot}";
                     await notificationService.CreateAndSendToUsersAsync(
                         firstApprover, NotificationType.ApprovalRequired,
                         "Cần duyệt đăng ký lịch",
@@ -654,9 +725,13 @@ public class ApproveScheduleRegistrationHandler(
     IRepository<ShiftStaffingQuota> staffingQuotaRepository,
     IRepository<Employee> employeeRepository,
     UserManager<ApplicationUser> userManager,
-    ISystemNotificationService notificationService
+    ISystemNotificationService notificationService,
+    IRepository<ShiftTemplate> shiftRepository
 ) : ICommandHandler<ApproveScheduleRegistrationCommand, AppResponse<ScheduleRegistrationDto>>
 {
+    /// <summary>Tên ca bị thay của phiếu đổi ca đang duyệt (để báo «Đổi Ca Sáng → Ca Chiều …»).</summary>
+    private string? _replaceName;
+
     public async Task<AppResponse<ScheduleRegistrationDto>> Handle(ApproveScheduleRegistrationCommand request, CancellationToken cancellationToken)
     {
         try
@@ -675,6 +750,10 @@ public class ApproveScheduleRegistrationHandler(
 
             if (registration.Status != ScheduleRegistrationStatus.Pending)
                 return AppResponse<ScheduleRegistrationDto>.Error("This registration has already been processed");
+
+            if (registration.ReplaceShiftId is Guid replacedId)
+                _replaceName = ScheduleNotifyText.ShiftName(await shiftRepository.GetSingleAsync(
+                    t => t.Id == replacedId, cancellationToken: cancellationToken));
 
             var allRecords = (await scheduleApprovalRecordRepository.GetAllAsync(
                 r => r.ScheduleRegistrationId == request.RequestId,
@@ -725,7 +804,7 @@ public class ApproveScheduleRegistrationHandler(
                 if (quotaErrorOrphan != null)
                     return AppResponse<ScheduleRegistrationDto>.Error(quotaErrorOrphan);
 
-                await ApplyApprovedScheduleAsync(registration, request.StoreId, workScheduleRepository, cancellationToken);
+                await ApplyApprovedScheduleAsync(registration, request.StoreId, workScheduleRepository, shiftRepository, cancellationToken);
                 registration.Status = ScheduleRegistrationStatus.Approved;
                 registration.ApprovedById = request.ApprovedById;
                 registration.ApprovedDate = DateTime.UtcNow;
@@ -796,7 +875,7 @@ public class ApproveScheduleRegistrationHandler(
                     return AppResponse<ScheduleRegistrationDto>.Error(quotaError);
 
                 // Ghi lịch trước khi đánh dấu bước duyệt — nếu Apply lỗi, phiếu vẫn Pending để duyệt lại.
-                await ApplyApprovedScheduleAsync(registration, request.StoreId, workScheduleRepository, cancellationToken);
+                await ApplyApprovedScheduleAsync(registration, request.StoreId, workScheduleRepository, shiftRepository, cancellationToken);
             }
 
             currentRecord.ActualUserId = request.ApprovedById;
@@ -881,8 +960,10 @@ public class ApproveScheduleRegistrationHandler(
     }
 
     /// <summary>«Ca Sáng 07:00–11:00» / «Ngày nghỉ» cho thông báo duyệt đăng ký lịch.</summary>
-    private static string RegistrationSlot(ScheduleRegistration registration) =>
-        registration.IsDayOff ? "Ngày nghỉ" : ScheduleNotifyText.Slot(registration.Shift);
+    private string RegistrationSlot(ScheduleRegistration registration) =>
+        registration.IsDayOff ? "Ngày nghỉ"
+        : _replaceName != null ? $"Đổi {_replaceName} → {ScheduleNotifyText.Slot(registration.Shift)}"
+        : ScheduleNotifyText.Slot(registration.Shift);
 
     /// <summary>Cùng tập vai trò policy AtLeastManager — màn Duyệt lịch là hàng đợi cửa hàng.</summary>
     private static bool IsStoreScheduleApproverRole(string? role)
@@ -915,10 +996,11 @@ public class ApproveScheduleRegistrationHandler(
         return AppResponse<ScheduleRegistrationDto>.Success(refreshed!.Adapt<ScheduleRegistrationDto>());
     }
 
-    private static async Task ApplyApprovedScheduleAsync(
+    internal static async Task ApplyApprovedScheduleAsync(
         ScheduleRegistration registration,
         Guid storeId,
         IRepository<WorkSchedule> workScheduleRepository,
+        IRepository<ShiftTemplate> shiftRepository,
         CancellationToken cancellationToken)
     {
         var dayStart = registration.Date.Date;
@@ -935,6 +1017,40 @@ public class ApproveScheduleRegistrationHandler(
         if (!registration.IsDayOff && daySchedules.Any(ws => ws.IsDayOff))
             throw new InvalidOperationException(
                 "Nhân viên đang được đánh dấu nghỉ trong ngày này — hãy gỡ ngày nghỉ trước khi duyệt đăng ký ca");
+
+        // Phiếu đổi ca: dòng lịch của ca bị thay (null nếu quản lý đã gỡ ca đó → duyệt như đăng ký thêm ca).
+        var replaced = registration.ReplaceShiftId is Guid rid && !registration.IsDayOff
+            ? daySchedules.FirstOrDefault(ws => !ws.IsDayOff && ws.ShiftId == rid)
+            : null;
+
+        // Ca mới không được chồng giờ các ca còn giữ trong ngày (trừ ca bị thay).
+        if (!registration.IsDayOff && registration.ShiftId is Guid newId
+            && daySchedules.Any(ws => !ws.IsDayOff && ws.ShiftId != null && ws != replaced && ws.ShiftId != newId))
+        {
+            var templates = (await shiftRepository.GetAllAsync(t => t.StoreId == storeId, cancellationToken: cancellationToken))
+                .ToDictionary(t => t.Id);
+            if (templates.TryGetValue(newId, out var newShift))
+            {
+                var overlap = WorkScheduleDuplicateHelper.OverlapError(
+                    daySchedules.Where(ws => !ws.IsDayOff && ws != replaced).Select(ws => ws.ShiftId), newShift, templates);
+                if (overlap != null)
+                    throw new InvalidOperationException(overlap);
+            }
+        }
+
+        // Đổi ca: dòng lịch ca cũ chuyển thành ca mới (không cộng thêm ca); hoàn duyệt / xóa phiếu trả lại ca cũ.
+        if (replaced != null)
+        {
+            if (daySchedules.Any(ws => !ws.IsDayOff && ws.ShiftId == registration.ShiftId))
+                throw new InvalidOperationException(
+                    "Nhân viên đã có ca mới trong ngày — chỉ cần gỡ ca cũ trên lịch, không cần duyệt đổi ca");
+            replaced.ShiftId = registration.ShiftId;
+            replaced.Note = registration.Note ?? replaced.Note;
+            await workScheduleRepository.UpdateAsync(replaced, cancellationToken);
+            registration.AppliedWorkScheduleId = replaced.Id;
+            registration.AppliedCreatedNewSchedule = false;
+            return;
+        }
 
         var existingSchedule = daySchedules.FirstOrDefault(ws =>
             WorkScheduleDuplicateHelper.ConflictsWith(

@@ -1042,7 +1042,9 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
     final reg = c?['registration'] as Map?;
     final leave = c?['leave'] as Map?;
     final scheduleId = c?['scheduleId']?.toString();
-    // Ô có nhiều ca: chạm một ca = thêm / bỏ ca đó (thay vì thay thế ca duy nhất).
+    // Một người làm được nhiều ca / ngày: chạm ca đã xếp = bỏ ca đó; chạm ca chưa có khi đã có ca = hỏi
+    // «Thêm ca» (làm thêm, không chồng giờ) hay «Đổi ca cũ → ca này». Trước đây ô 0–1 ca thì chọn ca khác
+    // luôn THAY ca duy nhất, không thêm được ca thứ hai.
     final items = _rows(c?['items']);
     final shiftItems = items.where((x) => x['isDayOff'] != true && x['shiftId'] != null).toList();
     final multi = shiftItems.length > 1;
@@ -1068,7 +1070,8 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(color: SboxColors.warning.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(tr('Nhân viên đăng ký: ${reg['isDayOff'] == true ? 'nghỉ ngày này' : '${_tpl(reg['shiftId'])?['name'] ?? 'ca'}'}'),
+                  Text(
+                      tr('Nhân viên đăng ký: ${reg['isDayOff'] == true ? 'nghỉ ngày này' : reg['replaceShiftId'] != null ? 'đổi ${_tpl(reg['replaceShiftId'])?['name'] ?? 'ca'} → ${_tpl(reg['shiftId'])?['name'] ?? 'ca'}' : '${_tpl(reg['shiftId'])?['name'] ?? 'ca'}'}'),
                       style: const TextStyle(fontWeight: FontWeight.w700)),
                   if ((reg['note']?.toString() ?? '').isNotEmpty) Text(tr('Ghi chú: ${reg['note']}')),
                   const SizedBox(height: 8),
@@ -1092,15 +1095,27 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
               ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 8, 20, 6),
-              child: Text(tr(multi ? 'Xếp ca (nhiều ca trong ngày — chạm để thêm / bỏ)' : 'Xếp ca'),
-                  style: const TextStyle(fontWeight: FontWeight.w800)),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr('Xếp ca'), style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(
+                    tr(shiftItems.isEmpty
+                        ? 'Làm nhiều ca trong ngày: xếp ca đầu, mở lại ô để thêm ca'
+                        : 'Chạm ca đã xếp (✓) để bỏ; chạm ca khác để thêm ca hoặc đổi ca'),
+                    style: const TextStyle(fontSize: 12.5, color: SboxColors.slate500)),
+              ]),
             ),
             for (final t in _templates)
               ListTile(
                 leading: CircleAvatar(radius: 8, backgroundColor: ShiftUi.shiftColor(ShiftUi.n(t['colorIndex']).toInt())),
                 title: Text('${t['name']}'),
                 subtitle: Text('${t['start']} – ${t['end']}'),
-                trailing: hasShift(t) ? const Icon(Icons.check_rounded, color: SboxColors.success) : null,
+                trailing: hasShift(t)
+                    ? Row(mainAxisSize: MainAxisSize.min, children: [
+                        Text(tr('Bỏ ca'), style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
+                        const SizedBox(width: 6),
+                        const Icon(Icons.check_rounded, color: SboxColors.success),
+                      ])
+                    : null,
                 onTap: () => Navigator.pop(ctx, 'shift:${t['id']}'),
               ),
             ListTile(
@@ -1169,21 +1184,30 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
       final dayOff = action == 'dayoff';
       final shiftId = dayOff ? null : action.substring(6);
       final body = {'shiftId': shiftId, 'isDayOff': dayOff};
-      if (multi) {
+      if (shiftItems.isNotEmpty) {
         if (dayOff) {
           // Đặt ngày nghỉ: gỡ các ca còn lại, đổi dòng đầu thành ngày nghỉ.
           for (final x in shiftItems.skip(1)) {
             await _api.deleteWorkSchedule(x['scheduleId'].toString());
           }
           await _run(_api.updateWorkSchedule(shiftItems.first['scheduleId'].toString(), body), 'Đã xếp ngày nghỉ');
+          return;
+        }
+        final existing = shiftItems.where((x) => x['shiftId'].toString() == shiftId).firstOrNull;
+        if (existing != null) {
+          await _run(_api.deleteWorkSchedule(existing['scheduleId'].toString()), 'Đã bỏ ca');
+          return;
+        }
+        final t = _tpl(shiftId);
+        if (t == null || !mounted) return;
+        final pick = await _askAddOrSwap(e, t, shiftItems);
+        if (pick == null) return;
+        if (pick == 'add') {
+          await _run(_api.createWorkSchedule({...body, 'employeeUserId': e['id'], 'date': day}), 'Đã thêm ${t['name']}');
         } else {
-          final existing = shiftItems.where((x) => x['shiftId'].toString() == shiftId).firstOrNull;
-          await _run(
-            existing != null
-                ? _api.deleteWorkSchedule(existing['scheduleId'].toString())
-                : _api.createWorkSchedule({...body, 'employeeUserId': e['id'], 'date': day}),
-            existing != null ? 'Đã bỏ ca' : 'Đã thêm ca',
-          );
+          final old = shiftItems.firstWhere((x) => x['scheduleId'].toString() == pick);
+          await _run(_api.updateWorkSchedule(pick, body),
+              'Đã đổi ${_tpl(old['shiftId'])?['name'] ?? 'ca'} → ${t['name']}');
         }
         return;
       }
@@ -1194,6 +1218,53 @@ class _ScheduleBoardViewState extends State<ScheduleBoardView> {
         dayOff ? 'Đã xếp ngày nghỉ' : 'Đã xếp ca',
       );
     }
+  }
+
+  /// Người đã có ca, chọn thêm ca [t]: «Thêm ca» (làm thêm, khoá nếu chồng giờ ca đang có) hoặc «Đổi ca cũ → [t]».
+  /// Trả 'add', scheduleId của ca bị đổi, hoặc null (huỷ).
+  Future<String?> _askAddOrSwap(Map<String, dynamic> e, Map<String, dynamic> t, List<Map<String, dynamic>> current) {
+    Map<String, dynamic> tplOf(Map<String, dynamic> x) => _tpl(x['shiftId']) ?? const {};
+    final clash = current.where((x) => BoardData.shiftsOverlap(tplOf(x), t)).toList();
+    final names = current.map((x) => tplOf(x)['name'] ?? 'Ca').join(', ');
+    return showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr('${t['name']} ${t['start']} – ${t['end']}'), style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              Text(tr('${e['name']} đang có $names'), style: const TextStyle(color: SboxColors.slate500)),
+            ]),
+          ),
+          ListTile(
+            enabled: clash.isEmpty,
+            leading: const Icon(Icons.add_circle_outline_rounded, color: SboxColors.success),
+            title: Text(tr('Thêm ${t['name']} (làm ${current.length + 1} ca)')),
+            subtitle: Text(tr(clash.isEmpty
+                ? 'Giữ ca đang có, làm thêm ca này'
+                : 'Trùng giờ ${clash.map((x) => tplOf(x)['name'] ?? 'ca').join(', ')} — chỉ đổi ca được')),
+            onTap: () => Navigator.pop(ctx, 'add'),
+          ),
+          for (final x in current)
+            Builder(builder: (_) {
+              final rest = current.where((y) => y != x);
+              final blocked = rest.where((y) => BoardData.shiftsOverlap(tplOf(y), t)).toList();
+              return ListTile(
+                enabled: blocked.isEmpty,
+                leading: const Icon(Icons.swap_horiz_rounded, color: SboxColors.violet),
+                title: Text(tr('Đổi ${tplOf(x)['name'] ?? 'ca'} → ${t['name']}')),
+                subtitle: Text(tr(blocked.isEmpty
+                    ? 'Bỏ ${tplOf(x)['name'] ?? 'ca'} ${tplOf(x)['start'] ?? ''}–${tplOf(x)['end'] ?? ''}, xếp ca này thay'
+                    : 'Vẫn trùng giờ ${blocked.map((y) => tplOf(y)['name'] ?? 'ca').join(', ')}')),
+                onTap: () => Navigator.pop(ctx, x['scheduleId'].toString()),
+              );
+            }),
+          const SizedBox(height: 12),
+        ]),
+      ),
+    );
   }
 
   Future<void> _askCoverage(String day, Map<String, dynamic> t) async {

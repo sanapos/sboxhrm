@@ -370,7 +370,7 @@ class _MyScheduleViewState extends State<MyScheduleView> {
                 // Cùng một kiểu nhãn «loại · trạng thái» cho đăng ký / đơn nghỉ / đổi ca (ShiftUi.requestStatusLabel).
                 if (reg != null && reg['status'] != 'Approved')
                   ShiftUi.pill(
-                    'Đăng ký ${reg['isDayOff'] == true ? 'nghỉ' : _tpl(reg['shiftId'])?['name'] ?? 'ca'} · '
+                    '${reg['isDayOff'] == true ? 'Đăng ký nghỉ' : reg['replaceShiftId'] != null ? 'Đổi ${_tpl(reg['replaceShiftId'])?['name'] ?? 'ca'} → ${_tpl(reg['shiftId'])?['name'] ?? 'ca'}' : 'Đăng ký ${_tpl(reg['shiftId'])?['name'] ?? 'ca'}'} · '
                     '${ShiftUi.requestStatusLabel('reg', reg['status']?.toString())}'
                     '${reg['status'] == 'Rejected' && (reg['rejectionReason']?.toString() ?? '').isNotEmpty ? ': ${reg['rejectionReason']}' : ''}',
                     ShiftUi.statusColor(reg['status']?.toString()),
@@ -428,6 +428,10 @@ class _MyScheduleViewState extends State<MyScheduleView> {
                 templates: _templates,
                 slots: _rows(d['slots']),
                 currentShiftId: s?['shiftId']?.toString(),
+                currentShiftIds: [
+                  for (final x in _rows(d['schedules']))
+                    if (x['isDayOff'] != true && x['shiftId'] != null) x['shiftId'].toString(),
+                ],
                 hasShiftToday: hasShift,
                 isDayOffToday: s?['isDayOff'] == true);
           case 'leave':
@@ -453,7 +457,7 @@ class _MyScheduleViewState extends State<MyScheduleView> {
           child: ListTile(
             dense: true,
             leading: const Icon(Icons.how_to_reg_rounded),
-            title: Text(tr(s == null ? 'Đăng ký ca' : 'Đăng ký đổi sang ca khác')),
+            title: Text(tr(hasShift ? 'Đăng ký thêm ca / đổi ca' : 'Đăng ký ca')),
           ),
         ),
         PopupMenuItem(

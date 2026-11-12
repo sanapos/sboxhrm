@@ -4,6 +4,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/notification_overlay.dart';
+import 'schedule_board_data.dart';
 import 'shift_hub_ui.dart';
 
 Future<bool?> _sheet(BuildContext context, Widget child) => showModalBottomSheet<bool>(
@@ -43,6 +44,7 @@ Future<bool> showRegisterShiftSheet(
   required List<Map<String, dynamic>> templates,
   required List<Map<String, dynamic>> slots,
   String? currentShiftId,
+  List<String> currentShiftIds = const [],
   bool hasShiftToday = false,
   bool isDayOffToday = false,
 }) async {
@@ -53,6 +55,7 @@ Future<bool> showRegisterShiftSheet(
           templates: templates,
           slots: slots,
           currentShiftId: currentShiftId,
+          currentShiftIds: currentShiftIds,
           hasShiftToday: hasShiftToday,
           isDayOffToday: isDayOffToday));
   return ok == true;
@@ -64,9 +67,12 @@ class _RegisterSheet extends StatefulWidget {
     required this.templates,
     required this.slots,
     this.currentShiftId,
+    this.currentShiftIds = const [],
     this.hasShiftToday = false,
     this.isDayOffToday = false,
   });
+  /// Các ca đang xếp ngày này (một người có thể làm nhiều ca).
+  final List<String> currentShiftIds;
   final bool hasShiftToday;
   final bool isDayOffToday;
   final DateTime date;
@@ -81,6 +87,39 @@ class _RegisterSheet extends StatefulWidget {
 class _RegisterSheetState extends State<_RegisterSheet> {
   String? _shiftId; // null + _dayOff = xin nghỉ ngày này
   bool _dayOff = false;
+  /// Đang có ca: null = đăng ký THÊM ca; id ca đang có = ĐỔI ca đó sang [_shiftId].
+  String? _replace;
+
+  List<String> get _current => {
+        ...widget.currentShiftIds,
+        if (widget.currentShiftId != null && widget.hasShiftToday) widget.currentShiftId!,
+      }.toList();
+
+  Map<String, dynamic>? _tplOf(String id) => widget.templates.where((t) => t['id'].toString() == id).firstOrNull;
+
+  /// Ca đang có trùng giờ ca [id] (không thêm được, chỉ đổi được).
+  List<String> _clashes(String id) {
+    final t = _tplOf(id);
+    if (t == null) return const [];
+    return _current.where((c) => c != id && _tplOf(c) != null && BoardData.shiftsOverlap(_tplOf(c)!, t)).toList();
+  }
+
+  void _pickShift(String id) {
+    final clash = _clashes(id);
+    _shiftId = id;
+    _dayOff = false;
+    // Trùng giờ đúng một ca đang có → mặc định đổi ca đó; không trùng → mặc định làm thêm.
+    _replace = clash.length == 1 ? clash.first : null;
+  }
+
+  bool get _canSend {
+    if (_dayOff) return true;
+    final id = _shiftId;
+    if (id == null) return false;
+    final rest = _current.where((c) => c != _replace);
+    final t = _tplOf(id);
+    return t == null || !rest.any((c) => _tplOf(c) != null && BoardData.shiftsOverlap(_tplOf(c)!, t));
+  }
   final _note = TextEditingController();
   bool _saving = false;
 
@@ -94,17 +133,26 @@ class _RegisterSheetState extends State<_RegisterSheet> {
       widget.slots.where((s) => s['shiftId']?.toString() == id).firstOrNull;
 
   Future<void> _save() async {
-    if (_shiftId == null && !_dayOff) return;
+    if (!_canSend) return;
     setState(() => _saving = true);
+    final replace = _dayOff ? null : _replace;
     final res = await ApiService().createScheduleRegistration({
       'date': ShiftUi.key(widget.date),
       if (!_dayOff) 'shiftId': _shiftId,
+      if (replace != null) 'replaceShiftId': replace,
       'isDayOff': _dayOff,
       if (_note.text.trim().isNotEmpty) 'note': _note.text.trim(),
     });
     if (!mounted) return;
     setState(() => _saving = false);
-    _toast(res, _dayOff ? 'Đã gửi đăng ký nghỉ ngày này' : 'Đã gửi đăng ký ca — chờ quản lý duyệt', 'Đăng ký ca');
+    _toast(
+        res,
+        _dayOff
+            ? 'Đã gửi đăng ký nghỉ ngày này'
+            : replace != null
+                ? 'Đã gửi đăng ký đổi ${_tplOf(replace)?['name'] ?? 'ca'} → ${_tplOf(_shiftId!)?['name'] ?? 'ca'} — chờ quản lý duyệt'
+                : 'Đã gửi đăng ký ca — chờ quản lý duyệt',
+        'Đăng ký ca');
     if (res['isSuccess'] == true) Navigator.pop(context, true);
   }
 
@@ -115,6 +163,7 @@ class _RegisterSheetState extends State<_RegisterSheet> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           _title('Đăng ký ca', '${ShiftUi.weekdaysLong[widget.date.weekday - 1]}, ${ShiftUi.dmy(widget.date)}'),
           for (var i = 0; i < widget.templates.length; i++) _tplTile(widget.templates[i]),
+          if (!_dayOff && _shiftId != null && _current.isNotEmpty) _modePicker(),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
             child: _choice(
@@ -162,7 +211,7 @@ class _RegisterSheetState extends State<_RegisterSheet> {
           Padding(
             padding: const EdgeInsets.all(16),
             child: FilledButton.icon(
-              onPressed: _saving || (_shiftId == null && !_dayOff) ? null : _save,
+              onPressed: _saving || !_canSend ? null : _save,
               style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
               icon: const Icon(Icons.send_rounded),
               label: Text(tr(_saving ? 'Đang gửi…' : 'Gửi đăng ký')),
@@ -189,19 +238,52 @@ class _RegisterSheetState extends State<_RegisterSheet> {
               : '';
       if (status == 'short') sub += ' · Đang thiếu người';
     }
+    final mine = _current.contains(id);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: _choice(
         selected: _shiftId == id,
         color: color,
         icon: Icons.schedule_rounded,
-        title: '${t['name']}${id == widget.currentShiftId ? ' (ca hiện tại)' : ''}',
-        subtitle: sub,
+        title: '${t['name']}${mine ? ' (ca đang làm)' : ''}',
+        subtitle: mine ? '$sub · Đã có trong lịch' : sub,
         badge: status == 'short' ? ShiftUi.pill('Ưu tiên', SboxColors.danger) : full ? ShiftUi.pill('Đủ người', SboxColors.slate500) : null,
-        onTap: () => setState(() {
-          _shiftId = id;
-          _dayOff = false;
-        }),
+        // Ca đang làm: không đăng ký lại (muốn bỏ ca thì xin nghỉ / đổi ca với đồng nghiệp).
+        onTap: mine ? null : () => setState(() => _pickShift(id)),
+      ),
+    );
+  }
+
+  /// Đang có ca trong ngày: chọn «Làm thêm ca này» hay «Đổi ca X sang ca này» (ca chồng giờ thì chỉ đổi được).
+  Widget _modePicker() {
+    final id = _shiftId!;
+    final name = _tplOf(id)?['name'] ?? 'ca này';
+    final clash = _clashes(id);
+    Widget opt(String? replace, String title, String subtitle, {bool enabled = true}) => RadioListTile<String?>(
+          value: replace,
+          groupValue: _replace,
+          onChanged: enabled ? (v) => setState(() => _replace = v) : null,
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+          title: Text(tr(title), style: const TextStyle(fontWeight: FontWeight.w700)),
+          subtitle: Text(tr(subtitle)),
+        );
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+        decoration: BoxDecoration(color: SboxColors.slate50, borderRadius: BorderRadius.circular(12)),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(tr('Bạn đang có ${_current.map((c) => _tplOf(c)?['name'] ?? 'ca').join(', ')} ngày này'),
+              style: const TextStyle(fontWeight: FontWeight.w800)),
+          opt(null, 'Làm thêm $name',
+              clash.isEmpty ? 'Giữ ca đang có, làm thêm ca này' : 'Trùng giờ ${clash.map((c) => _tplOf(c)?['name'] ?? 'ca').join(', ')} — chỉ đổi được',
+              enabled: clash.isEmpty),
+          for (final c in _current)
+            opt(c, 'Đổi ${_tplOf(c)?['name'] ?? 'ca'} sang $name',
+                'Bỏ ${_tplOf(c)?['name'] ?? 'ca'}, làm $name thay (sau khi quản lý duyệt)',
+                enabled: !_clashes(id).any((x) => x != c)),
+        ]),
       ),
     );
   }
@@ -347,7 +429,7 @@ Widget _choice({
   required IconData icon,
   required String title,
   required String subtitle,
-  required VoidCallback onTap,
+  required VoidCallback? onTap,
   Widget? badge,
 }) =>
     InkWell(

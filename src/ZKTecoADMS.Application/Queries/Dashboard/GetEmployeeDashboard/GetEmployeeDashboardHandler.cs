@@ -30,7 +30,8 @@ public class GetEmployeeDashboardHandler(
     IShiftService shiftService,
     IRepository<EmployeeBenefit> employeeBenefitRepository,
     IRepository<ShiftTemplate> shiftTemplateRepository,
-    IRepository<ShiftSalaryLevel> shiftSalaryLevelRepository
+    IRepository<ShiftSalaryLevel> shiftSalaryLevelRepository,
+    IRepository<WorkSchedule> workScheduleRepository
 ) : IQueryHandler<GetEmployeeDashboardQuery, AppResponse<EmployeeDashboardDto>>
 {
     private const int VnOffsetHours = 7;
@@ -67,7 +68,19 @@ public class GetEmployeeDashboardHandler(
         // Không có ca đăng ký theo giờ: hiện ca trong thiết lập lương (trước Trang chủ ghi «Hôm nay không có ca»
         // với mọi cửa hàng chỉ gán ca ở thiết lập lương). Ngày nghỉ tuần của mẫu lương thì không có ca.
         var todayShiftDto = todayShift.Adapt<ShiftInfoDto>();
-        if (todayShift == null && salaryShifts.Count > 0 && !offToday)
+
+        // Ca xếp trên lịch hôm nay (Ca làm việc → bảng xếp ca): có thể nhiều ca. Ca hiện tại / sắp tới làm «ca hôm nay».
+        var (todayShifts, scheduledOff) = await LoadScheduledTodayAsync(user.Employee, cancellationToken);
+        if (todayShift == null && todayShifts.Count > 0)
+        {
+            var nowVn = DateTime.UtcNow.AddHours(VnOffsetHours);
+            todayShiftDto = todayShifts.FirstOrDefault(s => s.StartTime <= nowVn && nowVn < s.EndTime)
+                ?? todayShifts.FirstOrDefault(s => s.StartTime > nowVn)
+                ?? todayShifts[^1];
+        }
+        if (scheduledOff) offToday = true;
+
+        if (todayShiftDto == null && salaryShifts.Count > 0 && !offToday)
         {
             var today = DateTime.UtcNow.AddHours(VnOffsetHours).Date;
             var pick = currentAttendance?.CheckInTime is DateTime ci
@@ -83,6 +96,7 @@ public class GetEmployeeDashboardHandler(
         var dashboardData = new EmployeeDashboardDto
         {
             TodayShift = todayShiftDto,
+            TodayShifts = todayShifts,
             NextShift = nextShift.Adapt<ShiftInfoDto>(),
             CurrentAttendance = currentAttendance,
             AttendanceStats = stats,
@@ -90,6 +104,38 @@ public class GetEmployeeDashboardHandler(
         };
 
         return AppResponse<EmployeeDashboardDto>.Success(dashboardData);
+    }
+
+    /// <summary>
+    /// Ca xếp cho hôm nay trên lịch làm việc (mọi ca, theo giờ vào) và có phải ngày nghỉ trên lịch không.
+    /// </summary>
+    private async Task<(List<ShiftInfoDto> Shifts, bool DayOff)> LoadScheduledTodayAsync(Employee? employee, CancellationToken ct)
+    {
+        if (employee == null) return ([], false);
+        var today = DateTime.UtcNow.AddHours(VnOffsetHours).Date;
+        var tomorrow = today.AddDays(1);
+        var rows = await workScheduleRepository.GetAllAsync(
+            w => w.EmployeeUserId == employee.Id && w.Date >= today && w.Date < tomorrow
+                 && (employee.StoreId == null || w.StoreId == employee.StoreId),
+            includeProperties: [nameof(WorkSchedule.Shift)],
+            cancellationToken: ct);
+        var list = new List<ShiftInfoDto>();
+        foreach (var w in rows.Where(w => !w.IsDayOff))
+        {
+            var startTs = w.StartTime ?? w.Shift?.StartTime;
+            var endTs = w.EndTime ?? w.Shift?.EndTime;
+            if (startTs == null || endTs == null) continue;
+            var start = today + startTs.Value;
+            var end = today + endTs.Value;
+            if (end <= start) end = end.AddDays(1);
+            list.Add(new ShiftInfoDto
+            {
+                Id = w.ShiftId ?? w.Id, StartTime = start, EndTime = end,
+                Description = w.Shift?.Name ?? "Ca làm việc", Status = 1,
+            });
+        }
+        list.Sort((a, b) => a.StartTime.CompareTo(b.StartTime));
+        return (list, list.Count == 0 && rows.Any(w => w.IsDayOff));
     }
 
     // ─────────────────────────────────────────────────────────────────────

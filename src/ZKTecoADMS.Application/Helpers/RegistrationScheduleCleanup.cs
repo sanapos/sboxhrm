@@ -14,6 +14,19 @@ internal static class RegistrationScheduleCleanup
     {
         if (registration.AppliedWorkScheduleId is Guid appliedId)
         {
+            // Phiếu đổi ca: dòng lịch ca cũ đã chuyển sang ca mới → trả lại ca cũ.
+            if (!registration.AppliedCreatedNewSchedule && registration.ReplaceShiftId is Guid oldShiftId)
+            {
+                var row = await workScheduleRepository.GetSingleAsync(
+                    ws => ws.Id == appliedId && ws.StoreId == storeId,
+                    cancellationToken: cancellationToken);
+                if (row != null && !row.IsDayOff && row.ShiftId == registration.ShiftId)
+                {
+                    row.ShiftId = oldShiftId;
+                    await workScheduleRepository.UpdateAsync(row, cancellationToken);
+                }
+                return;
+            }
             // Phiếu chỉ cập nhật lịch quản lý xếp sẵn → giữ nguyên lịch đó.
             if (!registration.AppliedCreatedNewSchedule)
                 return;

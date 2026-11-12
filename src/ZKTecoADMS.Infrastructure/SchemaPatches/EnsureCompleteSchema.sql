@@ -932,6 +932,8 @@ WHERE t."CollectionMethod" IS NULL AND t."Status" IN (1, 3);
 -- Đăng ký lịch: dòng lịch lần duyệt ghi vào (hoàn duyệt / xóa phiếu không xóa lịch quản lý xếp sẵn).
 ALTER TABLE "ScheduleRegistrations" ADD COLUMN IF NOT EXISTS "AppliedWorkScheduleId" uuid NULL;
 ALTER TABLE "ScheduleRegistrations" ADD COLUMN IF NOT EXISTS "AppliedCreatedNewSchedule" boolean NOT NULL DEFAULT false;
+-- Đăng ký đổi sang ca khác: ca bị thay (null = đăng ký thêm ca).
+ALTER TABLE "ScheduleRegistrations" ADD COLUMN IF NOT EXISTS "ReplaceShiftId" uuid NULL;
 
 -- Khách lưu trú (khách sạn): thông tin khai báo tạm trú theo lượt nhận phòng.
 CREATE TABLE IF NOT EXISTS "PosStayGuests" (
