@@ -35,7 +35,7 @@ public sealed class NetConfigForm : Form
     public NetConfigForm(IEnumerable<string> knownLanIps)
     {
         _knownIps = new HashSet<string>(knownLanIps);
-        Text = "Máy in khác lớp mạng — dò và đổi IP";
+        Text = "Đổi IP máy in / đặt IP tĩnh";
         Width = 900;
         Height = 600;
         MinimumSize = new Size(820, 520);
@@ -51,7 +51,7 @@ public sealed class NetConfigForm : Form
         _list.Columns.Add("Trạng thái", 200);
 
         var root = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 7, Padding = new Padding(14) };
-        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 44));
+        root.RowStyles.Add(new RowStyle(SizeType.Absolute, 60));
         root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
         root.RowStyles.Add(new RowStyle(SizeType.Absolute, 22));
@@ -62,7 +62,8 @@ public sealed class NetConfigForm : Form
         {
             Dock = DockStyle.Fill, ForeColor = Theme.Text, Font = Theme.FontUi(9.5f),
             Text = "Dò broadcast UDP: Xprinter (9000), Rongta / Zywell (1460), Epson (3289) — thấy cả máy in còn IP nhà máy " +
-                   "khác lớp mạng với PC (cùng switch / router). Chọn máy → nhập IP mới cùng lớp mạng → «Đổi IP».",
+                   "khác lớp mạng với PC (cùng switch / router). Chọn máy → nhập IP mới cùng lớp mạng → «Đổi IP». " +
+                   "Máy đang DHCP (IP có thể nhảy): chọn máy → giữ IP → «Đổi IP» để tắt DHCP.",
         }, 0, 0);
         root.Controls.Add(_list, 0, 1);
 
@@ -144,7 +145,7 @@ public sealed class NetConfigForm : Form
         {
             var list = await LanNetConfig.DiscoverAsync(3000, ct: _cts.Token);
             if (IsDisposed) return;
-            foreach (var d in list.OrderByDescending(OtherSubnet).ThenBy(d => d.Ip))
+            foreach (var d in list.OrderByDescending(OtherSubnet).ThenByDescending(d => d.Dhcp == true).ThenBy(d => d.Ip))
             {
                 _devices.Add(d);
                 var other = OtherSubnet(d);
@@ -153,10 +154,11 @@ public sealed class NetConfigForm : Form
                 item.SubItems.Add(d.Ip);
                 item.SubItems.Add(d.Mask ?? "");
                 item.SubItems.Add(d.Dhcp == null ? "" : d.Dhcp.Value ? "Bật" : "Tắt");
+                var dhcp = !other && d.Dhcp == true;
                 item.SubItems.Add(other
                     ? (d.Proto == LanNetConfig.Proto.Epson ? "⚠ Khác lớp mạng — đổi IP bằng ARP+ping" : "⚠ Khác lớp mạng — cần đổi IP")
-                    : "Cùng lớp mạng");
-                if (other) item.ForeColor = Theme.Warning;
+                    : dhcp ? "⚠ DHCP — IP có thể nhảy, nên đặt IP tĩnh" : "Cùng lớp mạng");
+                if (other || dhcp) item.ForeColor = Theme.Warning;
                 _list.Items.Add(item);
             }
             _status.Text = list.Count == 0

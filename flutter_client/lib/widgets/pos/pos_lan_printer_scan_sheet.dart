@@ -325,10 +325,12 @@ class _LanScanSheetState extends State<_LanScanSheet> {
       title: Text(h.title),
       subtitle: Text(
         tr(
-          h.brand == PosThermalPrinterBrand.generic
-              ? 'ESC/POS · cổng ${h.port}'
-              : '${h.brand.label} · cổng ${h.port}',
+          (h.brand == PosThermalPrinterBrand.generic
+                  ? 'ESC/POS · cổng ${h.port}'
+                  : '${h.brand.label} · cổng ${h.port}') +
+              (u?.dhcp == true ? ' · DHCP — IP có thể nhảy' : u?.dhcp == false ? ' · IP tĩnh' : ''),
         ),
+        style: u?.dhcp == true ? TextStyle(color: Colors.orange.shade800) : null,
       ),
       // Máy in DHCP: đặt IP tĩnh để router không đổi IP về sau.
       trailing: u != null && u.canSetIp && u.dhcp == true
@@ -337,7 +339,20 @@ class _LanScanSheetState extends State<_LanScanSheet> {
               child: Text(tr('Đặt IP tĩnh')),
             )
           : null,
-      onTap: () => Navigator.pop(context, h),
+      onTap: () => _pick(h, u),
     );
+  }
+
+  /// Chọn máy in DHCP: hỏi đặt IP tĩnh trước khi lưu (tránh IP nhảy → mất máy in).
+  Future<void> _pick(PosLanPrinterHit h, PosLanNetDevice? u) async {
+    if (u != null && u.canSetIp && u.dhcp == true) {
+      final yes = await askPosLanPrinterMakeStatic(context, u);
+      if (!mounted) return;
+      if (yes) {
+        await _changeIp(u);
+        return;
+      }
+    }
+    Navigator.pop(context, h);
   }
 }

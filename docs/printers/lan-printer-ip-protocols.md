@@ -21,6 +21,16 @@ Kiểm chứng 2026-10-26: máy Zywell **ZY80-Q2** thật (192.168.1.89) trả l
 sau ~2 giây, cổng 9100 mở ngay, không cần tắt/bật, không có gói ACK; mask / gw / DHCP / byte 17..18 / 31..32 giữ nguyên.
 Gói đã gửi: `4d 50 34 32 30 30 53 41 56 45 | 00 60 35 d1 f3 82 | 3c 00 | c0 a8 01 c9 | ff ff ff 00 | c0 a8 01 01 | 8c 23 | 00`.
 
+**DHCP → IP tĩnh (thử thật 2026-10-26):** byte cuối của SAVE (@32, khớp cờ DHCP @33 của FOUND) = `01` bật DHCP,
+`00` tắt. Bật DHCP cho ZY80-Q2 → ~6 giây sau router cấp **192.168.1.14** (đúng hiện tượng «nhảy IP»). Dùng code app (Dart)
+và SboxPrintAgent (C#): SAVE giữ IP .14 + byte cuối `00` → FOUND báo DHCP = 0 sau ~8 giây; rồi SAVE về .89 tĩnh. Cả hai qua.
+Vì giữ nguyên IP thì cổng 9100 vốn đã mở, phần chờ xác nhận phải thấy FOUND báo DHCP tắt mới coi là xong.
+UDP thỉnh thoảng rơi gói trả lời → dò theo IP lặp tối đa 3 lần.
+
+Trong app: chọn máy in DHCP ở sheet quét → hỏi «Đặt IP tĩnh»; màn «Máy in nội bộ» tự dò, máy đang DHCP có dòng cảnh báo +
+nút «Đặt IP tĩnh» (và mục menu «Đặt IP tĩnh (chống nhảy IP)»). Hãng không hỗ trợ: hướng dẫn giữ IP theo MAC trên router.
+SboxPrintAgent: sau «Quét mạng» đánh dấu máy DHCP; nút «Đổi IP / IP tĩnh…».
+
 Quan trọng: gói SAVE lệch gói FOUND đúng 1 byte (tag ngắn hơn 1), nên SAVE 16..17 ↔ FOUND 17..18 và SAVE 30..31 ↔ FOUND 31..32.
 Trên ZY80-Q2 hai ô đó là `3C 00` và `8C 23` (= 9100 little-endian — nhiều khả năng là cổng in), trong khi SDK Rongta gửi hằng
 `0F 00` / `05 B4`. Gửi hằng SDK có thể đổi cổng in của máy, nên code gửi lại **nguyên giá trị máy đang báo** (chỉ dùng hằng SDK

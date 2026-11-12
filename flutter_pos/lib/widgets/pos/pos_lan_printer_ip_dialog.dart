@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -19,6 +21,83 @@ Future<PosLanPrinterHit?> showPosLanPrinterIpDialog(
     barrierDismissible: false,
     builder: (_) => _IpDialog(device: device, links: links, avoid: avoid),
   );
+}
+
+/// Máy in đang DHCP (router cấp IP, có thể nhảy IP khi router khởi động lại / hết hạn thuê).
+/// Hỏi có đặt IP tĩnh ngay không.
+Future<bool> askPosLanPrinterMakeStatic(BuildContext context, PosLanNetDevice d) async {
+  final yes = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(tr('Máy in đang để DHCP')),
+      content: Text(tr(
+        '${d.title}: IP do router cấp nên có thể đổi khi router khởi động lại — app sẽ mất kết nối máy in.\n\n'
+        'Nên đặt IP tĩnh ngay (giữ IP ${d.ip}, tắt DHCP trên máy in).',
+      )),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Để DHCP'))),
+        FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Đặt IP tĩnh'))),
+      ],
+    ),
+  );
+  return yes == true;
+}
+
+/// Máy in đã lưu ở [host]: dò UDP; đang DHCP thì mở hộp đặt IP tĩnh. Trả máy in sau khi đặt
+/// (IP có thể khác nếu người dùng chọn IP khác) — người gọi lưu; null nếu không đổi gì.
+Future<PosLanPrinterHit?> runPosLanPrinterMakeStatic(BuildContext context, String host,
+    {PosLanNetDevice? device}) async {
+  var d = device;
+  if (d == null) {
+    final nav = Navigator.of(context);
+    unawaited(showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        content: Row(children: [
+          const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2.5)),
+          const SizedBox(width: 16),
+          Expanded(child: Text(tr('Đang hỏi cấu hình mạng máy in $host…'))),
+        ]),
+      ),
+    ));
+    d = await PosLanNetConfig.findByIp(host);
+    nav.pop();
+  }
+  if (!context.mounted) return null;
+  if (d == null || !d.canSetIp) {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Không đặt IP tĩnh qua app được')),
+        content: Text(tr(
+          d == null
+              ? 'Máy in $host không trả lời dò cấu hình (hãng chưa hỗ trợ: HPRT, Gprinter, Epson…).\n\n'
+                  'Cách chống nhảy IP: vào trang quản trị router → DHCP → «Address Reservation» / «Giữ IP theo MAC», '
+                  'gắn IP $host cho máy in. Hoặc đặt IP tĩnh trong trang cấu hình máy in (http://$host).'
+              : '${d.title}: đặt IP tĩnh bằng SBOX Print Agent trên máy tính Windows, hoặc giữ IP theo MAC trên router.',
+        )),
+        actions: [
+          FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đã hiểu'))),
+        ],
+      ),
+    );
+    return null;
+  }
+  if (d.dhcp == false) {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Máy in đã dùng IP tĩnh')),
+        content: Text(tr('${d!.title} đã tắt DHCP — IP sẽ không nhảy.')),
+        actions: [FilledButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('OK')))],
+      ),
+    );
+    return null;
+  }
+  final links = await PosLanNetConfig.localLinks(await PosLanPrinterScan.localIpv4s());
+  if (!context.mounted || links.isEmpty) return null;
+  return showPosLanPrinterIpDialog(context, device: d, links: links);
 }
 
 /// Hướng dẫn khi máy in không đổi IP qua mạng được (Epson trên app, HPRT, Gprinter…).
@@ -107,7 +186,8 @@ class _IpDialogState extends State<_IpDialog> {
     if (sameSubnet(d.ip, _link.ip, _link.mask)) {
       // Đã cùng lớp mạng (máy in DHCP): giữ IP đang dùng, chỉ chuyển sang tĩnh.
       _ip.text = d.ip;
-      _status = 'Giữ IP ${d.ip}, chuyển sang IP tĩnh (có thể sửa).';
+      _status = 'Giữ IP ${d.ip} và tắt DHCP để IP không nhảy (có thể sửa). '
+          'Nếu router hay cấp IP này cho máy khác, chọn IP ngoài dải DHCP hoặc giữ IP theo MAC trên router.';
       return;
     }
     _suggest();
@@ -219,7 +299,9 @@ class _IpDialogState extends State<_IpDialog> {
     final d = widget.device;
     final digits = [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))];
     return AlertDialog(
-      title: Text(tr('Đổi IP máy in')),
+      title: Text(tr(_link.ip.isNotEmpty && sameSubnet(widget.device.ip, _link.ip, _link.mask)
+          ? 'Đặt IP tĩnh cho máy in'
+          : 'Đổi IP máy in')),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(

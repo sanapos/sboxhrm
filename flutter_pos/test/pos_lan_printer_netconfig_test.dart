@@ -99,6 +99,20 @@ void main() {
               'c0 a8 01 01 8c 23 00'));
     });
 
+    test('máy DHCP (ZY80-Q2 thật được router cấp .14) → SAVE giữ IP, byte cuối 00 = tắt DHCP', () {
+      final d = PosLanNetCodec.parse(
+          _hex('4d 50 34 32 30 30 46 4f 55 4e 44 00 60 35 d1 f3 82 3c 00 c0 a8 01 0e ff ff ff 00 '
+              'c0 a8 01 01 8c 23 01'),
+          '192.168.1.14')!;
+      expect(d.dhcp, true);
+      final p = PosLanNetCodec.save(d.proto,
+          mac: d.mac!, ip: d.ip, mask: d.mask!, gateway: d.gateway!, keep17: d.keep17, keep31: d.keep31);
+      expect(
+          p,
+          _hex('4d 50 34 32 30 30 53 41 56 45 00 60 35 d1 f3 82 3c 00 c0 a8 01 0e ff ff ff 00 '
+              'c0 a8 01 01 8c 23 00'));
+    });
+
     test('model rác sau khi đổi IP (gói thật) → null', () {
       final raw = _hex('4d 50 34 32 30 30 46 4f 55 4e 44 00 60 35 d1 f3 82 3c 00 c0 a8 01 c9 ff ff ff 00 '
           'c0 a8 01 01 8c 23 00 8e c1 51 f7 31 36 38 03 31 39 32 07 69 6e 2d 61 00');

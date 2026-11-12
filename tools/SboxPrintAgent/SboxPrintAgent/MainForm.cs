@@ -57,7 +57,7 @@ public sealed class MainForm : Form
 
     readonly ModernButton _btnScan = new() { Text = "Quét mạng", Kind = ModernButton.StyleKind.Secondary, Width = 110, Height = 40 };
     readonly ModernButton _btnTestIp = new() { Text = "In thử IP", Kind = ModernButton.StyleKind.Secondary, Width = 110, Height = 40 };
-    readonly ModernButton _btnNetCfg = new() { Text = "Khác lớp mạng…", Kind = ModernButton.StyleKind.Secondary, Width = 140, Height = 40 };
+    readonly ModernButton _btnNetCfg = new() { Text = "Đổi IP / IP tĩnh…", Kind = ModernButton.StyleKind.Secondary, Width = 140, Height = 40 };
     readonly ModernButton _btnAddLan = new() { Text = "Thêm máy LAN", Kind = ModernButton.StyleKind.Primary, Width = 130, Height = 40 };
     readonly ModernButton _btnCheckOnline = new() { Text = "Kiểm tra online", Kind = ModernButton.StyleKind.Secondary, Width = 140, Height = 40 };
     readonly ModernButton _btnUsbRefresh = new() { Text = "Tải lại USB", Kind = ModernButton.StyleKind.Secondary, Width = 120, Height = 40 };
@@ -920,6 +920,7 @@ public sealed class MainForm : Form
                     _nameBox.Text.Contains("usb", StringComparison.OrdinalIgnoreCase))
                     _nameBox.Text = "Máy in " + first.Host;
                 Log($"Tìm thấy {list.Count} máy. Bấm «In thử IP» rồi «Thêm máy LAN».");
+                await MarkDhcpHitsAsync();
             }
         }
         catch (Exception ex)
@@ -927,6 +928,26 @@ public sealed class MainForm : Form
             UiMsg.Error(ex.Message, "Tìm máy in");
         }
         finally { _btnScan.Enabled = true; }
+    }
+
+    /// <summary>Hỏi cấu hình mạng (UDP) các máy vừa quét: máy đang DHCP thì đánh dấu — IP có thể nhảy.</summary>
+    async Task MarkDhcpHitsAsync()
+    {
+        try
+        {
+            var devs = await LanNetConfig.DiscoverAsync(2500);
+            var n = 0;
+            for (var i = 0; i < _hits.Count && i < _hitList.Items.Count; i++)
+            {
+                var d = devs.FirstOrDefault(x => x.Ip == _hits[i].Host && x.CanSave);
+                if (d?.Dhcp != true) continue;
+                _hitList.Items[i] = $"{_hits[i].Host}:{_hits[i].Port}  ⚠ DHCP — nên đặt IP tĩnh";
+                n++;
+            }
+            if (n > 0)
+                Log($"⚠ {n} máy in đang để DHCP — router có thể đổi IP. Bấm «Đổi IP / IP tĩnh…» → chọn máy → «Đổi IP» (giữ IP) để tắt DHCP.");
+        }
+        catch (Exception ex) { Log("Dò cấu hình mạng máy in lỗi: " + ex.Message); }
     }
 
     /// <summary>Dò máy in khác lớp mạng (UDP broadcast) → đổi IP → lưu: cập nhật máy đang dùng IP cũ, hoặc thêm máy mới.</summary>
@@ -937,7 +958,8 @@ public sealed class MainForm : Form
         using var f = new NetConfigForm(known);
         if (f.ShowDialog(this) != DialogResult.OK || f.NewIp == null) return;
         var ip = f.NewIp;
-        Log($"✓ Đổi IP máy in {f.OldIp} → {ip}:9100");
+        var keptIp = f.OldIp == ip;
+        Log(keptIp ? $"✓ Máy in {ip} đã chuyển sang IP tĩnh (tắt DHCP)" : $"✓ Đổi IP máy in {f.OldIp} → {ip}:9100");
         _lanIp.Text = ip;
         _lanPort.Text = "9100";
         _hits.Add(new LanScanner.Hit(ip, 9100, 0));
@@ -959,7 +981,9 @@ public sealed class MainForm : Form
                 await RefreshPrintersAsync();
                 await SyncAgentIfNeededAsync();
                 await ProbeHealthAsync();
-                UiMsg.Info($"Đã đổi IP và cập nhật «{old.Name}» → {ip}:9100.", "Đổi IP thành công");
+                UiMsg.Info(keptIp
+                    ? $"«{old.Name}» đã dùng IP tĩnh {ip} — IP không còn nhảy."
+                    : $"Đã đổi IP và cập nhật «{old.Name}» → {ip}:9100.", "Đổi IP thành công");
             }
             catch (Exception ex) { UiMsg.Error(ex.Message, "Lưu IP mới thất bại"); }
             return;

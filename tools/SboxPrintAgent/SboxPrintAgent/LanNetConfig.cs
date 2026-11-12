@@ -333,13 +333,15 @@ public static class LanNetConfig
     public static async Task<bool> WaitForIpAsync(Device d, string ip, int timeoutMs = 20000, CancellationToken ct = default)
     {
         var sw = Stopwatch.StartNew();
+        // Giữ nguyên IP (DHCP → tĩnh): 9100 vốn đã mở, phải thấy máy báo DHCP tắt mới chắc đã lưu.
+        var sameIp = ip == d.Ip && d.Mac != null;
         while (sw.ElapsedMilliseconds < timeoutMs && !ct.IsCancellationRequested)
         {
-            if (await TcpOpenAsync(ip, 9100)) return true;
+            if (!sameIp && await TcpOpenAsync(ip, 9100)) return true;
             if (d.Mac != null)
             {
                 var list = await DiscoverAsync(1500, ct: ct);
-                if (list.Any(x => x.Key == d.Key && x.Ip == ip) && await TcpOpenAsync(ip, 9100, 2000)) return true;
+                if (list.Any(x => x.Key == d.Key && x.Ip == ip && x.Dhcp != true) && await TcpOpenAsync(ip, 9100, 2000)) return true;
             }
             else
             {

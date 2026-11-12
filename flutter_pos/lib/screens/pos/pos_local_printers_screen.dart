@@ -21,6 +21,8 @@ import '../../utils/pos_usb_labels.dart';
 import '../../utils/pos_printer_hardware.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../utils/pos_lan_printer_netconfig.dart';
+import '../../widgets/pos/pos_lan_printer_ip_dialog.dart';
 import '../../widgets/pos/pos_lan_printer_scan_sheet.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 import 'pos_product_printer_assignment_screen.dart';
@@ -46,6 +48,9 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
   bool _loading = true;
   bool _syncing = false;
   final Map<String, PosPrinterLinkStatus> _linkStatus = {};
+
+  /// IP → máy in LAN đã lưu đang để DHCP (dò UDP khi mở màn) — IP có thể nhảy.
+  final Map<String, PosLanNetDevice> _dhcpLan = {};
   Timer? _probeTimer;
   StreamSubscription<Map<String, dynamic>>? _usbEventSub;
 
@@ -90,6 +95,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
     });
     unawaited(_refreshLinkStatus());
     unawaited(_loadKitchenElsewhere(list));
+    unawaited(_checkDhcp());
     if (list.isEmpty && !_restoreOffered) {
       _restoreOffered = true;
       unawaited(_offerRestoreFromServer());
@@ -197,6 +203,41 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
     NotificationOverlayManager().showSuccess(
       title: 'Đã đổi IP máy in',
       message: tr('${p.name}: $now'),
+    );
+    await _reload();
+  }
+
+  /// Máy in LAN đã lưu đang để DHCP: router có thể cấp IP khác → app mất máy in. Hiện cảnh báo + nút đặt IP tĩnh.
+  Future<void> _checkDhcp() async {
+    if (kIsWeb) return;
+    final hosts = {
+      for (final p in _items)
+        if (p.connectionType == PosThermalConnectionType.lan && (p.lanHost ?? '').isNotEmpty) p.lanHost!,
+    };
+    if (hosts.isEmpty) return;
+    final list = await PosLanNetConfig.discover();
+    if (!mounted) return;
+    setState(() {
+      _dhcpLan
+        ..clear()
+        ..addEntries(list
+            .where((d) => d.dhcp == true && d.canSetIp && hosts.contains(d.ip))
+            .map((d) => MapEntry(d.ip, d)));
+    });
+  }
+
+  Future<void> _makeStatic(PosLocalPrinterProfile p) async {
+    final host = p.lanHost ?? '';
+    if (host.isEmpty) return;
+    final hit = await runPosLanPrinterMakeStatic(context, host, device: _dhcpLan[host]);
+    if (hit == null || !mounted) return;
+    await _store.upsert(p.copyWith(lanHost: hit.host, lanPort: hit.port));
+    await PosPrintOrchestrator.instance.invalidateCache();
+    _dhcpLan.remove(host);
+    if (!mounted) return;
+    NotificationOverlayManager().showSuccess(
+      title: 'Đã đặt IP tĩnh',
+      message: tr('${p.name}: ${hit.host}:${hit.port} — IP không còn nhảy'),
     );
     await _reload();
   }
@@ -616,6 +657,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                               trailing: PopupMenuButton<String>(
                                 onSelected: (v) {
                                   if (v == 'relocate') unawaited(_relocateLanPrinter(p));
+                                  if (v == 'static') unawaited(_makeStatic(p));
                                   if (v == 'test') _testProfile(p);
                                   if (v == 'edit') _edit(p);
                                   if (v == 'assign') _assignProducts(p);
@@ -629,6 +671,11 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                                     PopupMenuItem(
                                       value: 'relocate',
                                       child: Text(tr('Tìm lại IP (máy in đổi IP)')),
+                                    ),
+                                  if (p.connectionType == PosThermalConnectionType.lan)
+                                    PopupMenuItem(
+                                      value: 'static',
+                                      child: Text(tr('Đặt IP tĩnh (chống nhảy IP)')),
                                     ),
                                   if (canEditPrinters)
                                     PopupMenuItem(
@@ -645,6 +692,27 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                               ),
                               onTap: canEditPrinters ? () => _edit(p) : _showViewOnly,
                             ),
+                            if (!lost &&
+                                p.connectionType == PosThermalConnectionType.lan &&
+                                _dhcpLan.containsKey(p.lanHost))
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(16, 0, 8, 0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        tr('Máy in đang để DHCP — router có thể đổi IP, app sẽ mất máy in.'),
+                                        style: TextStyle(fontSize: 12, color: Colors.orange.shade800),
+                                      ),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () => unawaited(_makeStatic(p)),
+                                      icon: const Icon(Icons.push_pin_outlined, size: 18),
+                                      label: Text(tr('Đặt IP tĩnh')),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             if (lost &&
                                 p.enabled &&
                                 p.connectionType == PosThermalConnectionType.lan)

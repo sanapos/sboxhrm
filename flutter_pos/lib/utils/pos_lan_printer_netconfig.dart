@@ -437,16 +437,33 @@ class PosLanNetConfig {
   static Future<bool> waitForIp(PosLanNetDevice dev, String ip,
       {Duration timeout = const Duration(seconds: 20), bool Function()? isCancelled}) async {
     final end = DateTime.now().add(timeout);
+    // Giữ nguyên IP (DHCP → tĩnh): 9100 vốn đã mở, phải thấy máy báo DHCP tắt mới chắc đã lưu.
+    final sameIp = ip == dev.ip;
     while (DateTime.now().isBefore(end)) {
       if (isCancelled?.call() == true) return false;
-      if (await tcpOpen(ip, 9100)) return true;
+      if (!sameIp && await tcpOpen(ip, 9100)) return true;
       final list = await discover(timeout: const Duration(milliseconds: 1500));
-      if (list.any((d) => d.key == dev.key && d.ip == ip)) {
+      if (list.any((d) => d.key == dev.key && d.ip == ip && d.dhcp != true)) {
         // Thấy IP mới nhưng 9100 chưa mở (đang khởi động lại) — thử thêm.
         if (await tcpOpen(ip, 9100, timeout: const Duration(seconds: 2))) return true;
       }
     }
     return false;
+  }
+
+  /// Máy in (theo IP) trả lời dò UDP — null nếu hãng không hỗ trợ / không trả lời.
+  /// UDP có thể rơi gói (đã gặp trên ZY80-Q2 thật) — dò lại tối đa [attempts] lần.
+  static Future<PosLanNetDevice?> findByIp(String ip, {int attempts = 3}) async {
+    PosLanNetDevice? epson;
+    for (var i = 0; i < attempts; i++) {
+      final list = await discover();
+      for (final d in list) {
+        if (d.ip != ip) continue;
+        if (d.proto != PosLanNetProto.epson) return d;
+        epson = d;
+      }
+    }
+    return epson;
   }
 
   static Future<bool> tcpOpen(String host, int port,
