@@ -20,6 +20,8 @@ import 'services/api_service.dart';
 import 'services/app_icon_badge.dart';
 import 'services/fcm_service_stub.dart'
     if (dart.library.io) 'services/fcm_service.dart';
+import 'utils/windows_data_migration_stub.dart'
+    if (dart.library.io) 'utils/windows_data_migration_io.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +63,9 @@ void main() async {
     }
     return AppFatalErrorScreen(details: details);
   };
+
+  // Bản Windows «SBOX»: chép dữ liệu từ thư mục cũ «SBOX HRM» trước khi đọc thiết lập.
+  await migrateWindowsDataDir();
 
   // Biết biến thể HRM/POS trước khi chọn máy chủ API.
   await SboxAppVariant.bootstrap();

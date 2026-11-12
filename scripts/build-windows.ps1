@@ -1,4 +1,4 @@
-﻿# Build SBOX HRM cho Windows (flutter_client) — kiểm tra / chuẩn bị môi trường lần đầu rồi build.
+﻿# Build SBOX cho Windows (flutter_client, sbox.exe — đủ chức năng nhân sự + bán hàng) — kiểm tra / chuẩn bị môi trường lần đầu rồi build.
 #
 #   .\scripts\build-windows.ps1                 # kiểm tra môi trường + build Release
 #   .\scripts\build-windows.ps1 -CheckOnly      # chỉ kiểm tra môi trường
@@ -57,7 +57,17 @@ Chưa có Visual Studio «Desktop development with C++».
    (MSVC v143 + Windows 11 SDK). Lệnh nhanh (chạy PowerShell quyền Admin):
    winget install Microsoft.VisualStudio.2022.BuildTools --override "--passive --wait --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended"
 "@
-} else { Write-Host "  Visual Studio C++: $vsPath" }
+} else {
+    Write-Host "  Visual Studio C++: $vsPath"
+    # flutter_secure_storage_windows (đăng nhập vân tay / Face ID) cần ATL — thiếu là lỗi «atlstr.h: No such file».
+    $atl = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.ATL -property installationPath
+    if (-not $atl) {
+        $problems += @"
+Visual Studio thiếu thành phần ATL (lỗi «Cannot open include file: 'atlstr.h'»). Chạy PowerShell quyền Admin:
+   & "`${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\setup.exe" modify --installPath "$vsPath" --add Microsoft.VisualStudio.Component.VC.ATL --passive --norestart
+"@
+    } else { Write-Host "  ATL: có" }
+}
 
 # Developer Mode (symlink cho plugin)
 $dev = (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\AppModelUnlock" -ErrorAction SilentlyContinue).AllowDevelopmentWithoutDevLicense
@@ -141,7 +151,8 @@ try {
     Invoke-Native { & $Flutter config --enable-windows-desktop } | Out-Null
     Invoke-Native { & $Flutter pub get }
     if ($LASTEXITCODE -ne 0) { throw "flutter pub get thất bại" }
-    Invoke-Native { & $Flutter build windows --release "--dart-define=API_BASE_URL=$ApiUrl" }
+    # SBOX_BRAND=sbox: đủ chức năng (nhân sự + bán hàng), tên hiển thị «SBOX», chọn máy chủ ở màn đăng nhập.
+    Invoke-Native { & $Flutter build windows --release "--dart-define=API_BASE_URL=$ApiUrl" "--dart-define=SBOX_BRAND=sbox" }
     if ($LASTEXITCODE -ne 0) { throw "flutter build windows thất bại (xem lỗi phía trên)" }
 } finally { Pop-Location }
 
@@ -166,7 +177,9 @@ if ($crt) {
 
 # Đóng gói
 $version = (Select-String -Path (Join-Path $ClientDir "pubspec.yaml") -Pattern '^version:\s*([^\s]+)').Matches[0].Groups[1].Value
-$dist = Join-Path $RepoRoot "dist\SBOX-HRM-Windows-$version"
+# Bản cũ tên zkteco_flutter_client.exe còn sót trong thư mục build — bỏ để khách không mở nhầm.
+Remove-Item (Join-Path $release "zkteco_flutter_client.*") -Force -ErrorAction SilentlyContinue
+$dist = Join-Path $RepoRoot "dist\SBOX-Windows-$version"
 if (Test-Path $dist) { Remove-Item $dist -Recurse -Force }
 New-Item -ItemType Directory -Force (Split-Path $dist) | Out-Null
 Copy-Item $release $dist -Recurse
@@ -175,4 +188,4 @@ if (Test-Path $zipOut) { Remove-Item $zipOut -Force }
 Compress-Archive -Path "$dist\*" -DestinationPath $zipOut
 Write-Host ""
 Write-Host "==> Xong: $dist" -ForegroundColor Green
-Write-Host "    Gửi khách: $zipOut (giải nén, chạy zkteco_flutter_client.exe)"
+Write-Host "    Gửi khách: $zipOut (giải nén, chạy sbox.exe)"

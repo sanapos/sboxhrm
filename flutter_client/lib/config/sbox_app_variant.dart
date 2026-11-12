@@ -34,6 +34,11 @@ abstract final class SboxAppVariant {
   static const bool _staffFromDefine =
       String.fromEnvironment('SBOX_APP') == 'staff';
 
+  /// Bản «SBOX» chung (Windows): đủ chức năng như bản HRM mặc định (nhân sự + bán hàng),
+  /// chỉ đổi tên hiển thị thành «SBOX» và cho chọn máy chủ ở màn đăng nhập.
+  /// `--dart-define=SBOX_BRAND=sbox` — không đổi SBOX_APP để giữ nguyên hành vi bản HRM.
+  static const bool genericBrand = String.fromEnvironment('SBOX_BRAND') == 'sbox';
+
   static bool _fromPackage = false;
   static bool _kdsFromPackage = false;
   static bool _staffFromPackage = false;
@@ -81,6 +86,14 @@ abstract final class SboxAppVariant {
   /// Tên hiển thị trong app đồng hành: «SBOX HRM» → tên app, «Thiết lập HRM» → «Thiết lập SBOX»,
   /// tên miền HRM → sboxpos.com.
   static String rebrand(String s) {
+    if (_genericOnly) {
+      if (!s.contains(RegExp(r'\bHRM\b'))) return s;
+      return s
+          .replaceAll('SBOX HRM · SBOX POS', 'SBOX')
+          .replaceAll('SBOX HRM - SBOX POS', 'SBOX')
+          .replaceAll('SBOX HRM', 'SBOX')
+          .replaceAll(_hrmWord, 'SBOX');
+    }
     if (!companionApp && !standalonePos) return s;
     if (isPackageBlocked(s)) {
       s = s.replaceAll(_packageBlocked, 'Gói dịch vụ của cửa hàng chưa có chức năng này. Liên hệ đại lý để nâng cấp gói.');
@@ -186,7 +199,7 @@ abstract final class SboxAppVariant {
   }
 
   /// Thư mục Tải về / Ảnh chứa tệp xuất (khớp MainActivity.exportFolderName).
-  static String get exportFolderName => companionApp || standalonePos ? productLine : 'SBOX HRM';
+  static String get exportFolderName => companionApp || standalonePos || _genericOnly ? productLine : 'SBOX HRM';
 
   /// Chức năng nhân sự không có trong app SBOX POS: menu, Trang chủ, tìm nhanh, thanh dưới đều ẩn.
   static const posAppHiddenModules = <String>{
@@ -224,7 +237,15 @@ abstract final class SboxAppVariant {
 
   static bool get posBranding => standalonePos || posWebHost;
 
-  static String get productLine => bossApp
+  /// Bản «SBOX» chung, không kèm biến thể POS / BOSS / Nhân Viên / KDS.
+  static bool get _genericOnly => genericBrand && !companionApp && !standalonePos;
+
+  /// Hiện chọn máy chủ cuối màn đăng nhập (app đồng hành, POS, bản «SBOX» chung).
+  static bool get showsLoginServerPicker => companionApp || standalonePos || genericBrand;
+
+  static String get productLine => _genericOnly
+      ? 'SBOX'
+      : bossApp
       ? 'SBOX BOSS'
       : kitchenApp
       ? 'SBOX KDS'

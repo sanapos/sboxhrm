@@ -1267,7 +1267,7 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ),
                   _buildLoginFooter(isDesktop: isDesktop),
-                  if (!kIsWeb && (SboxAppVariant.companionApp || SboxAppVariant.standalonePos) && !SboxAppVariant.fixedServer)
+                  if (!kIsWeb && SboxAppVariant.showsLoginServerPicker && !SboxAppVariant.fixedServer)
                     LoginServerPicker(onChanged: _onServerChanged),
                 ],
               ),
