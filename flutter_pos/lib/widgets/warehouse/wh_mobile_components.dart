@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'wh_mobile_theme.dart';
+import '../../theme/sbox_tokens.dart';
 import '../../l10n/app_tr.dart';
 import '../../utils/play_system_ui.dart';
 
@@ -85,17 +86,19 @@ class _WhGlassAppBar extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.fromLTRB(8, topPadding + 4, 8, 12),
           decoration: BoxDecoration(
-            color: WhMobileTheme.surfaceGlass,
-            border: Border(
-              bottom: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
-            ),
+            color: SboxColors.appBarBg(WhMobileTheme.surfaceGlass),
+            border: SboxColors.posApp
+                ? null
+                : Border(
+                    bottom: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
+                  ),
           ),
           child: Row(
             children: [
               leading ??
                   IconButton(
                     icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
-                    color: WhMobileTheme.primary,
+                    color: SboxColors.appBarFg(WhMobileTheme.primary),
                     onPressed: () => Navigator.maybePop(context),
                   ),
               Expanded(

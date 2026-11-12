@@ -9,14 +9,14 @@ abstract final class PosTheme {
   static const Color kiotBlue = SboxColors.brand600;
   static const Color kiotBlueLight = SboxColors.brand50;
   /// Bàn đang dùng trên sơ đồ.
-  static const Color edgeBlue = SboxColors.brand500;
+  static const Color edgeBlue = SboxColors.posApp ? SboxColors.brand600 : SboxColors.brand500;
   static const Color edgeBlueLight = SboxColors.brand50;
   /// Nút Thanh toán.
   static const Color payGreen = SboxColors.pay;
   static const Color payGreenDark = SboxColors.payHover;
   static const Color primary = SboxColors.pay;
   static const Color primaryDark = SboxColors.payHover;
-  static const Color primaryLight = SboxColors.successSoft;
+  static const Color primaryLight = SboxColors.posApp ? SboxColors.brand50 : SboxColors.successSoft;
   static const Color background = SboxColors.page;
   static const Color border = SboxColors.border;
   static const Color textPrimary = SboxColors.text;
@@ -24,9 +24,9 @@ abstract final class PosTheme {
 
   static const Color goodsColor = SboxColors.brand600;
   static const Color serviceColor = SboxColors.violet;
-  static const Color comboColor = Color(0xFFEA580C);
-  static const Color materialColor = Color(0xFF0F766E);
-  static const Color toppingColor = Color(0xFFDB2777);
+  static const Color comboColor = SboxColors.posApp ? SboxColors.brand600 : Color(0xFFEA580C);
+  static const Color materialColor = SboxColors.posApp ? SboxColors.brand600 : (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E));
+  static const Color toppingColor = SboxColors.posApp ? SboxColors.brand600 : Color(0xFFDB2777);
 
   // Nút «Lưu» / «Chỉnh sửa» trên thanh tiêu đề — màu nút chính của app; xanh lá dành cho thanh toán.
   static ButtonStyle filledButtonStyle = FilledButton.styleFrom(
@@ -49,7 +49,7 @@ abstract final class PosTheme {
       FilledButton.styleFrom(
         backgroundColor: payGreen,
         foregroundColor: Colors.white,
-        disabledBackgroundColor: SboxColors.slate300,
+        disabledBackgroundColor: SboxColors.posApp ? SboxColors.slate100 : SboxColors.slate300,
         disabledForegroundColor: SboxColors.slate600,
         minimumSize: Size(0, height),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius)),

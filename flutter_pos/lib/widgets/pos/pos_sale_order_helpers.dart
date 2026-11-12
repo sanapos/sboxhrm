@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../utils/pos_doc_status.dart';
 import 'pos_theme.dart';
 import '../../l10n/app_tr.dart';
+import '../../theme/sbox_tokens.dart';
 String posSaleOrderStatusLabel(String status) => switch (status) {
       'Completed' => 'Hoàn thành',
       'Cancelled' => 'Đã hủy',
@@ -18,7 +19,7 @@ String? posSaleReturnStatusLabel(String? returnStatus) => switch (returnStatus) 
     };
 
 Color posSaleOrderStatusColor(String status) => switch (status) {
-      'Completed' => Colors.green,
+      'Completed' => SboxColors.okSwatch,
       'Cancelled' => Colors.red,
       _ => Colors.orange,
     };

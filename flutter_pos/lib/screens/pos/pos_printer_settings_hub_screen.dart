@@ -8,6 +8,7 @@ import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/pos/pos_sell_mobile_print_settings_screen.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// Máy in / mẫu in runtime — Settings hub (HRM). Tái dùng UI mobile print settings.
 class PosPrinterSettingsHubScreen extends StatefulWidget {
@@ -56,8 +57,8 @@ class _PosPrinterSettingsHubScreenState
         backgroundColor: HrmPageChrome.background,
         appBar: AppBar(
           title: Text(tr('Thiết lập in')),
-          backgroundColor: Colors.white,
-          foregroundColor: PosTheme.textPrimary,
+          backgroundColor: SboxColors.appBarBg(Colors.white),
+          foregroundColor: SboxColors.appBarFg(PosTheme.textPrimary),
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),

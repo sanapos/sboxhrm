@@ -100,8 +100,8 @@ class _PosCustomerDebtReportScreenState extends State<PosCustomerDebtReportScree
       appBar: Navigator.of(context).canPop()
           ? AppBar(
               title: Text(tr('Công nợ khách hàng')),
-              backgroundColor: Colors.white,
-              foregroundColor: SboxColors.text,
+                backgroundColor: SboxColors.appBarBg(Colors.white),
+                foregroundColor: SboxColors.appBarFg(SboxColors.text),
               surfaceTintColor: Colors.white,
               elevation: 0.5,
             )

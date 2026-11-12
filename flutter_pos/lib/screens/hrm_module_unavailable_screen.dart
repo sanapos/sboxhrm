@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../widgets/pos/pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
+import '../theme/sbox_tokens.dart';
 
 /// Module HRM chưa có trong app POS độc lập — hướng người dùng sang SBOX HRM.
 class HrmModuleUnavailableScreen extends StatelessWidget {
@@ -21,8 +22,8 @@ class HrmModuleUnavailableScreen extends StatelessWidget {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(title)),
-        backgroundColor: Colors.white,
-        foregroundColor: PosTheme.textPrimary,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
+        foregroundColor: SboxColors.appBarFg(PosTheme.textPrimary),
         elevation: 0,
       ),
       body: Center(

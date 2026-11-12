@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// Design tokens — Material 3 + iOS (glass nhẹ, bo góc lớn, nhiều khoảng trắng).
 abstract final class WhMobileTheme {
   // ── Palette (tối giản, ít màu) ──────────────────────────────────────────
-  static const bg = Color(0xFFF2F2F7);
+  static const bg = SboxColors.posApp ? SboxColors.page : (SboxColors.posApp ? SboxColors.page : Color(0xFFF2F2F7));
   static const surface = Color(0xFFFFFFFF);
   static const surfaceGlass = Color(0xEFFFFFFF);
   // Màu chính theo thương hiệu SBOX (= SboxColors.brand600 / PosTheme.kiotBlue),

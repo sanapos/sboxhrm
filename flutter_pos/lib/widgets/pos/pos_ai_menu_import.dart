@@ -679,7 +679,7 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Tạo hàng từ ảnh menu / Excel (AI)')),
-        actions: [
+        actions: sboxBarActions([
           if (_rows.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(right: 12),
@@ -691,7 +691,7 @@ class _PosAiMenuImportPageState extends State<_PosAiMenuImportPage> {
                 label: Text(tr('Tạo $selected món')),
               ),
             ),
-        ],
+        ]),
       ),
       body: ListView(
         padding: const EdgeInsets.all(12),

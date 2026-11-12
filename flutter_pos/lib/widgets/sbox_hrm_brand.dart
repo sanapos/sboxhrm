@@ -162,20 +162,48 @@ class SboxBrandLockup extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = sloganColor ?? titleColor.withOpacity(0.62);
     if (stacked) {
+      // SBOX POS (giống bản Android 7): huy hiệu «S» xanh ngọc + chữ «SBOX POS». KDS giữ logo chữ cũ.
+      final Widget logo = SboxColors.posApp
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(logoSize * 0.7 * 0.22),
+                  child: Image.asset(
+                    'assets/sbox_pos_mark_gsm.png',
+                    width: logoSize * 0.7,
+                    height: logoSize * 0.7,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
+                  ),
+                ),
+                SizedBox(width: logoSize * 0.2),
+                Text(
+                  tr(SboxBrand.productLine),
+                  style: TextStyle(
+                    fontSize: logoSize * 0.4,
+                    fontWeight: FontWeight.w700,
+                    color: SboxColors.brand600,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+              ],
+            )
+          : Image.asset(
+              'assets/sbox_pos_logo_wide.png',
+              height: logoSize,
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+              errorBuilder: (_, __, ___) => Icon(
+                Icons.point_of_sale_rounded,
+                color: titleColor,
+                size: logoSize,
+              ),
+            );
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset(
-            'assets/sbox_pos_logo_wide.png',
-            height: logoSize,
-            fit: BoxFit.contain,
-            filterQuality: FilterQuality.medium,
-            errorBuilder: (_, __, ___) => Icon(
-              Icons.point_of_sale_rounded,
-              color: titleColor,
-              size: logoSize,
-            ),
-          ),
+          logo,
           if (showSlogan) ...[
             SizedBox(height: logoSize * 0.18),
             Text(
@@ -235,10 +263,10 @@ class SboxBrandLockup extends StatelessWidget {
       mainAxisSize: expandText ? MainAxisSize.max : MainAxisSize.min,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(SboxColors.posApp ? logoSize * 0.22 : 10),
           child: Image.asset(
-            'assets/sbox_pos_logo.png',
-            height: logoSize * 1.15,
+            SboxColors.posApp ? 'assets/sbox_pos_mark_gsm.png' : 'assets/sbox_pos_logo.png',
+            height: SboxColors.posApp ? logoSize : logoSize * 1.15,
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => Icon(
               Icons.point_of_sale_rounded,

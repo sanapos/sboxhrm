@@ -430,8 +430,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
             borderRadius: BorderRadius.circular(14),
             // Logo SBOX POS chính thức (cùng trang đăng nhập / menu bán hàng).
             child: Image.asset(
-              'assets/sbox_pos_logo_wide.png',
-              width: 96,
+              SboxColors.posApp ? 'assets/sbox_pos_mark_gsm.png' : 'assets/sbox_pos_logo_wide.png',
+              width: SboxColors.posApp ? 52 : 96,
               height: 52,
               fit: BoxFit.contain,
               filterQuality: FilterQuality.medium,

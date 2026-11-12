@@ -322,7 +322,7 @@ class _TingeeBankAttachPanelState extends State<TingeeBankAttachPanel> {
     final list = widget.linkedAccounts;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      color: list.isEmpty ? Colors.orange.shade50 : Colors.green.shade50,
+      color: list.isEmpty ? Colors.orange.shade50 : SboxColors.okSwatch.shade50,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         child: Column(
@@ -332,7 +332,7 @@ class _TingeeBankAttachPanelState extends State<TingeeBankAttachPanel> {
               children: [
                 Icon(list.isEmpty ? Icons.warning_amber : Icons.verified,
                     size: 18,
-                    color: list.isEmpty ? Colors.orange.shade800 : Colors.green.shade800),
+                    color: list.isEmpty ? Colors.orange.shade800 : SboxColors.okSwatch.shade800),
                 const SizedBox(width: 6),
                 Text(
                   tr(list.isEmpty

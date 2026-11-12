@@ -15,6 +15,7 @@ import '../../widgets/pos/pos_debt_statement.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'pos_session_redeem_sheet.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// Khách hàng POS — thanh lọc + số liệu + bảng (điện thoại tự thành thẻ), phân trang theo máy chủ.
 class PosCustomersScreen extends StatefulWidget {
@@ -168,8 +169,8 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
       appBar: Navigator.of(context).canPop()
           ? AppBar(
               title: Text(tr('Khách hàng')),
-              backgroundColor: Colors.white,
-              foregroundColor: SboxColors.text,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
+              foregroundColor: SboxColors.appBarFg(SboxColors.text),
               surfaceTintColor: Colors.white,
               elevation: 0.5,
             )

@@ -1292,7 +1292,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
                     : price > 0
                         ? tr('Bán ${_fmtInputMoney(price)} đ → khách tích ${_fmtInputMoney(earn)} đ vào ví điểm, lần sau trừ vào đơn mới.')
                         : tr('Khách được tích ${_fmtPercent(pct)}% tiền thực trả của món này vào ví điểm.'),
-                style: TextStyle(fontSize: 12, color: pct == null ? Colors.black54 : Colors.green.shade700),
+                style: TextStyle(fontSize: 12, color: pct == null ? Colors.black54 : SboxColors.okSwatch.shade700),
               ),
               ],
             ],
@@ -1895,7 +1895,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       decoration: BoxDecoration(
         color: SboxColors.successSoft,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: const Color(0xFFBBF7D0)),
+        border: Border.all(color: (SboxColors.posApp ? SboxColors.brand100 : Color(0xFFBBF7D0))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2104,7 +2104,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
     return wrapPosFormDialog(
       context,
       Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: SboxColors.appBarBg(Colors.white),
       insetPadding: EdgeInsets.fromLTRB(
         narrow ? 8 : (size.width > 960 ? (size.width - 920) / 2 : 16),
         pad.top + (narrow ? 4 : 16),
@@ -2337,11 +2337,11 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
       appBar: AppBar(
         title: Text(tr(_pageTitle)),
         // Thanh trắng + tab màu thương hiệu theo theme chung.
-        bottom: TabBar(
+        bottom: sboxBarTabs(TabBar(
           controller: _tabs,
           isScrollable: _tabLabels.length > 4,
           tabs: _tabLabels.map((t) => Tab(text: tr(t))).toList(),
-        ),
+        )),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: PosTheme.primary))

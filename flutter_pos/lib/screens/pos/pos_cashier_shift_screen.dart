@@ -257,10 +257,10 @@ class _PosCashierShiftScreenState extends State<PosCashierShiftScreen> {
     return Scaffold(
       backgroundColor: SboxColors.slate100,
       appBar: shellAwareAppBar(context, AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         surfaceTintColor: Colors.white,
         elevation: 0.5,
-        foregroundColor: SboxColors.text,
+        foregroundColor: SboxColors.appBarFg(SboxColors.text),
         automaticallyImplyLeading: pushed,
         title: Text(tr('Ca thu ngân')),
         actions: [

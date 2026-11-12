@@ -19,6 +19,7 @@ import '../../../widgets/warehouse/wh_mobile_components.dart';
 import '../../../widgets/warehouse/wh_mobile_theme.dart';
 import '../../main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
+import '../../../theme/sbox_tokens.dart';
 
 class WhMobileStockIssueEditor extends StatefulWidget {
   const WhMobileStockIssueEditor({
@@ -263,7 +264,7 @@ class _WhMobileStockIssueEditorState extends State<WhMobileStockIssueEditor> {
       padding: const EdgeInsets.only(top: 10),
       child: OutlinedButton.icon(
         onPressed: () => _editSerials(l),
-        icon: Icon(Icons.qr_code_scanner_rounded, size: 18, color: ok ? Colors.green : Colors.orange),
+        icon: Icon(Icons.qr_code_scanner_rounded, size: 18, color: ok ? SboxColors.okSwatch : Colors.orange),
         label: Text(tr(l.serials.isEmpty ? 'Chọn seri (tự lấy theo thứ tự nhập)' : 'Seri ${l.serials.length}/$n')),
         style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(44)),
       ),

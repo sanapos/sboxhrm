@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/settings_hub_sidebar_config.dart';
 import '../widgets/hrm_page_chrome.dart';
+import '../theme/sbox_tokens.dart';
 
 /// Định nghĩa một mục trong Thiết lập SBOX.
 class SettingsHubItemDef {
@@ -10,11 +11,11 @@ class SettingsHubItemDef {
     required this.icon,
     required this.label,
     required this.desc,
-    required this.accent,
+    required Color accent,
     required this.groupTitle,
     this.moduleCode,
     this.altModuleCodes = const [],
-  });
+  }) : accent = SboxColors.posApp ? SboxColors.brand600 : accent;
 
   final int index;
   final IconData icon;

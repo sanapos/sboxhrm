@@ -65,11 +65,11 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
     return Scaffold(
       appBar: shellAwareAppBar(context, AppBar(
         title: Text(tr('Xác nhận chuyển khoản')),
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         surfaceTintColor: Colors.white,
         elevation: 0.5,
-        foregroundColor: SboxColors.text,
-        bottom: TabBar(
+        foregroundColor: SboxColors.appBarFg(SboxColors.text),
+        bottom: sboxBarTabs(TabBar(
           controller: _tabs,
           indicatorColor: SboxColors.primary,
           labelColor: SboxColors.primary,
@@ -78,7 +78,7 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
             Tab(text: tr('Chờ CK (${_waiting.length})')),
             Tab(text: tr('Đã xác nhận (${_confirmed.length})')),
           ],
-        ),
+        )),
         actions: [
           Padding(
             padding: const EdgeInsets.only(right: 12),
@@ -91,7 +91,7 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
                   label: Text(tr('Còn $remain lượt TB')),
                   backgroundColor: remain <= 10
                       ? Colors.orange.shade100
-                      : Colors.green.shade100,
+                    : SboxColors.okSwatch.shade100,
                 ),
               ),
             ),
@@ -146,7 +146,7 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
               ].join(' · '))),
               trailing: waiting
                   ? const Icon(Icons.hourglass_top, color: Colors.orange)
-                  : const Icon(Icons.check_circle, color: Colors.green),
+                  : const Icon(Icons.check_circle, color: SboxColors.okSwatch),
             ),
           );
         },

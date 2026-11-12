@@ -313,7 +313,7 @@ class _PosCustomerDisplaySettingsScreenState
         ),
         actions: [
           if (_saving || _uploading)
-            const Padding(
+            Padding(
               padding: EdgeInsets.only(right: 16),
               child: Center(
                 child: SizedBox(

@@ -29,6 +29,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../settings_hub_screen.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
+import '../../theme/sbox_tokens.dart';
 
 /// KDS bếp: món mới = chờ làm. Đang làm → Ra món (in + rời bảng). Hủy: Đồng ý từng món.
 class PosKdsScreen extends StatefulWidget {
@@ -3489,8 +3490,8 @@ class _KdsPalette {
     blueSoft: Color(0xFFEAF2F8),
     orange: Color(0xFFB7791F),
     orangeSoft: Color(0xFFFBF3E4),
-    green: Color(0xFF15803D),
-    greenSoft: Color(0xFFE8F5EC),
+    green: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF15803D)),
+    greenSoft: SboxColors.posApp ? SboxColors.brand50 : Color(0xFFE8F5EC),
     sheet: Color(0xFFFFFFFF),
     ticketHead: Color(0xFFF9FAFB),
     note: Color(0xFF4B5563),
@@ -3511,8 +3512,8 @@ class _KdsPalette {
     blueSoft: Color(0xFF182A38),
     orange: Color(0xFFD9A048),
     orangeSoft: Color(0xFF2C2416),
-    green: Color(0xFF2F9E66),
-    greenSoft: Color(0xFF16291F),
+    green: SboxColors.posApp ? SboxColors.brand400 : Color(0xFF2F9E66),
+    greenSoft: SboxColors.posApp ? Color(0xFF12292B) : Color(0xFF16291F),
     sheet: Color(0xFF1B1F25),
     ticketHead: Color(0xFF1B1F25),
     note: Color(0xFFB5BDC8),

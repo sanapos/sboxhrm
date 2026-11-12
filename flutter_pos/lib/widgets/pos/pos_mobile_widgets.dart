@@ -1149,7 +1149,7 @@ class PosMobileKiotHeader extends StatelessWidget {
                     NavigationNotifier.mainLayoutReady.value
                         ? Icons.apps_outlined
                         : Icons.home_outlined,
-                    color: PosTheme.textPrimary,
+                    color: SboxColors.appBarFg(PosTheme.textPrimary),
                   ),
                   onPressed: onHome ??
                       NavigationNotifier.leavePosHubToAppHome,
@@ -1160,10 +1160,10 @@ class PosMobileKiotHeader extends StatelessWidget {
                 Expanded(
                   child: Text(
                     tr(title),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: PosTheme.textPrimary,
+                      color: SboxColors.appBarFg(PosTheme.textPrimary),
                     ),
                   ),
                 ),
@@ -1211,11 +1211,11 @@ class PosMobileKiotHeader extends StatelessWidget {
             ],
           ),
         ),
-        const Divider(height: 1, color: PosTheme.border),
+        if (!SboxColors.posApp) const Divider(height: 1, color: PosTheme.border),
       ],
     );
-    return Material(
-      color: Colors.white,
+    final bar = Material(
+      color: SboxColors.appBarBg(Colors.white),
       child: posNeedsTopSafeArea(context)
           ? withFallbackTopInset(
               context,
@@ -1223,6 +1223,7 @@ class PosMobileKiotHeader extends StatelessWidget {
             )
           : withFallbackTopInset(context, content),
     );
+    return SboxColors.posApp ? sboxOnChromeScope(bar) : bar;
   }
 
   Widget _buildCompactActions(BuildContext context) {
@@ -1339,7 +1340,7 @@ class PosMobileProductRow extends StatelessWidget {
     final showStepper = (selectedQty ?? 0) > 0 &&
         (onIncrement != null || onDecrement != null);
     return Material(
-      color: isSelected ? const Color(0xFFE8F0FE) : Colors.white,
+      color: isSelected ? (SboxColors.posApp ? SboxColors.page : Color(0xFFE8F0FE)) : Colors.white,
       child: InkWell(
         onTap: onTap,
         onLongPress: onLongPress,

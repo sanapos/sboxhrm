@@ -2173,7 +2173,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       btns.add(_compactOrderBtn(
         label: 'Vận đơn',
         filled: true,
-        color: const Color(0xFF0F766E),
+        color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
         onPressed: () => run(() => _createShipmentFromList(o)),
       ));
     }

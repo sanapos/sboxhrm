@@ -4057,7 +4057,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                         constraints: const BoxConstraints(maxHeight: 140),
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF5F7FA),
+                          color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF5F7FA)),
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(color: SboxColors.slate200),
                         ),
@@ -4605,14 +4605,14 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
         (r.isParked && r.lineCount > 0);
   }
 
-  static const _waitingTileBg = Color.fromRGBO(32, 178, 170, 1);
-  static const _waitingTileBorder = Color.fromRGBO(26, 150, 144, 1);
+  static const _waitingTileBg = SboxColors.posApp ? SboxColors.brand500 : Color.fromRGBO(32, 178, 170, 1);
+  static const _waitingTileBorder = SboxColors.posApp ? SboxColors.brand600 : Color.fromRGBO(26, 150, 144, 1);
   static const _waitingTileAccent = Colors.white;
 
   Color _tileBg(PosServiceResourceDto r) {
     // Tạm tính: cam đậm dễ nhận (ưu tiên trước Occupied).
     if (r.billRequested || r.isBillRequested) return const Color(0xFFFFCC80);
-    if (r.showReservedOnFloor) return const Color(0xFFE0F2FE);
+    if (r.showReservedOnFloor) return (SboxColors.posApp ? SboxColors.page : Color(0xFFE0F2FE));
     if (r.isPaused) return SboxColors.warningSoft;
     // Máy khác đang sửa — đỏ nhạt.
     if (r.isActivelyOpen && r.isLockedByOtherDevice(_deviceId)) {
@@ -4633,7 +4633,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       return SboxColors.danger;
     }
     if (_isWaitingTable(r)) return _waitingTileBorder;
-    if (_tableInUse(r)) return PosTheme.edgeBlue;
+    if (_tableInUse(r)) return SboxColors.posApp ? SboxColors.brand200 : PosTheme.edgeBlue;
     return SboxColors.slate300;
   }
 
@@ -5475,8 +5475,8 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                           ),
                         )
                       : const SizedBox.shrink(),
-              backgroundColor: Colors.white,
-              foregroundColor: SboxColors.text,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
+              foregroundColor: SboxColors.appBarFg(SboxColors.text),
               elevation: 0.5,
               leading: widget.onHome != null
                   ? IconButton(
@@ -5723,7 +5723,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
     }
 
     return ColoredBox(
-      color: const Color(0xFFF0F4F8),
+      color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF0F4F8)),
       child: InteractiveViewer(
         constrained: false,
         boundaryMargin: const EdgeInsets.all(48),

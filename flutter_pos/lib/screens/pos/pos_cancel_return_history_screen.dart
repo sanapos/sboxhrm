@@ -139,8 +139,8 @@ class _PosCancelReturnHistoryScreenState
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Lịch sử hủy / trả')),
-        backgroundColor: Colors.white,
-        foregroundColor: SboxColors.text,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
+        foregroundColor: SboxColors.appBarFg(SboxColors.text),
         elevation: 0.5,
         actions: [
           IconButton(

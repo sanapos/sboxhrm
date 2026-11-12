@@ -6,7 +6,7 @@ class SboxPosHeroPanel extends StatelessWidget {
   const SboxPosHeroPanel({super.key});
 
   static const green = SboxColors.successText;
-  static const wallGreen = Color(0xFF1B4D3E);
+  static const wallGreen = SboxColors.posApp ? SboxColors.brand800 : Color(0xFF1B4D3E);
 
   @override
   Widget build(BuildContext context) {
@@ -18,7 +18,7 @@ class SboxPosHeroPanel extends StatelessWidget {
           final cacheW = (c.maxWidth * dpr).round().clamp(1024, 2560);
           return SizedBox.expand(
             child: Image.asset(
-              'assets/sbox_pos_login_hero.webp',
+              SboxColors.posApp ? 'assets/sbox_pos_login_hero_gsm.webp' : 'assets/sbox_pos_login_hero.webp',
               fit: BoxFit.cover,
               alignment: const Alignment(0, -0.08),
               filterQuality: FilterQuality.medium,

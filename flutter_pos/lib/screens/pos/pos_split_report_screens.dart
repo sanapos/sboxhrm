@@ -39,11 +39,12 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 import 'pos_shipping_report_screen.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import '../../models/cash_transaction.dart' show PaymentMethodType;
+import '../../theme/sbox_tokens.dart';
 /// Hub 14 báo cáo — cùng token trang chủ A7 (nền xám, thẻ nổi, chữ #2B3437).
 class PosReportsHubScreen extends StatefulWidget {
   const PosReportsHubScreen({super.key});
 
-  static const _pageBg = Color(0xFFF1F4F6);
+  static const _pageBg = (SboxColors.posApp ? SboxColors.page : Color(0xFFF1F4F6));
   static const _ink = Color(0xFF2B3437);
   static const _muted = SboxColors.slate600;
   static const _hint = Color(0xFF8A9199);
@@ -294,7 +295,7 @@ class _PosReportsHubSectionState extends State<_PosReportsHubSection> {
                 clipBehavior: Clip.antiAlias,
                 child: Column(children: [
                   for (var i = 0; i < g.$3.length; i++) ...[
-                    if (i > 0) const Divider(height: 1, indent: 60, color: Color(0xFFEEF1F4)),
+                    if (i > 0) const Divider(height: 1, indent: 60, color: (SboxColors.posApp ? SboxColors.page : Color(0xFFEEF1F4))),
                     _PosReportHubCard(item: g.$3[i], flat: true),
                   ],
                 ]),
@@ -438,7 +439,7 @@ class _PosReportHubCard extends StatelessWidget {
 
 const _payColors = <Color>[
   PosTheme.kiotBlue,
-  Color(0xFF0F766E),
+  (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
   SboxColors.violet,
   SboxColors.warningText,
   Color(0xFFBE123C),
@@ -804,7 +805,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                           (
                             label: 'DT gồm VAT',
                             value: revenueInclVat > 0 ? revenueInclVat : revenue + vat,
-                            color: const Color(0xFF0F766E),
+                            color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
                           ),
                         ],
                       ),
@@ -3127,7 +3128,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                           (
                             label: 'LN gộp',
                             value: _n(_data?['grossProfit']),
-                            color: const Color(0xFF0F766E),
+                            color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
                           ),
                           (
                             label: 'Chi phí',

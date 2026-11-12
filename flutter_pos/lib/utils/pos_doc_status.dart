@@ -41,7 +41,7 @@ String posDocStatusLabel(String status, {String completedLabel = 'Hoàn thành'}
     };
 
 Color posDocStatusColor(String status) => switch (status) {
-      'Completed' => Colors.green,
+      'Completed' => SboxColors.okSwatch,
       'Cancelled' => Colors.red,
       'InProgress' => SboxColors.brand500,
       _ => Colors.orange,

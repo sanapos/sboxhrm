@@ -592,7 +592,7 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: const BoxDecoration(
         border: Border(top: BorderSide(color: PosTheme.border)),
-        color: Color(0xFFFAFBFC),
+        color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
       ),
       child: Row(
         children: [

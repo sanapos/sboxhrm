@@ -33,8 +33,8 @@ class PosEmptyCartBrand extends StatelessWidget {
                 Opacity(
                   opacity: opacity,
                   child: Image.asset(
-                    assetPath,
-                    width: logoWidth,
+                    SboxColors.posApp ? 'assets/sbox_pos_mark_gsm.png' : assetPath,
+                    width: SboxColors.posApp ? logoWidth * 0.5 : logoWidth,
                     fit: BoxFit.contain,
                     filterQuality: FilterQuality.high,
                   ),

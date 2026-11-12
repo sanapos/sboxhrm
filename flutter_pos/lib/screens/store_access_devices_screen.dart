@@ -250,14 +250,14 @@ class _StoreAccessDevicesScreenState extends State<StoreAccessDevicesScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.green.shade50,
+                            color: SboxColors.okSwatch.shade50,
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             tr('Máy này'),
                             style: TextStyle(
                               fontSize: 11,
-                              color: Colors.green.shade800,
+                              color: SboxColors.okSwatch.shade800,
                               fontWeight: FontWeight.w600,
                             ),
                           ),

@@ -198,14 +198,15 @@ class SboxPosApp extends StatelessWidget {
               return AnnotatedRegion<SystemUiOverlayStyle>(
                 value: kPlayOverlayOnDarkBg,
                 child: ColoredBox(
-                  color: const Color(0xFF000000),
+                  color: SboxColors.posApp ? SboxColors.chrome : const Color(0xFF000000),
                   child: MediaQuery(
                     data: mq,
                     child: Builder(
                       builder: (ctx) => padAwaySystemBars(
                         ctx,
                         ColoredBox(
-                          color: const Color(0xFF000000),
+                          // SBOX POS: nền trang, đổi màn không nháy dải đen.
+                          color: SboxColors.posApp ? SboxColors.page : const Color(0xFF000000),
                           child: PosTouchImeHost(
                             child: PosKeyboardLift(
                               child: NotificationOverlay(child: body),

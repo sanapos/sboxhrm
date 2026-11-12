@@ -18,9 +18,9 @@ const _kiotBlue = PosTheme.kiotBlue;
 const _ink = Color(0xFF2B3437);
 const _muted = SboxColors.slate600;
 const _hint = Color(0xFF8A9199);
-const _pageBg = Color(0xFFF1F4F6);
+const _pageBg = (SboxColors.posApp ? SboxColors.page : Color(0xFFF1F4F6));
 const _rose = Color(0xFFB42318);
-const _teal = Color(0xFF0F766E);
+const _teal = (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E));
 const _cogs = Color(0xFFCA8A04);
 
 final _dotFmt = NumberFormat('#,##0', 'vi_VN');
@@ -535,7 +535,7 @@ class _RankRow extends StatelessWidget {
           child: LinearProgressIndicator(
             value: ratio,
             minHeight: 4,
-            backgroundColor: const Color(0xFFEEF1F4),
+            backgroundColor: (SboxColors.posApp ? SboxColors.page : Color(0xFFEEF1F4)),
             color: barColor,
           ),
         ),
@@ -913,7 +913,7 @@ class PosReportMetricTiles extends StatelessWidget {
                 child: Container(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
               decoration: BoxDecoration(
-                color: const Color(0xFFF7F9FB),
+                color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF7F9FB)),
                 border: Border(
                   left: BorderSide(color: tiles[i].color, width: 3),
                   top: const BorderSide(color: Color(0xFFE8ECF0)),
@@ -977,7 +977,7 @@ class PosReportBranchFooter extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF7F9FB),
+        color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF7F9FB)),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: const Color(0xFFE8ECF0)),
       ),

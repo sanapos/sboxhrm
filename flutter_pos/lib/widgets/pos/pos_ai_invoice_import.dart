@@ -653,14 +653,14 @@ class _PosAiInvoicePageState extends State<_PosAiInvoicePage> {
       backgroundColor: SboxColors.page,
       appBar: AppBar(
         title: Text(tr('Chụp hóa đơn nhà cung cấp')),
-        actions: [
+        actions: sboxBarActions([
           if (_scanned && _images.isNotEmpty)
             TextButton.icon(
               onPressed: _busy ? null : _scan,
               icon: const Icon(Icons.refresh),
               label: Text(tr('Đọc lại')),
             ),
-        ],
+        ]),
       ),
       body: _scanning
           ? _buildScanning()

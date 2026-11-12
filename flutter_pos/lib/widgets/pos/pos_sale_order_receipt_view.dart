@@ -187,7 +187,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
 
               border: Border(top: BorderSide(color: PosTheme.border)),
 
-              color: Color(0xFFFAFBFC),
+              color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
 
             ),
 
@@ -331,7 +331,7 @@ class PosSaleOrderReceiptView extends StatelessWidget {
         border: const Border(bottom: BorderSide(color: PosTheme.border)),
         color: order.status == 'Cancelled'
             ? Colors.red.shade50.withOpacity(0.55)
-            : const Color(0xFFFAFBFC),
+            : (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
       ),
 
       child: Column(

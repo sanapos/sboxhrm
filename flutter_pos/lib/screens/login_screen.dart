@@ -363,7 +363,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     return Scaffold(
       backgroundColor:
-          isDesktop ? null : const Color(0xFFF8F9FA),
+          isDesktop ? null : (SboxColors.posApp ? SboxColors.page : Color(0xFFF8F9FA)),
       body: isDesktop ? _buildDesktopLayout(size) : _buildMobileLayout(size),
     );
   }
@@ -652,7 +652,9 @@ class _LoginScreenState extends State<LoginScreen>
                               gradient: const LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [SboxColors.successText, Color(0xFF1B5E20)],
+                                colors: SboxColors.posApp
+                                    ? [SboxColors.brand600, SboxColors.brand800]
+                                    : [SboxColors.successText, Color(0xFF1B5E20)],
                               ),
                               borderRadius: BorderRadius.circular(14),
                               boxShadow: [
@@ -837,7 +839,7 @@ class _LoginScreenState extends State<LoginScreen>
     );
 
     return Container(
-      color: const Color(0xFFF8F9FA),
+      color: SboxColors.posApp ? SboxColors.page : const Color(0xFFF8F9FA),
       child: SafeArea(child: scrollContent),
     );
   }
@@ -1080,10 +1082,10 @@ class _LoginScreenState extends State<LoginScreen>
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: const Color(0xFFF0F9FF),
+                color: (SboxColors.posApp ? SboxColors.brand50 : Color(0xFFF0F9FF)),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                    color: const Color(0xFF0891B2).withOpacity(0.35)),
+                    color: (SboxColors.posApp ? SboxColors.brand600 : const Color(0xFF0891B2)).withOpacity(0.35)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1092,7 +1094,7 @@ class _LoginScreenState extends State<LoginScreen>
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
-                      color: Color(0xFF0C4A6E),
+                      color: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1105,7 +1107,7 @@ class _LoginScreenState extends State<LoginScreen>
                         icon: const Icon(Icons.phone_rounded, size: 16),
                         label: Text(tr('Gọi $_supportPhoneDisplay')),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0C4A6E),
+                          foregroundColor: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
                           visualDensity: VisualDensity.compact,
                         ),
                       ),
@@ -1117,7 +1119,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ? 'Zalo đại lý'
                                 : 'Zalo $_phoneNumber')),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0C4A6E),
+                          foregroundColor: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
                           visualDensity: VisualDensity.compact,
                         ),
                       ),

@@ -48,13 +48,13 @@ abstract final class SboxTheme {
       // Thanh tiêu đề trang: nền trắng, chữ tối, viền dưới mảnh — cùng kiểu các màn
       // mới (báo cáo, khách hàng, voucher…); trước đây nửa xanh nửa trắng lẫn lộn.
       // Thanh bán hàng / thanh toán tự vẽ nền xanh riêng, không dùng theme này.
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white,
-        foregroundColor: SboxColors.text,
+      appBarTheme: AppBarTheme(
+        backgroundColor: SboxColors.appBarBg(Colors.white),
+        foregroundColor: SboxColors.appBarFg(SboxColors.text),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         scrolledUnderElevation: 0,
-        shape: Border(bottom: BorderSide(color: SboxColors.border)),
+        shape: SboxColors.posApp ? null : const Border(bottom: BorderSide(color: SboxColors.border)),
         // Không đặt titleTextStyle màu cố định: AppBar mặc định dùng titleLarge
         // + foregroundColor, nên thanh nền trắng (foregroundColor tối) vẫn thấy
         // tiêu đề — trước đây chữ trắng trên nền trắng (vd. Tổng kết cuối ngày).

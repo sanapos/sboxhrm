@@ -315,7 +315,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
               spacing: 8,
               runSpacing: 8,
               children: [
-                _stat('Đang tập', _data['inside'], Colors.green.shade700, 'inside'),
+                _stat('Đang tập', _data['inside'], SboxColors.okSwatch.shade700, 'inside'),
                 _stat('Lượt tập', _data['total'], PosTheme.kiotBlue, 'all'),
                 _stat('Hội viên', _data['customers'], Colors.indigo, null),
                 _stat('Cần kiểm tra', _data['warnings'], Colors.red.shade700, 'warn'),
@@ -378,7 +378,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
     final inside = outAt == null;
     final minutes = (v['durationMinutes'] as num?)?.toInt() ??
         (inAt == null ? 0 : DateTime.now().difference(inAt).inMinutes);
-    final color = !ok ? Colors.red.shade700 : (inside ? Colors.green.shade700 : SboxColors.slate600);
+    final color = !ok ? Colors.red.shade700 : (inside ? SboxColors.okSwatch.shade700 : SboxColors.slate600);
     final timeText = inside
         ? 'Vào ${inAt == null ? '' : _hm.format(inAt)} · đang tập ${_duration(minutes)}'
         : 'Vào ${inAt == null ? '' : _hm.format(inAt)} · Ra ${_hm.format(outAt)} · ${_duration(minutes)}';
@@ -661,7 +661,7 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(children: [
-              Icon(Icons.circle, size: 8, color: online ? Colors.green : SboxColors.slate500),
+              Icon(Icons.circle, size: 8, color: online ? SboxColors.okSwatch : SboxColors.slate500),
               const SizedBox(width: 4),
               Flexible(
                 child: Text(tr('${m['deviceName']} · PIN ${m['pin']} · '

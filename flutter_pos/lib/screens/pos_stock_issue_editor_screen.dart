@@ -513,7 +513,7 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
       padding: const EdgeInsets.only(top: 4),
       child: OutlinedButton.icon(
         onPressed: () => _editSerials(l),
-        icon: Icon(Icons.qr_code_scanner_rounded, size: 14, color: ok ? Colors.green : Colors.orange),
+        icon: Icon(Icons.qr_code_scanner_rounded, size: 14, color: ok ? SboxColors.okSwatch : Colors.orange),
         label: Text(tr(label), style: TextStyle(fontSize: 12, color: ok ? null : Colors.orange.shade800)),
         style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
       ),
@@ -1151,8 +1151,8 @@ class _PosStockIssueEditorScreenState extends State<PosStockIssueEditorScreen> {
           child: Scaffold(
             backgroundColor: HrmPageChrome.background,
             appBar: AppBar(
-              backgroundColor: Colors.white,
-              foregroundColor: PosTheme.textPrimary,
+              backgroundColor: SboxColors.appBarBg(Colors.white),
+              foregroundColor: SboxColors.appBarFg(PosTheme.textPrimary),
               elevation: 0,
               title: Row(
                 children: [

@@ -160,13 +160,13 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Theo dõi chăm sóc khách')),
-        actions: [
+        actions: sboxBarActions([
           IconButton(
             tooltip: tr('Tải lại'),
             onPressed: _loading ? null : _load,
             icon: const Icon(Icons.refresh),
           ),
-        ],
+        ]),
       ),
       body: RefreshIndicator(
         onRefresh: _load,
@@ -487,7 +487,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
               if (trendIcon != null)
                 Icon(trendIcon,
                     size: 12,
-                    color: i.trend > 0 ? Colors.green.shade700 : Colors.red),
+                    color: i.trend > 0 ? SboxColors.okSwatch.shade700 : Colors.red),
             ],
           ),
         ],

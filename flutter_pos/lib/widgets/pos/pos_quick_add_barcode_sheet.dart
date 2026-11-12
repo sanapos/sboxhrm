@@ -10,6 +10,7 @@ import '../../services/api_service.dart';
 import '../../utils/number_formatter.dart';
 import '../notification_overlay.dart';
 import 'pos_theme.dart';
+import '../../theme/sbox_tokens.dart';
 
 class PosBarcodeHint {
   const PosBarcodeHint({
@@ -485,7 +486,7 @@ class _QuickAddBarcodeSheetState extends State<_QuickAddBarcodeSheet> {
                   height: 88,
                   width: 88,
                   child: ColoredBox(
-                    color: const Color(0xFFF0F2F5),
+                      color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF0F2F5)),
                     child: _imagePreview(),
                   ),
                 ),

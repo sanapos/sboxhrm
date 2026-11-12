@@ -2045,7 +2045,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     final newType = _detailNewType;
     if (p == null && tpl == null && newType == null) {
       return const ColoredBox(
-        color: Color(0xFFF0F2F5),
+        color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF0F2F5)),
         child: EmptyState(
           icon: Icons.touch_app_outlined,
           title: 'Chọn hàng hóa bên trái',
@@ -2228,7 +2228,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                         },
                       ),
                       filled: true,
-                      fillColor: const Color(0xFFF5F7FA),
+                      fillColor: (SboxColors.posApp ? SboxColors.page : Color(0xFFF5F7FA)),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide.none,

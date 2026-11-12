@@ -110,7 +110,7 @@ class PosPrintFormatToolbar extends StatelessWidget {
         );
     final isImage = block.type == PosPrintBlockType.image;
     return Material(
-      color: const Color(0xFFF8FAFC),
+      color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF8FAFC)),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

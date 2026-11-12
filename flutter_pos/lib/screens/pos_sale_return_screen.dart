@@ -440,10 +440,10 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr(_order != null ? 'Trả hàng · ${_order!.orderNo}' : 'Trả hàng bán')),
-        backgroundColor: Colors.white,
+        backgroundColor: SboxColors.appBarBg(Colors.white),
         surfaceTintColor: Colors.white,
         elevation: 0.5,
-        foregroundColor: SboxColors.text,
+        foregroundColor: SboxColors.appBarFg(SboxColors.text),
         // Chưa chọn HĐ: giữa màn đã có nút «Chọn hóa đơn» — không lặp «Đổi HĐ» trên thanh tiêu đề.
         actions: [
           if (_order != null)
@@ -899,7 +899,7 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
 
   Widget _buildTableHeader() {
     return Container(
-      color: const Color(0xFFFAFBFC),
+      color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
         children: [

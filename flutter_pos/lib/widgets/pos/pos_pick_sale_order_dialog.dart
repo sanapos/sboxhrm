@@ -10,6 +10,7 @@ import 'pos_mobile_widgets.dart';
 import 'pos_theme.dart';
 import 'package:sbox_pos/l10n/app_tr.dart';
 import 'package:sbox_pos/l10n/app_ui_locale.dart';
+import '../../theme/sbox_tokens.dart';
 
 const _kiotBlue = PosTheme.kiotBlue;
 
@@ -415,7 +416,7 @@ class _PosPickSaleOrderShellState extends State<_PosPickSaleOrderShell> {
                     child: DecoratedBox(
                       decoration: const BoxDecoration(
                         border: Border(right: BorderSide(color: PosTheme.border)),
-                        color: Color(0xFFFAFBFC),
+                        color: (SboxColors.posApp ? SboxColors.page : Color(0xFFFAFBFC)),
                       ),
                       child: ListView(
                         padding: const EdgeInsets.all(12),

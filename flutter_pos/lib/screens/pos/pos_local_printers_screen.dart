@@ -305,7 +305,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
       context: context,
       isScrollControlled: true,
       useSafeArea: false,
-      backgroundColor: Colors.white,
+      backgroundColor: SboxColors.appBarBg(Colors.white),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
       ),
@@ -593,7 +593,7 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
                     final statusColor = !p.enabled
                         ? SboxColors.slate500
                         : ready
-                            ? Colors.green
+                            ? SboxColors.okSwatch
                             : lost
                                 ? Colors.red
                                 : SboxColors.slate500;
