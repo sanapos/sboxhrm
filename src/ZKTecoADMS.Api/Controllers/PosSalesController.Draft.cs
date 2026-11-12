@@ -1221,6 +1221,21 @@ public partial class PosSalesController
     }
 
     /// <summary>
+    /// Mốc bắt đầu tính giờ của dòng dịch vụ tính giờ — cùng quy tắc màn bán (_timedLineStart):
+    /// dòng đã bấm «Bắt đầu» → giờ của dòng; cửa hàng bật «Tính tiền theo giờ» → giờ mở bàn.
+    /// Tắt tính theo giờ mà dòng chưa bấm «Bắt đầu» → null: giữ SL nhập tay. Trước đây vẫn lấy giờ mở bàn
+    /// → lưu đơn SL nhảy theo giờ mở bàn, app đứng yên ở số cũ, lúc chốt server tính lại → tổng hóa đơn
+    /// cao hơn số khách đã trả, đơn hoàn tất kèm «còn nợ» (vd. trả 878.000, hóa đơn 1.098.000).
+    /// </summary>
+    internal static DateTime? TimedLineStart(
+        DateTime? lineStarted, DateTime? orderStarted, PosStoreSellSettings? sellSettings, DateTime? now = null)
+    {
+        if (lineStarted.HasValue) return lineStarted;
+        if (sellSettings?.EnableHourlyBilling != true) return null;
+        return orderStarted ?? now ?? DateTime.UtcNow;
+    }
+
+    /// <summary>
     /// Tính lại SL / thành tiền các dòng dịch vụ tính giờ tới thời điểm thanh toán — cùng công thức lúc lưu đơn
     /// (phút dùng − tạm dừng, tối thiểu, làm tròn, miễn phí đầu giờ, phí mở + phút đã gồm, đêm KS).
     /// Trả về true nếu có dòng thay đổi.
@@ -1254,7 +1269,8 @@ public partial class PosSalesController
         foreach (var line in order.Lines.Where(l => l.Deleted == null))
         {
             if (!timed.TryGetValue(line.ProductId, out var p)) continue;
-            var started = line.ServiceStartedAt ?? order.ServiceStartedAt ?? now;
+            if (TimedLineStart(line.ServiceStartedAt, order.ServiceStartedAt, sellSettings, now) is not DateTime started)
+                continue;
             var ended = line.ServiceEndedAt ?? now;
             var elapsed = PosServiceBillingHelper.CalcElapsedMinutes(
                 started, ended, sessionPause + Math.Max(0, line.ServicePauseMinutes), line.ServicePausedAt);
@@ -1927,26 +1943,29 @@ public partial class PosSalesController
             grossLine = Math.Round((unitPrice + toppingExtra) * line.Qty, 0, MidpointRounding.AwayFromZero);
             discAmt = Math.Round(Math.Max(0, Math.Min(line.DiscountAmount, grossLine)), 0, MidpointRounding.AwayFromZero);
 
-            if (p.ProductType == PosProductType.Service
-                && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode))
+            var isTimedService = p.ProductType == PosProductType.Service
+                && PosServiceBillingHelper.IsTimed(p.ServiceBillingMode);
+            if (isTimedService && !trustClientMinutes)
             {
-                if (!trustClientMinutes)
+                var nowUtc = DateTime.UtcNow;
+                if (storedTimed.TryGetValue((line.ProductId, line.VariantId), out var st))
                 {
-                    durationMinutes = null;
-                    var nowUtc = DateTime.UtcNow;
-                    if (storedTimed.TryGetValue((line.ProductId, line.VariantId), out var st))
-                    {
-                        // Mốc bắt đầu đã lưu không cho máy bán dời muộn đi; đã dừng giờ thì giữ mốc dừng đã lưu.
-                        if (st.Start.HasValue) lineStarted = st.Start;
-                        if (st.End.HasValue) lineEnded = st.End;
-                    }
-                    if (lineStarted > nowUtc) lineStarted = nowUtc;
-                    // Bấm «dừng giờ» gửi mốc vừa xong; mốc dừng lùi xa về trước thì bỏ (tính tới lúc chốt).
-                    if (lineEnded.HasValue && (!storedTimed.TryGetValue((line.ProductId, line.VariantId), out var st2) || st2.End == null)
-                        && (lineEnded < nowUtc.AddMinutes(-5) || lineEnded > nowUtc))
-                        lineEnded = null;
+                    // Mốc bắt đầu đã lưu không cho máy bán dời muộn đi; đã dừng giờ thì giữ mốc dừng đã lưu.
+                    if (st.Start.HasValue) lineStarted = st.Start;
+                    if (st.End.HasValue) lineEnded = st.End;
                 }
-                var started = lineStarted ?? order.ServiceStartedAt ?? DateTime.UtcNow;
+                if (lineStarted > nowUtc) lineStarted = nowUtc;
+                // Bấm «dừng giờ» gửi mốc vừa xong; mốc dừng lùi xa về trước thì bỏ (tính tới lúc chốt).
+                if (lineEnded.HasValue && (!storedTimed.TryGetValue((line.ProductId, line.VariantId), out var st2) || st2.End == null)
+                    && (lineEnded < nowUtc.AddMinutes(-5) || lineEnded > nowUtc))
+                    lineEnded = null;
+            }
+
+            // Cửa hàng tắt «Tính tiền theo giờ» mà dòng chưa bấm «Bắt đầu» → không tính giờ, giữ SL nhập tay.
+            if (isTimedService
+                && TimedLineStart(lineStarted, order.ServiceStartedAt, sellSettings) is DateTime started)
+            {
+                if (!trustClientMinutes) durationMinutes = null;
                 var ended = lineEnded ?? (complete ? DateTime.UtcNow : (DateTime?)null);
                 // Tạm dừng riêng của dòng cộng với tạm dừng cả bàn; đang dừng lấy mốc sớm hơn.
                 DateTime? pauseFrom = sessionPausedAt;
