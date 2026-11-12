@@ -14,6 +14,7 @@ import '../../widgets/sbox/sbox_charts.dart';
 import 'boss_issues_card.dart';
 import 'boss_overview_sheets.dart';
 import 'boss_reports_screen.dart';
+import 'boss_manage_screen.dart' show BossQuickActions;
 import 'boss_staff_today_screen.dart';
 
 /// SBOX BOSS — «Tổng quan hôm nay»: doanh thu ngày kinh doanh hiện tại so với cùng giờ hôm qua /
@@ -109,6 +110,8 @@ class _BossDashboardScreenState extends State<BossDashboardScreen> with WidgetsB
         children: [
           _RevenueHero(data: d),
           const SizedBox(height: SboxSpace.md),
+          const BossQuickActions(),
+          const SizedBox(height: SboxSpace.md),
           BossIssuesCard(refreshTick: _issuesTick, onOpenInbox: widget.onOpenInbox),
           const SizedBox(height: SboxSpace.md),
           _MoneyCard(data: d),
@@ -167,18 +170,37 @@ class _RevenueHero extends StatelessWidget {
     final discount = _num(today['discount']);
     // Máy chủ cũ chưa trả lãi gộp → không hiện dòng này.
     final gross = today['grossProfit'] is num ? _num(today['grossProfit']) : null;
-    return Material(
-      color: Colors.transparent,
-      child: Ink(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [SboxColors.brand700, SboxColors.brand500],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: SboxRadius.lgAll,
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [SboxColors.brand500, SboxColors.brand700],
+          begin: Alignment.topRight,
+          end: Alignment.bottomLeft,
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        borderRadius: SboxRadius.lgAll,
+        boxShadow: [BoxShadow(color: Color(0x332C3C5E), blurRadius: 16, offset: Offset(0, 6))],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: Stack(children: [
+        // Góc trang trí SBOX BOSS: quầng sáng trắng rất nhạt + viền vàng mảnh.
+        Positioned(
+          right: -48,
+          top: -48,
+          child: IgnorePointer(
+            child: Container(
+              width: 150,
+              height: 150,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: SboxColors.white.withValues(alpha: 0.06),
+                border: Border.all(color: SboxColors.gold.withValues(alpha: 0.55), width: 1.5),
+              ),
+            ),
+          ),
+        ),
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           InkWell(
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
             onTap: () => bossOpenReport(context, BossReportType.business),
@@ -198,7 +220,7 @@ class _RevenueHero extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
                   child: Text(SboxFmt.money(revenue),
-                      style: SboxType.moneyStyle(size: SboxType.display, c: SboxColors.white)),
+                      style: SboxType.moneyStyle(size: SboxType.display, c: SboxColors.gold)),
                 ),
                 const SizedBox(height: SboxSpace.sm),
                 Row(children: [
@@ -260,6 +282,7 @@ class _RevenueHero extends StatelessWidget {
             ]),
           ),
         ]),
+        ]),
       ),
     );
   }
@@ -281,7 +304,7 @@ class _HeroStat extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: SboxSpace.sm, vertical: SboxSpace.xs),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(tr(label), style: SboxType.captionStyle(SboxColors.brand100)),
+              Text(tr(label), style: SboxType.captionStyle(SboxColors.brand200)),
               FittedBox(
                 fit: BoxFit.scaleDown,
                 alignment: Alignment.centerLeft,
@@ -491,7 +514,7 @@ class _HourlyChart extends StatelessWidget {
                 SboxSeries(
                   name: tr('Hôm qua'),
                   values: [for (final r in shown) _num(r['yesterday'])],
-                  color: SboxColors.slate400,
+                  color: SboxColors.goldDeep,
                 ),
               ],
               dashedSeries: const {1},

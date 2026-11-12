@@ -3,16 +3,19 @@ import 'package:flutter/material.dart';
 import 'boss_load_error.dart';
 
 import '../../l10n/app_tr.dart';
+import '../../models/cash_transaction.dart';
 import '../../screens/pos/pos_risk_report_screen.dart';
 import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/branch_switcher.dart';
+import '../../widgets/pos/pos_party_debt_detail_page.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import '../../widgets/sbox/sbox_charts.dart';
 import '../../screens/staff/staff_nav.dart';
 import 'boss_end_of_day_screen.dart';
 import 'boss_manage_screen.dart' show openBossModule;
+import 'boss_icon_badge.dart';
 
 /// Báo cáo trên SBOX BOSS — mỗi loại gọi đúng endpoint báo cáo POS sẵn có (cùng số liệu với web / máy POS).
 enum BossReportType {
@@ -42,12 +45,7 @@ class BossReportsScreen extends StatelessWidget {
     void open(Widget w) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => w));
     Widget tile(IconData icon, String title, String sub, VoidCallback onTap, {SboxTone tone = SboxTone.brand}) =>
         ListTile(
-          leading: Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(color: tone.bg, borderRadius: SboxRadius.mdAll),
-            child: Icon(icon, color: tone.fg),
-          ),
+          leading: BossIconBadge(icon, size: 40, color: tone == SboxTone.brand ? null : tone.solid),
           title: Text(tr(title), style: SboxType.bodyStrong()),
           subtitle: Text(tr(sub)),
           trailing: const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
@@ -65,8 +63,8 @@ class BossReportsScreen extends StatelessWidget {
             open(Scaffold(
               backgroundColor: SboxColors.page,
               appBar: AppBar(
-                backgroundColor: SboxColors.brand700,
-                foregroundColor: SboxColors.white,
+                backgroundColor: SboxColors.bar,
+                foregroundColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.white,
                 title: Text(tr('Cuối ngày')),
                 actions: const [
                   Padding(
@@ -249,8 +247,8 @@ class _BossReportDetailScreenState extends State<BossReportDetailScreen> {
     return Scaffold(
       backgroundColor: SboxColors.page,
       appBar: AppBar(
-        backgroundColor: SboxColors.brand700,
-        foregroundColor: SboxColors.white,
+        backgroundColor: SboxColors.bar,
+        foregroundColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.white,
         title: Text(tr(t.label)),
         actions: const [
           Padding(
@@ -462,7 +460,7 @@ class _BossReportDetailScreenState extends State<BossReportDetailScreen> {
           if (d.containsKey('balanceByMethod')) ...[
             _gap,
             _lines('Tồn cuối theo quỹ', [
-              for (final b in _list(d['balanceByMethod'])) (tr('${b['paymentMethod'] ?? ''}'), _num(b['closing']), null),
+              for (final b in _list(d['balanceByMethod'])) (tr(PaymentMethodType.parse(b['paymentMethod']).label), _num(b['closing']), null),
             ]),
           ],
           if (days.length > 1) ...[
@@ -627,22 +625,58 @@ class _BossReportDetailScreenState extends State<BossReportDetailScreen> {
           _gap,
           SboxCard(title: 'Tuổi nợ khách', child: aging(d)),
           _gap,
-          _rank('Khách nợ nhiều nhất', [
-            for (final c in _list(d['items']))
-              SboxSlice('${c['name'] ?? ''}', _num(c['currentDebt']),
-                  caption: '${c['phone'] ?? ''}${_num(c['debtOver90']) > 0 ? ' · ${tr('quá 90 ngày')} ${SboxFmt.compact(_num(c['debtOver90']))}' : ''}'),
-          ], color: SboxColors.warning),
+          _debtList('Khách nợ nhiều nhất', _list(d['items']), isCustomer: true),
           if (sup.isNotEmpty) ...[
             _gap,
-            SboxCard(title: 'Tuổi nợ nhà cung cấp', child: aging(sup)),
+            SboxCard(
+              title: 'Tuổi nợ nhà cung cấp',
+              subtitle: _num(sup['sumOpenReceiptDebt']) > _num(sup['sumDebt'])
+                  ? '${tr('Tính theo phiếu nhập còn nợ. Đã có')} ${SboxFmt.money(_num(sup['sumOpenReceiptDebt']) - _num(sup['sumDebt']))} ${tr('trả hàng, trả nợ chưa gắn phiếu')}'
+                  : null,
+              child: aging(sup),
+            ),
             _gap,
-            _rank('Nợ nhà cung cấp nhiều nhất', [
-              for (final s in _list(sup['items'])) SboxSlice('${s['name'] ?? ''}', _num(s['currentDebt']), caption: '${s['phone'] ?? ''}'),
-            ], color: SboxColors.danger),
+            _debtList('Nợ nhà cung cấp nhiều nhất', _list(sup['items']), isCustomer: false),
           ],
         ];
     }
   }
+
+  /// Danh sách nợ: bấm một dòng xem nợ từ những chứng từ nào, sổ đối chiếu.
+  Widget _debtList(String title, List<Map<String, dynamic>> rows, {required bool isCustomer}) => SboxCard(
+        title: title,
+        subtitle: rows.isEmpty ? null : 'Bấm để xem chứng từ còn nợ',
+        padding: EdgeInsets.zero,
+        child: Column(children: [
+          if (rows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(SboxSpace.lg),
+              child: Text(tr('Không có công nợ'), style: SboxType.bodyStyle(SboxColors.textMuted)),
+            ),
+          for (var i = 0; i < rows.length && i < 30; i++) ...[
+            if (i > 0) const Divider(height: 1),
+            ListTile(
+              dense: true,
+              title: Text('${rows[i]['name'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.bodyStrong()),
+              subtitle: Text(
+                '${rows[i]['phone'] ?? ''}${_num(rows[i]['debtOver90']) > 0 ? ' · ${tr('quá 90 ngày')} ${SboxFmt.compact(_num(rows[i]['debtOver90']))}' : ''}',
+              ),
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(SboxFmt.money(_num(rows[i]['currentDebt'])), style: SboxType.moneyStyle(c: SboxColors.dangerText)),
+                const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
+              ]),
+              onTap: () => showPosPartyDebtDetail(
+                context,
+                isCustomer: isCustomer,
+                id: '${rows[i]['id']}',
+                name: '${rows[i]['name'] ?? ''}',
+                phone: rows[i]['phone']?.toString(),
+                debt: _num(rows[i]['currentDebt']),
+              ),
+            ),
+          ],
+        ]),
+      );
 
   Widget _kv(String k, String v, Color? c) => Padding(
         padding: const EdgeInsets.symmetric(vertical: SboxSpace.xs),

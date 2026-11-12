@@ -15,6 +15,7 @@ import '../../widgets/pos/pos_cash_voucher_dialog.dart';
 import '../../widgets/sbox/sbox_basics.dart';
 import '../../widgets/sbox/sbox_charts.dart';
 import '../../widgets/warehouse/wh_doc_type.dart';
+import 'boss_icon_badge.dart';
 
 /// Mở bảng «Tạo phiếu» (nút ＋ của SBOX BOSS). Trả về true khi đã tạo phiếu (để danh sách tải lại).
 Future<bool> showBossCreateSheet(BuildContext context) async {
@@ -27,7 +28,7 @@ Future<bool> showBossCreateSheet(BuildContext context) async {
           !staffCanOpen(ctx, module, listen: false)
               ? null
               : ListTile(
-                  leading: CircleAvatar(backgroundColor: color.withValues(alpha: 0.12), child: Icon(icon, color: color)),
+                  leading: BossIconBadge(icon, size: 40),
                   title: Text(tr(title)),
                   subtitle: Text(tr(sub)),
                   onTap: () => Navigator.pop(ctx, key),
@@ -100,7 +101,7 @@ double _parseMoney(String s) => double.tryParse(s.replaceAll(RegExp(r'[^\d]'), '
 void _snack(BuildContext context, String msg) =>
     ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(tr(msg))));
 
-/// SBOX BOSS — phiếu thu chi gần đây (lọc Thu / Chi / Chờ duyệt), mở từ tab «Quản lý». Tạo phiếu bằng nút ＋.
+/// SBOX BOSS — phiếu thu chi theo kỳ (lọc Thu / Chi / Chờ duyệt), bấm phiếu xem chi tiết. Tạo phiếu bằng nút ＋.
 class BossVouchersScreen extends StatefulWidget {
   const BossVouchersScreen({super.key, required this.refreshTick});
 
@@ -117,6 +118,29 @@ class _BossVouchersScreenState extends State<BossVouchersScreen> {
   String? _error;
   String _filter = 'all';
   String? _branch;
+  String _period = '14d';
+  bool _hasMore = false;
+  bool _loadingMore = false;
+  int _page = 1;
+  int _seq = 0;
+  static const _pageSize = 100;
+
+  static const _periods = [('today', 'Hôm nay'), ('7d', '7 ngày'), ('14d', '14 ngày'), ('month', 'Tháng này'), ('lastMonth', 'Tháng trước')];
+
+  (DateTime, DateTime) get _range {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final endToday = DateTime(now.year, now.month, now.day, 23, 59, 59);
+    return switch (_period) {
+      'today' => (today, endToday),
+      '7d' => (today.subtract(const Duration(days: 6)), endToday),
+      'month' => (DateTime(now.year, now.month), endToday),
+      'lastMonth' => (DateTime(now.year, now.month - 1), DateTime(now.year, now.month).subtract(const Duration(seconds: 1))),
+      _ => (today.subtract(const Duration(days: 13)), endToday),
+    };
+  }
+
+  String get _periodLabel => _periods.firstWhere((p) => p.$1 == _period).$2;
 
   @override
   void initState() {
@@ -144,23 +168,26 @@ class _BossVouchersScreenState extends State<BossVouchersScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    setState(() => _loading = true);
-    final now = DateTime.now();
-    final r = await ApiService().getCashTransactions(
-      pageNumber: 1,
-      pageSize: 100,
-      fromDate: DateTime(now.year, now.month, now.day).subtract(const Duration(days: 14)),
-      toDate: DateTime(now.year, now.month, now.day, 23, 59, 59),
-    );
-    if (!mounted) return;
+  Future<void> _load({bool more = false}) async {
+    final seq = ++_seq;
+    setState(() => more ? _loadingMore = true : _loading = true);
+    final (from, to) = _range;
+    final page = more ? _page + 1 : 1;
+    final r = await ApiService().getCashTransactions(pageNumber: page, pageSize: _pageSize, fromDate: from, toDate: to);
+    if (!mounted || seq != _seq) return;
     setState(() {
       _loading = false;
+      _loadingMore = false;
       final d = r['data'];
       final list = d is List ? d : (d is Map ? (d['items'] ?? d['data'] ?? const []) as List : const []);
       if (r['isSuccess'] == true) {
-        _items = [for (final e in list) if (e is Map) CashTransaction.fromJson(Map<String, dynamic>.from(e))];
+        final rows = [for (final e in list) if (e is Map) CashTransaction.fromJson(Map<String, dynamic>.from(e))];
+        _items = more ? [..._items, ...rows] : rows;
+        _page = page;
+        _hasMore = rows.length >= _pageSize;
         _error = null;
+      } else if (more) {
+        _snack(context, r['message']?.toString() ?? 'Không tải được phiếu');
       } else {
         _error = r['message']?.toString() ?? 'Không tải được phiếu';
       }
@@ -184,6 +211,24 @@ class _BossVouchersScreenState extends State<BossVouchersScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(SboxSpace.lg, SboxSpace.md, SboxSpace.lg, 96),
         children: [
+          SizedBox(
+            height: 40,
+            child: ListView(scrollDirection: Axis.horizontal, children: [
+              for (final p in _periods)
+                Padding(
+                  padding: const EdgeInsets.only(right: SboxSpace.sm),
+                  child: ChoiceChip(
+                    label: Text(tr(p.$2)),
+                    selected: _period == p.$1,
+                    onSelected: (_) {
+                      setState(() => _period = p.$1);
+                      _load();
+                    },
+                  ),
+                ),
+            ]),
+          ),
+          const SizedBox(height: SboxSpace.sm),
           Wrap(spacing: SboxSpace.sm, children: [
             for (final f in const [('all', 'Tất cả'), ('income', 'Thu'), ('expense', 'Chi'), ('pending', 'Chờ duyệt')])
               ChoiceChip(
@@ -194,15 +239,16 @@ class _BossVouchersScreenState extends State<BossVouchersScreen> {
           ]),
           const SizedBox(height: SboxSpace.sm),
           Text(
-            tr('14 ngày gần nhất · thu ${SboxFmt.money(income.fold<double>(0, (s, t) => s + t.amount))}'
-                ' · chi ${SboxFmt.money(expense.fold<double>(0, (s, t) => s + t.amount))}'),
+            '${tr(_periodLabel)} · ${tr('thu')} ${SboxFmt.money(income.fold<double>(0, (s, t) => s + t.amount))}'
+            ' · ${tr('chi')} ${SboxFmt.money(expense.fold<double>(0, (s, t) => s + t.amount))}'
+            '${_hasMore ? ' · ${tr('chưa tải hết')}' : ''}',
             style: SboxType.captionStyle(),
           ),
           const SizedBox(height: SboxSpace.sm),
           if (_loading && _items.isEmpty)
             const SboxLoading()
           else if (_error != null)
-            BossLoadError(title: 'Không tải được phiếu', message: _error)
+            BossLoadError(title: 'Không tải được phiếu', message: _error, onRetry: _load)
           else if (shown.isEmpty)
             const SboxEmptyState(icon: Icons.receipt_long_rounded, title: 'Chưa có phiếu thu chi')
           else
@@ -215,6 +261,15 @@ class _BossVouchersScreenState extends State<BossVouchersScreen> {
                 ],
               ]),
             ),
+          if (_hasMore && _error == null) ...[
+            const SizedBox(height: SboxSpace.md),
+            SboxButton(
+              label: 'Tải thêm phiếu',
+              expand: true,
+              loading: _loadingMore,
+              onPressed: _loadingMore ? null : () => _load(more: true),
+            ),
+          ],
         ],
       ),
     );
@@ -233,11 +288,9 @@ class _VoucherTile extends StatelessWidget {
     final pending = t.status == CashTransactionStatus.pending;
     final d = t.transactionDate.toLocal();
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: (income ? SboxColors.success : SboxColors.danger).withValues(alpha: 0.12),
-        child: Icon(income ? Icons.south_west_rounded : Icons.north_east_rounded,
-            color: income ? SboxColors.success : SboxColors.danger, size: 20),
-      ),
+      onTap: () => _showVoucherDetail(context, t),
+      // Ô xanh đen icon vàng như logo; thu / chi phân biệt bằng mũi tên và màu số tiền.
+      leading: BossIconBadge(income ? Icons.south_west_rounded : Icons.north_east_rounded, size: 40),
       title: Text(t.description.isEmpty ? t.categoryName : t.description,
           maxLines: 1, overflow: TextOverflow.ellipsis,
           style: TextStyle(decoration: cancelled ? TextDecoration.lineThrough : null)),
@@ -256,6 +309,59 @@ class _VoucherTile extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// Chi tiết một phiếu thu / chi. Sửa, hủy phiếu làm ở «Sổ quỹ».
+void _showVoucherDetail(BuildContext context, CashTransaction t) {
+  final income = t.type == CashTransactionType.income;
+  final d = t.transactionDate.toLocal();
+  String two(int n) => n.toString().padLeft(2, '0');
+  Widget row(String k, String? v) => (v == null || v.trim().isEmpty)
+      ? const SizedBox.shrink()
+      : Padding(
+          padding: const EdgeInsets.symmetric(vertical: SboxSpace.xs),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            SizedBox(width: 120, child: Text(tr(k), style: SboxType.bodyStyle(SboxColors.textSecondary))),
+            Expanded(child: Text(v, style: SboxType.bodyStyle())),
+          ]),
+        );
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.8),
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(SboxSpace.lg, 0, SboxSpace.lg, SboxSpace.lg),
+          children: [
+            Text(tr(income ? 'Phiếu thu' : 'Phiếu chi'), style: SboxType.titleSmStyle()),
+            const SizedBox(height: SboxSpace.xs),
+            Text('${income ? '+' : '−'}${SboxFmt.money(t.amount)}',
+                style: SboxType.moneyStyle(c: income ? SboxColors.successText : SboxColors.dangerText)),
+            const SizedBox(height: SboxSpace.md),
+            row('Mã phiếu', t.transactionCode),
+            row('Thời gian', '${two(d.day)}/${two(d.month)}/${d.year} ${two(d.hour)}:${two(d.minute)}'),
+            row('Trạng thái', tr(switch (t.status) {
+              CashTransactionStatus.pending => 'Chờ duyệt',
+              CashTransactionStatus.cancelled => 'Đã hủy',
+              _ => 'Hoàn thành',
+            })),
+            row('Danh mục', t.categoryName),
+            row('Hình thức', tr(t.paymentMethod.label)),
+            row('Tài khoản', t.bankAccountName),
+            row('Người nộp / nhận', t.contactName),
+            row('Điện thoại', t.contactPhone),
+            row('Nội dung', t.description),
+            row('Chứng từ gốc', t.sourceLabel),
+            row('Người lập', t.createdByUserName),
+            row('Ghi chú', t.internalNote),
+          ],
+        ),
+      ),
+    ),
+  );
 }
 
 /// Ô nhập số tiền (tự thêm dấu chấm hàng nghìn).

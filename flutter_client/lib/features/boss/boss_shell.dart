@@ -10,6 +10,7 @@ import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../../screens/notifications_screen.dart';
+import '../../screens/settings_screen.dart';
 import '../../screens/staff/staff_nav.dart';
 import '../../services/api_service.dart';
 import '../../services/branch_session.dart';
@@ -31,6 +32,7 @@ import 'boss_inbox_screen.dart';
 import 'boss_manage_screen.dart';
 import 'boss_reports_screen.dart';
 import 'boss_vouchers_screen.dart';
+import 'boss_icon_badge.dart';
 
 /// Shell app SBOX BOSS (flavor `boss`): chỉ chủ / quản lý — tab Tổng quan · Cần duyệt · Báo cáo · Quản lý · Thêm,
 /// chuông thông báo, nút ＋ tạo phiếu nhanh.
@@ -254,8 +256,9 @@ class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
     return Scaffold(
       backgroundColor: SboxColors.page,
       appBar: AppBar(
-        backgroundColor: SboxColors.brand700,
-        foregroundColor: SboxColors.white,
+        backgroundColor: SboxColors.bar,
+        foregroundColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.white,
+        titleSpacing: SboxSpace.lg,
         title: Text(tr(_titles[_tab])),
         actions: [
           IconButton(
@@ -269,7 +272,7 @@ class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
           ),
           const Padding(
             padding: EdgeInsets.only(right: SboxSpace.sm),
-            child: Center(child: BranchSwitcher(compact: true, onDark: true)),
+            child: Center(child: BranchSwitcher(compact: true)),
           ),
         ],
       ),
@@ -286,8 +289,8 @@ class _BossShellState extends State<BossShell> with WidgetsBindingObserver {
       floatingActionButton: _tab == 0
           ? FloatingActionButton(
               tooltip: tr('Tạo phiếu'),
-              backgroundColor: SboxColors.brand600,
-              foregroundColor: SboxColors.white,
+              backgroundColor: SboxColors.action,
+              foregroundColor: SboxColors.onAction,
               onPressed: () => showBossCreateSheet(context),
               child: const Icon(Icons.add_rounded),
             )
@@ -340,7 +343,10 @@ class _BossNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? SboxColors.brand600 : SboxColors.slate500;
+    // SBOX BOSS: ô đang chọn nền vàng gold, icon / chữ xanh đen (như logo).
+    final color = selected
+        ? (SboxColors.isBoss ? SboxColors.brand800 : SboxColors.brand600)
+        : (SboxColors.isBoss ? SboxColors.textSecondary : SboxColors.slate500);
     return Semantics(
       button: true,
       selected: selected,
@@ -355,7 +361,7 @@ class _BossNavItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: SboxSpace.xs, vertical: 6),
           decoration: selected
               ? BoxDecoration(
-                  color: SboxColors.brand600.withValues(alpha: 0.1),
+                  color: SboxColors.isBoss ? SboxColors.goldMain : SboxColors.brand600.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(SboxRadius.lg),
                 )
               : null,
@@ -426,10 +432,10 @@ class _BossMoreScreenState extends State<_BossMoreScreen> {
           child: Row(children: [
             CircleAvatar(
               radius: 24,
-              backgroundColor: SboxColors.brand100,
+              backgroundColor: SboxColors.brand600,
               child: Text(
                 user.name.trim().isEmpty ? '?' : user.name.trim()[0].toUpperCase(),
-                style: SboxType.titleStyle(SboxColors.brand800),
+                style: SboxType.titleStyle(SboxColors.gold),
               ),
             ),
             const SizedBox(width: SboxSpace.md),
@@ -452,7 +458,7 @@ class _BossMoreScreenState extends State<_BossMoreScreen> {
                 final s = BranchSession.instance;
                 if (!s.showSwitcher) return const SizedBox.shrink();
                 return ListTile(
-                  leading: const Icon(Icons.storefront_rounded, color: SboxColors.brand600),
+                  leading: const BossIconBadge(Icons.storefront_rounded, size: 36),
                   title: Text(tr('Chi nhánh đang xem')),
                   subtitle: Text(tr(s.currentLabel)),
                   trailing: const Icon(Icons.chevron_right_rounded),
@@ -461,7 +467,16 @@ class _BossMoreScreenState extends State<_BossMoreScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(Icons.logout_rounded, color: SboxColors.danger),
+              leading: const BossIconBadge(Icons.settings_rounded, size: 36),
+              title: Text(tr('Cài đặt')),
+              subtitle: Text(tr('Hồ sơ, đổi mật khẩu, ngôn ngữ, thông báo')),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const SettingsScreen(showAppBar: true)),
+              ),
+            ),
+            ListTile(
+              leading: const BossIconBadge(Icons.logout_rounded, size: 36, color: SboxColors.danger),
               title: Text(tr('Đăng xuất'), style: const TextStyle(color: SboxColors.dangerText)),
               onTap: () => _confirmLogout(context),
             ),

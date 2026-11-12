@@ -7,7 +7,15 @@
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<string>vi</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>vi</string>
+		<string>en</string>
+		<string>ko</string>
+		<string>ja</string>
+		<string>zh</string>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>SBOX HRM</string>
 	<key>CFBundleExecutable</key>

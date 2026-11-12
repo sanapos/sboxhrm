@@ -184,6 +184,10 @@ class ThemeProvider extends ChangeNotifier {
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: false,
+        toolbarHeight: SboxColors.isBoss ? SboxColors.barHeight : null,
+        leadingWidth: SboxColors.isBoss ? 44 : null,
+        titleSpacing: SboxColors.isBoss ? 4 : null,
+        titleTextStyle: SboxColors.isBoss ? tt.titleMedium?.copyWith(color: SboxColors.onBar, fontWeight: SboxType.bold) : null,
         // Không đặt titleTextStyle / iconTheme: Flutter tự lấy textTheme.titleLarge + màu theo
         // foregroundColor. Đặt cứng ở đây thì AppBar nền màu (foregroundColor: white — công tác phí,
         // nguy cơ gian lận, đơn nghỉ…) vẫn chữ / mũi tên tối, gần như không đọc được.
@@ -192,17 +196,18 @@ class ThemeProvider extends ChangeNotifier {
       ),
       cardTheme: CardThemeData(
         color: surface,
-        elevation: 0,
+        elevation: SboxColors.isBoss ? 1 : 0,
+        shadowColor: SboxColors.isBoss ? const Color(0x22141B2C) : null,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: SboxRadius.lgAll,
-          side: BorderSide(color: border),
+          side: SboxColors.isBoss ? BorderSide.none : BorderSide(color: border),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: primary,
-          foregroundColor: Colors.white,
+          backgroundColor: SboxColors.isBoss ? SboxColors.action : primary,
+          foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
           minimumSize: const Size(0, SboxSize.control),
           padding: btnPad,
           shape: btnShape,
@@ -212,8 +217,8 @@ class ThemeProvider extends ChangeNotifier {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: primary,
-          foregroundColor: Colors.white,
+          backgroundColor: SboxColors.isBoss ? SboxColors.action : primary,
+          foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
           minimumSize: const Size(0, SboxSize.control),
           padding: btnPad,
           shape: btnShape,
@@ -282,16 +287,25 @@ class ThemeProvider extends ChangeNotifier {
         surfaceTintColor: Colors.transparent,
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: surface,
+        backgroundColor: SboxColors.isBoss ? SboxColors.bar : surface,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: primarySoft,
+        // SBOX BOSS: cùng nền với trang, thấp hơn để dành chỗ; tab đang chọn là ô vàng, icon xanh đen.
+        height: SboxColors.isBoss ? 56 : null,
+        indicatorColor: SboxColors.isBoss ? SboxColors.action : primarySoft,
         elevation: 0,
         labelTextStyle: WidgetStateProperty.resolveWith((s) => tt.labelSmall?.copyWith(
-              color: s.contains(WidgetState.selected) ? primary : textMuted,
+              color: s.contains(WidgetState.selected)
+                  ? (SboxColors.isBoss ? SboxColors.brand700 : primary)
+                  : (SboxColors.isBoss ? SboxColors.textSecondary : textMuted),
               fontWeight: s.contains(WidgetState.selected) ? SboxType.semibold : SboxType.medium,
+              fontSize: SboxColors.isBoss ? 11 : null,
+              height: SboxColors.isBoss ? 1.1 : null,
             )),
         iconTheme: WidgetStateProperty.resolveWith((s) => IconThemeData(
-              color: s.contains(WidgetState.selected) ? primary : textMuted,
+              size: SboxColors.isBoss ? 22 : null,
+              color: s.contains(WidgetState.selected)
+                  ? (SboxColors.isBoss ? SboxColors.brand800 : primary)
+                  : (SboxColors.isBoss ? SboxColors.textSecondary : textMuted),
             )),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
@@ -373,15 +387,15 @@ class ThemeProvider extends ChangeNotifier {
         waitDuration: const Duration(milliseconds: 400),
       ),
       listTileTheme: ListTileThemeData(
-        iconColor: textSecondary,
+        iconColor: SboxColors.isBoss ? SboxColors.brand600 : textSecondary,
         titleTextStyle: tt.bodyMedium?.copyWith(fontWeight: SboxType.medium),
         subtitleTextStyle: tt.bodySmall,
         shape: const RoundedRectangleBorder(borderRadius: SboxRadius.mdAll),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: primary,
-        foregroundColor: Colors.white,
-        elevation: 2,
+        backgroundColor: SboxColors.isBoss ? SboxColors.action : primary,
+        foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
+        elevation: SboxColors.isBoss ? 4 : 2,
         shape: const RoundedRectangleBorder(borderRadius: SboxRadius.lgAll),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(

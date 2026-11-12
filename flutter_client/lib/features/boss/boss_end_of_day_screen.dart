@@ -96,7 +96,7 @@ class _BossEndOfDayScreenState extends State<BossEndOfDayScreen> {
     final d = _data;
     return Column(children: [
       Material(
-        color: Theme.of(context).colorScheme.surface,
+        color: SboxColors.isBoss ? SboxColors.bar : Theme.of(context).colorScheme.surface,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: SboxSpace.sm, vertical: SboxSpace.xs),
           child: Row(children: [

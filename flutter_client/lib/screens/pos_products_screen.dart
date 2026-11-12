@@ -58,7 +58,10 @@ import '../widgets/sbox/sbox_ui.dart';
 import '../widgets/pos/pos_list_filters.dart';
 /// Danh sách hàng hóa — giao diện kiểu KiotViet.
 class PosProductsScreen extends StatefulWidget {
-  const PosProductsScreen({super.key});
+  const PosProductsScreen({super.key, this.initialStockFilter = PosStockFilter.all});
+
+  /// Mở sẵn bộ lọc tồn (vd «Hàng đã hết» trên SBOX BOSS mở thẳng danh sách hàng hết).
+  final PosStockFilter initialStockFilter;
 
   @override
   State<PosProductsScreen> createState() => _PosProductsScreenState();
@@ -90,7 +93,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   String? _locationFilter;
   String? _supplierFilter;
   PosProductType? _typeFilter;
-  PosStockFilter _stockFilter = PosStockFilter.all;
+  late PosStockFilter _stockFilter = widget.initialStockFilter;
   PosStockoutFilter _stockoutFilter = PosStockoutFilter.all;
   bool? _directSaleFilter;
   PosProductSortBy _sortBy = PosProductSortBy.createdAt;

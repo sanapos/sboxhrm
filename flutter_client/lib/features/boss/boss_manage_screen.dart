@@ -5,17 +5,30 @@ import '../../l10n/app_tr.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
 import '../../screens/account_management_screen.dart';
+import '../../screens/advance_requests_screen.dart';
+import '../../screens/attendance_approval_v2/aa_hub_screen.dart';
 import '../../screens/attendance_by_shift_screen.dart';
 import '../../screens/attendance_summary_screen.dart';
+import '../../screens/cash_report_screen.dart';
+import '../../screens/cash_transaction_screen.dart';
 import '../../screens/department_screen.dart';
 import '../../screens/device_users_screen.dart';
 import '../../screens/employees_screen.dart';
 import '../../screens/feedback_screen.dart';
 import '../../screens/late_early_report_screen.dart';
+import '../../screens/hr_finance/hr_finance_hub_screen.dart';
+import '../../screens/leave_screen.dart';
 import '../../screens/payroll_screen.dart';
 import '../../screens/penalty_tickets_screen.dart';
 import '../../screens/salary_settings_screen.dart';
+import '../../screens/pos/pos_customer_debt_report_screen.dart';
+import '../../screens/pos/pos_customers_screen.dart';
+import '../../screens/pos/pos_price_lists_screen.dart';
+import '../../screens/pos/pos_qr_online_orders_screen.dart';
+import '../../screens/pos/pos_split_report_screens.dart';
 import '../../screens/pos_products_screen.dart';
+import '../../screens/pos_sale_order_list_screen.dart';
+import '../../screens/pos_sale_return_list_screen.dart';
 import '../../screens/pos_supplier_list_screen.dart';
 import '../../screens/role_permissions_screen.dart';
 import '../../screens/settings_hub_screen.dart';
@@ -31,6 +44,7 @@ import '../../widgets/sbox/sbox_basics.dart';
 import '../../widgets/warehouse/wh_doc_type.dart';
 import 'boss_staff_today_screen.dart';
 import 'boss_vouchers_screen.dart';
+import 'boss_icon_badge.dart';
 
 /// Một ô chức năng của tab «Quản lý». [moduleCode] quyết định ẩn / hiện theo gói dịch vụ và quyền.
 class _BossTool {
@@ -47,10 +61,40 @@ void _pushPos(BuildContext context, Widget child) => Navigator.of(context)
 
 final _sections = <(String, List<_BossTool>)>[
   (
+    'Bán hàng & khách hàng',
+    [
+      _BossTool('PosSaleOrders', 'Đơn hàng', Icons.receipt_long_rounded,
+          (c) => _pushPos(c, const PosSaleOrderListScreen())),
+      _BossTool('PosSaleReturns', 'Trả hàng bán', Icons.assignment_return_rounded,
+          (c) => _pushPos(c, const PosSaleReturnListScreen())),
+      _BossTool('PosCustomers', 'Khách hàng', Icons.people_rounded,
+          (c) => _pushPos(c, const PosCustomersScreen())),
+      _BossTool('PosQrOrder', 'Đơn online', Icons.shopping_bag_rounded,
+          (c) => _pushPos(c, const PosQrOnlineOrdersScreen())),
+    ],
+  ),
+  (
+    'Tiền & công nợ',
+    [
+      _BossTool('CashTransaction', 'Phiếu thu chi', Icons.receipt_rounded,
+          (c) => Navigator.of(c).push(MaterialPageRoute<void>(builder: (_) => const _BossVouchersPage()))),
+      _BossTool('CashTransaction', 'Sổ quỹ', Icons.account_balance_wallet_rounded,
+          (c) => openStaffPage(c, title: 'Sổ quỹ thu chi', child: const CashTransactionScreen())),
+      _BossTool('PosReportDebt', 'Công nợ khách', Icons.request_quote_rounded,
+          (c) => _pushPos(c, const PosCustomerDebtReportScreen())),
+      _BossTool('PosReportDebt', 'Công nợ tổng hợp', Icons.account_balance_rounded,
+          (c) => _pushPos(c, const PosDebtCombinedReportScreen())),
+      _BossTool('CashReport', 'Báo cáo thu chi', Icons.bar_chart_rounded,
+          (c) => openStaffPage(c, title: 'Báo cáo thu chi', child: const CashReportScreen())),
+    ],
+  ),
+  (
     'Hàng hóa & kho',
     [
       _BossTool('PosProducts', 'Hàng hóa', Icons.inventory_2_rounded,
           (c) => _pushPos(c, const PosProductsScreen())),
+      _BossTool('PosProducts', 'Bảng giá', Icons.price_change_rounded,
+          (c) => _pushPos(c, const PosPriceListsScreen())),
       _BossTool('PosPurchaseReceipts', 'Nhập hàng', Icons.local_shipping_rounded,
           (c) => WhMobileNav.openList(c, WhDocType.purchaseReceipt)),
       _BossTool('PosStockCounts', 'Kiểm kho', Icons.fact_check_rounded,
@@ -83,6 +127,8 @@ final _sections = <(String, List<_BossTool>)>[
           (c) => openStaffPage(c, title: 'Phiếu phạt', child: const PenaltyTicketsScreen())),
       _BossTool('Payroll', 'Bảng lương', Icons.payments_rounded,
           (c) => openStaffPage(c, title: 'Bảng lương', child: const PayrollScreen())),
+      _BossTool('AttendanceApproval', 'Duyệt chấm công', Icons.fact_check_rounded,
+          (c) => openStaffPage(c, title: 'Duyệt chấm công', child: const AttendanceApprovalHubScreen())),
     ],
   ),
   (
@@ -96,6 +142,12 @@ final _sections = <(String, List<_BossTool>)>[
           (c) => openStaffPage(c, title: 'Ý kiến nhân viên', child: const FeedbackScreen())),
       _BossTool('Employee', 'Hồ sơ', Icons.badge_rounded,
           (c) => openStaffPage(c, title: 'Hồ sơ nhân viên', child: const EmployeesScreen())),
+      _BossTool('Leave', 'Nghỉ phép', Icons.event_busy_rounded,
+          (c) => openStaffPage(c, title: 'Nghỉ phép', child: const LeaveScreen())),
+      _BossTool('AdvanceRequests', 'Ứng lương', Icons.savings_rounded,
+          (c) => Navigator.of(c).push(MaterialPageRoute<void>(builder: (_) => const AdvanceRequestsScreen()))),
+      _BossTool('BonusPenalty', 'Thưởng phạt', Icons.emoji_events_rounded,
+          (c) => openStaffPage(c, title: 'Thưởng phạt', child: const HrFinanceHubScreen(initialTab: HrFinTab.rewards))),
     ],
   ),
   (
@@ -107,13 +159,6 @@ final _sections = <(String, List<_BossTool>)>[
           (c) => Navigator.of(c).push(MaterialPageRoute<void>(builder: (_) => const RolePermissionsScreen()))),
       _BossTool('SettingsHub', 'Thiết lập', Icons.tune_rounded,
           (c) => Navigator.of(c).push(MaterialPageRoute<void>(builder: (_) => const SettingsHubScreen()))),
-    ],
-  ),
-  (
-    'Tiền',
-    [
-      _BossTool('CashTransaction', 'Phiếu thu chi', Icons.receipt_long_rounded,
-          (c) => Navigator.of(c).push(MaterialPageRoute<void>(builder: (_) => const _BossVouchersPage()))),
     ],
   ),
 ];
@@ -199,52 +244,90 @@ class BossManageScreen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(SboxSpace.lg, SboxSpace.lg, SboxSpace.lg, 96),
       children: [
         for (final s in visible) ...[
-          Padding(
-            padding: const EdgeInsets.only(left: 4, bottom: SboxSpace.sm),
-            child: Text(tr(s.$1), style: SboxType.titleSmStyle()),
+          SboxCard(
+            padding: const EdgeInsets.fromLTRB(SboxSpace.sm, SboxSpace.md, SboxSpace.sm, SboxSpace.sm),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Padding(
+                padding: const EdgeInsets.only(left: SboxSpace.sm, bottom: SboxSpace.sm),
+                child: Text(tr(s.$1), style: SboxType.titleSmStyle()),
+              ),
+              _ToolGrid(tools: s.$2),
+            ]),
           ),
-          GridView.extent(
-            maxCrossAxisExtent: 130,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: SboxSpace.sm,
-            crossAxisSpacing: SboxSpace.sm,
-            childAspectRatio: 0.95,
-            children: [for (final t in s.$2) _ToolTile(tool: t)],
-          ),
-          const SizedBox(height: SboxSpace.lg),
+          const SizedBox(height: SboxSpace.md),
         ],
       ],
     );
   }
 }
 
+class _ToolGrid extends StatelessWidget {
+  const _ToolGrid({required this.tools});
+
+  final List<_BossTool> tools;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, c) {
+        final cols = (c.maxWidth / 84).floor().clamp(4, 8);
+        return Wrap(children: [
+          for (final t in tools) SizedBox(width: c.maxWidth / cols, child: _ToolTile(tool: t)),
+        ]);
+      });
+}
+
 class _ToolTile extends StatelessWidget {
-  const _ToolTile({required this.tool});
+  const _ToolTile({required this.tool, this.singleLine = false});
 
   final _BossTool tool;
 
+  /// Hàng lối tắt: tên một dòng, không chừa chỗ dòng hai (thừa khoảng trống dưới thẻ).
+  final bool singleLine;
+
   @override
-  Widget build(BuildContext context) => SboxCard(
-        onTap: () => tool.onOpen(context),
-        padding: const EdgeInsets.all(SboxSpace.sm),
-        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(color: SboxTone.brand.bg, borderRadius: SboxRadius.mdAll),
-            child: Icon(tool.icon, color: SboxTone.brand.fg),
-          ),
-          const SizedBox(height: SboxSpace.sm),
-          Text(
-            tr(tool.title),
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: SboxType.bodyStrong(),
-          ),
+  Widget build(BuildContext context) {
+    final label = Text(
+      tr(tool.title),
+      textAlign: TextAlign.center,
+      maxLines: singleLine ? 1 : 2,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(fontSize: 12, height: 1.3, fontWeight: FontWeight.w500, color: SboxColors.text),
+    );
+    return InkWell(
+      borderRadius: SboxRadius.mdAll,
+      onTap: () => tool.onOpen(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: SboxSpace.sm),
+        child: Column(children: [
+          BossIconBadge(tool.icon),
+          const SizedBox(height: 6),
+          if (singleLine) label else SizedBox(height: 32, child: label),
         ]),
-      );
+      ),
+    );
+  }
+}
+
+/// Lối tắt 4 việc hay dùng ở tab Tổng quan. Mục ngoài gói dịch vụ / quyền tự ẩn.
+class BossQuickActions extends StatelessWidget {
+  const BossQuickActions({super.key});
+
+  static const _titles = ['Đơn hàng', 'Hàng hóa', 'Khách hàng', 'Sổ quỹ'];
+
+  @override
+  Widget build(BuildContext context) {
+    context.watch<PermissionProvider>();
+    final tools = [
+      for (final title in _titles)
+        for (final s in _sections)
+          for (final t in s.$2)
+            if (t.title == title && _canOpen(context, t.moduleCode, listen: true)) t,
+    ];
+    if (tools.isEmpty) return const SizedBox.shrink();
+    return SboxCard(
+      padding: const EdgeInsets.symmetric(horizontal: SboxSpace.sm, vertical: SboxSpace.xs),
+      child: Row(children: [for (final t in tools) Expanded(child: _ToolTile(tool: t, singleLine: true))]),
+    );
+  }
 }
 
 /// Phiếu thu chi mở từ tab «Quản lý», nút ＋ tạo phiếu rồi tải lại danh sách.
@@ -262,15 +345,15 @@ class _BossVouchersPageState extends State<_BossVouchersPage> {
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: SboxColors.page,
         appBar: AppBar(
-          backgroundColor: SboxColors.brand700,
-          foregroundColor: SboxColors.white,
+          backgroundColor: SboxColors.bar,
+          foregroundColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.white,
           title: Text(tr('Phiếu thu chi')),
         ),
         body: BossVouchersScreen(refreshTick: _tick),
         floatingActionButton: FloatingActionButton(
           tooltip: tr('Tạo phiếu'),
-          backgroundColor: SboxColors.brand600,
-          foregroundColor: SboxColors.white,
+          backgroundColor: SboxColors.action,
+          foregroundColor: SboxColors.onAction,
           onPressed: () async {
             if (await showBossCreateSheet(context) && mounted) setState(() => _tick++);
           },

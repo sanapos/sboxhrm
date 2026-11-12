@@ -15,21 +15,48 @@ abstract final class SboxColors {
   /// Giao diện nền sáng một màu: SBOX POS và SBOX Nhân Viên.
   static const posApp = _posApp;
 
+  /// App SBOX BOSS (build với SBOX_APP=boss): màu theo logo, xanh đen #2C3C5E và vàng gold #EFC66A. Từ thanh trạng thái,
+  /// tiêu đề, nền trang tới tab dưới và thanh điều hướng liền một màu nền [page] ([pageChrome]), không dải màu.
+  static const _bossApp = String.fromEnvironment('SBOX_APP') == 'boss';
+  static const isBoss = _bossApp;
+
+  /// Nền thanh tiêu đề và chữ, icon trên đó: BOSS cùng màu nền trang, chữ xanh đen. App khác giữ thanh trắng, chữ tối.
+  static const bar = _bossApp ? page : white;
+  static const onBar = _bossApp ? brand800 : text;
+
+  /// Vàng gold của logo SBOX BOSS: chỉ đặt trên nền xanh đen. Trên nền sáng dùng [goldText] cho đủ tương phản.
+  static const gold = Color(0xFFF5D27A);
+  static const goldMain = Color(0xFFEFC66A);
+  static const goldDeep = Color(0xFFC99A2E);
+  static const goldSoft = Color(0xFFFBF3DF);
+  static const goldText = Color(0xFF8A6410);
+
+  /// Nút chính: BOSS nền vàng, chữ xanh đen. App khác nền màu chính, chữ trắng.
+  static const action = _bossApp ? goldMain : primary;
+  static const onAction = _bossApp ? brand800 : white;
+
+  /// Ô icon: BOSS nền xanh đen, hình vàng. App khác giữ màu của nơi dùng.
+  static const iconBox = brand600;
+  static const iconOnBox = _bossApp ? gold : white;
+
+  /// Chiều cao thanh tiêu đề: BOSS thu gọn để dành chỗ cho nội dung.
+  static const barHeight = _bossApp ? 44.0 : 56.0;
+
   // ── Thương hiệu: xanh biển #158DC0 ──────────────────────────────
-  static const brand50 = _staffApp ? Color(0xFFE8F7F3) : _posOnly ? Color(0xFFEDFAFA) : Color(0xFFE8F5FB);
-  static const brand100 = _staffApp ? Color(0xFFC9EDE4) : _posOnly ? Color(0xFFCFEFEF) : Color(0xFFBFE3F3);
-  static const brand200 = _staffApp ? Color(0xFF9FDFD0) : _posOnly ? Color(0xFFA6E3E4) : Color(0xFF94D0EA);
-  static const brand300 = _staffApp ? Color(0xFF66CDB6) : _posOnly ? Color(0xFF5BD2D6) : Color(0xFF6FC0E3);
-  static const brand400 = _staffApp ? Color(0xFF23A68E) : _posOnly ? Color(0xFF28BDBF) : Color(0xFF3FA6D2);
+  static const brand50 = _bossApp ? Color(0xFFEEF1F7) : _staffApp ? Color(0xFFE8F7F3) : _posOnly ? Color(0xFFEDFAFA) : Color(0xFFE8F5FB);
+  static const brand100 = _bossApp ? Color(0xFFDCE2EE) : _staffApp ? Color(0xFFC9EDE4) : _posOnly ? Color(0xFFCFEFEF) : Color(0xFFBFE3F3);
+  static const brand200 = _bossApp ? Color(0xFFB9C4DA) : _staffApp ? Color(0xFF9FDFD0) : _posOnly ? Color(0xFFA6E3E4) : Color(0xFF94D0EA);
+  static const brand300 = _bossApp ? Color(0xFF8E9DBD) : _staffApp ? Color(0xFF66CDB6) : _posOnly ? Color(0xFF5BD2D6) : Color(0xFF6FC0E3);
+  static const brand400 = _bossApp ? Color(0xFF60739B) : _staffApp ? Color(0xFF23A68E) : _posOnly ? Color(0xFF28BDBF) : Color(0xFF3FA6D2);
   /// Màu thương hiệu (logo, thanh tiêu đề, biểu đồ, điểm nhấn).
-  static const brand500 = _staffApp ? Color(0xFF1A927E) : _posOnly ? Color(0xFF1C8F91) : Color(0xFF158DC0);
+  static const brand500 = _bossApp ? Color(0xFF3A4C74) : _staffApp ? Color(0xFF1A927E) : _posOnly ? Color(0xFF1C8F91) : Color(0xFF158DC0);
   /// Nút chính, chữ liên kết, tab đang chọn — đủ tương phản chữ trắng (≈4.8:1).
-  static const brand600 = _staffApp ? Color(0xFF148573) : _posOnly ? Color(0xFF147A7C) : Color(0xFF0F7BA8);
+  static const brand600 = _bossApp ? Color(0xFF2C3C5E) : _staffApp ? Color(0xFF148573) : _posOnly ? Color(0xFF147A7C) : Color(0xFF0F7BA8);
   /// Di chuột / nhấn.
-  static const brand700 = _staffApp ? Color(0xFF106C5E) : _posOnly ? Color(0xFF106668) : Color(0xFF0B6A91);
-  static const brand800 = _staffApp ? Color(0xFF0D5A4E) : _posOnly ? Color(0xFF0E5658) : Color(0xFF095A7B);
+  static const brand700 = _bossApp ? Color(0xFF243250) : _staffApp ? Color(0xFF106C5E) : _posOnly ? Color(0xFF106668) : Color(0xFF0B6A91);
+  static const brand800 = _bossApp ? Color(0xFF1D2842) : _staffApp ? Color(0xFF0D5A4E) : _posOnly ? Color(0xFF0E5658) : Color(0xFF095A7B);
   /// Chữ trên nền xanh nhạt.
-  static const brand900 = _staffApp ? Color(0xFF0A423A) : _posOnly ? Color(0xFF0A3F41) : Color(0xFF084B67);
+  static const brand900 = _bossApp ? Color(0xFF141D33) : _staffApp ? Color(0xFF0A423A) : _posOnly ? Color(0xFF0A3F41) : Color(0xFF084B67);
 
   /// Ô icon (truy cập nhanh, nhóm chức năng): nền chuyển màu thương hiệu của app, biểu tượng trắng.
   static const iconTileLight = brand400;
@@ -38,7 +65,7 @@ abstract final class SboxColors {
   static const primary = brand600;
 
   /// Dạng MaterialColor (cho API cần đủ tông shade50..shade900).
-  static const brandSwatch = MaterialColor(_staffApp ? 0xFF148573 : _posOnly ? 0xFF147A7C : 0xFF158DC0, <int, Color>{
+  static const brandSwatch = MaterialColor(_bossApp ? 0xFF3A4C74 : _staffApp ? 0xFF148573 : _posOnly ? 0xFF147A7C : 0xFF158DC0, <int, Color>{
     50: brand50, 100: brand100, 200: brand200, 300: brand300, 400: brand400,
     500: brand500, 600: brand600, 700: brand700, 800: brand800, 900: brand900,
   });
@@ -50,7 +77,7 @@ abstract final class SboxColors {
   // ── Khung app ───────────────────────────────────────────────────
   /// Thanh tiêu đề SBOX POS. Thanh trạng thái, thanh điều hướng dùng đúng màu này.
   static const chrome = page;
-  static const onChrome = text;
+  static const onChrome = _bossApp ? brand800 : text;
   static const onChromeMuted = slate600;
   /// Khung nền tối (chữ trắng trên thanh): tắt, các thanh cùng màu nền trang cho thoáng.
   static const darkChrome = false;
@@ -63,21 +90,21 @@ abstract final class SboxColors {
   /// App SBOX HRM (không đặt SBOX_APP, không phải POS).
   static const _hrmApp = !_posApp && String.fromEnvironment('SBOX_APP') == '';
   /// Khung một màu: thanh trạng thái, AppBar, nền trang, thanh dưới, thanh điều hướng cùng màu
-  /// [page] (không viền / bóng chia khúc) — POS, Nhân Viên, HRM. BOSS / KDS giữ kiểu cũ.
-  static const pageChrome = _posApp || _hrmApp;
+  /// [page] (không viền / bóng chia khúc) — POS, Nhân Viên, HRM, BOSS. KDS giữ kiểu cũ.
+  static const pageChrome = _posApp || _hrmApp || _bossApp;
   /// Thanh hệ thống nền sáng (icon tối).
   static const lightSystemBars = pageChrome;
 
   /// Màu dải sau thanh hệ thống theo giao diện sáng / tối.
   static Color systemBandFor({required bool dark}) {
-    if (_posApp) return chrome;
+    if (_posApp || _bossApp) return chrome;
     if (_hrmApp) return dark ? darkSurface : chrome;
     return systemBand;
   }
 
   /// Nền AppBar đặt cứng: khung một màu ([pageChrome]) đổi về màu nền trang, app khác giữ [c].
   static Color appBarBg(Color c) => pageChrome ? chrome : c;
-  static Color appBarFg(Color c) => _posApp ? onChrome : c;
+  static Color appBarFg(Color c) => _posApp || _bossApp ? onChrome : c;
 
   // ── Trung tính: một họ Slate duy nhất ───────────────────────────
   static const white = Color(0xFFFFFFFF);
@@ -94,12 +121,12 @@ abstract final class SboxColors {
   static const slate900 = Color(0xFF0F172A);
 
   /// Nền trang (xám rất nhạt, hơi lạnh cho hợp tông xanh).
-  static const page = _posApp ? Color(0xFFF4F5F7) : Color(0xFFF4F7FA);
+  static const page = _bossApp ? Color(0xFFF7F7F3) : _posApp ? Color(0xFFF4F5F7) : Color(0xFFF4F7FA);
   static const surface = white;
-  static const surfaceMuted = slate50;
-  static const border = slate200;
+  static const surfaceMuted = _bossApp ? Color(0xFFFAFAF7) : slate50;
+  static const border = _bossApp ? Color(0xFFE9E7DF) : slate200;
   static const borderStrong = slate300;
-  static const divider = Color(0xFFEDF1F5);
+  static const divider = _bossApp ? Color(0xFFF0EEE8) : Color(0xFFEDF1F5);
 
   static const text = slate900;
   static const textSecondary = slate600;
@@ -219,9 +246,10 @@ abstract final class SboxSpace {
 
 /// Bo góc: chỉ 4 mức.
 abstract final class SboxRadius {
+  static const _boss = String.fromEnvironment('SBOX_APP') == 'boss';
   static const sm = 6.0; // chip, ô nhỏ, checkbox
-  static const md = 10.0; // nút, ô nhập, thẻ nhỏ
-  static const lg = 14.0; // thẻ, hộp thoại, bảng
+  static const md = _boss ? 12.0 : 10.0; // nút, ô nhập, thẻ nhỏ (BOSS bo tròn hơn)
+  static const lg = _boss ? 18.0 : 14.0; // thẻ, hộp thoại, bảng
   static const pill = 999.0;
 
   static const smAll = BorderRadius.all(Radius.circular(sm));

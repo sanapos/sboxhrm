@@ -56,7 +56,7 @@ class GeoError {
   String toString() => 'GeoError($code): $message';
 }
 
-Future<bool> ensureLocationPermission() async => false;
+Future<bool> ensureLocationPermission({bool ask = true}) async => false;
 
 Future<GeoPosition?> getLastKnownPosition() async => null;
 
