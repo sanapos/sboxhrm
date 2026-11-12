@@ -86,6 +86,23 @@ void main() {
       expect(d.gateway, '192.168.1.1');
       expect(d.dhcp, false);
       expect(d.model, 'ZY80-Q2');
+      // Gói SAVE thật đã gửi (.89 → .201) — giữ 3C 00 / 8C 23 của máy, không dùng hằng SDK.
+      expect(
+          PosLanNetCodec.save(d.proto,
+              mac: d.mac!,
+              ip: '192.168.1.201',
+              mask: '255.255.255.0',
+              gateway: '192.168.1.1',
+              keep17: d.keep17,
+              keep31: d.keep31),
+          _hex('4d 50 34 32 30 30 53 41 56 45 00 60 35 d1 f3 82 3c 00 c0 a8 01 c9 ff ff ff 00 '
+              'c0 a8 01 01 8c 23 00'));
+    });
+
+    test('model rác sau khi đổi IP (gói thật) → null', () {
+      final raw = _hex('4d 50 34 32 30 30 46 4f 55 4e 44 00 60 35 d1 f3 82 3c 00 c0 a8 01 c9 ff ff ff 00 '
+          'c0 a8 01 01 8c 23 00 8e c1 51 f7 31 36 38 03 31 39 32 07 69 6e 2d 61 00');
+      expect(PosLanNetCodec.parse(raw, '192.168.1.201')!.model, isNull);
     });
 
     test('Rongta FOUND không có IP trong gói: lấy IP nguồn, DHCP [33] != 0', () {

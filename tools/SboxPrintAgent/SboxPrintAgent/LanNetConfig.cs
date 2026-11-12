@@ -34,7 +34,10 @@ public static class LanNetConfig
         _ => "Epson (ENPC)",
     };
 
-    public sealed record Device(Proto Proto, string Ip, byte[]? Mac, string? Mask, string? Gateway, bool? Dhcp, string? Model)
+    /// <param name="Keep17">Byte FOUND 17..18 / 31..32 (31..32 = 8C 23 = 9100 trên ZY80-Q2, nhiều khả năng là cổng in).
+    /// SAVE lệch FOUND 1 byte → gửi lại nguyên giá trị máy đang báo thay hằng SDK. Đã thử thật ZY80-Q2 .89 → .201 → .89.</param>
+    public sealed record Device(Proto Proto, string Ip, byte[]? Mac, string? Mask, string? Gateway, bool? Dhcp, string? Model,
+        byte[]? Keep17 = null, byte[]? Keep31 = null)
     {
         public string MacText => Mac == null ? "" : string.Join(":", Mac.Select(b => b.ToString("X2")));
         public string Key => Mac != null ? $"{Proto}/{MacText}" : $"{Proto}/{Ip}";
@@ -72,7 +75,9 @@ public static class LanNetConfig
         var sb = new StringBuilder();
         for (var i = o; i < d.Length && d[i] != 0; i++)
         {
-            if (d[i] < 0x20 || d[i] > 0x7E) return null;
+            // Sau khi đổi IP vùng này có thể còn rác bộ nhớ — chỉ nhận ký tự tên model.
+            var c = (char)d[i];
+            if (!(char.IsAsciiLetterOrDigit(c) || c is ' ' or '-' or '_' or '.' or '/')) return null;
             sb.Append((char)d[i]);
         }
         var s = sb.ToString().Trim();
@@ -83,19 +88,20 @@ public static class LanNetConfig
     {
         // UdpDevice: MAC 11..16, IP 19, mask 23, gw 27, DHCP [33] == 1.
         if (StartsWith(d, "XP0001FOUND") && d.Length >= 34)
-            return new Device(Proto.Xprinter, Ip(d, 19), d[11..17], Ip(d, 23), Ip(d, 27), d[33] == 1, null);
+            return new Device(Proto.Xprinter, Ip(d, 19), d[11..17], Ip(d, 23), Ip(d, 27), d[33] == 1, null, d[17..19], d[31..33]);
         // IpScanner: MAC 11..16, DHCP [33] != 0; IP/mask/gw 19/23/27 + model từ 34 theo gói thật ZY80-Q2.
         if (StartsWith(d, "MP4200FOUND") && d.Length >= 34)
             return new Device(Proto.Rongta, Zero(d, 19) ? sourceIp : Ip(d, 19), d[11..17],
-                Zero(d, 23) ? null : Ip(d, 23), Zero(d, 27) ? null : Ip(d, 27), d[33] != 0, CString(d, 34));
+                Zero(d, 23) ? null : Ip(d, 23), Zero(d, 27) ? null : Ip(d, 27), d[33] != 0, CString(d, 34), d[17..19], d[31..33]);
         // ENPC: trả lời có loại gói viết thường (gói dò của chính mình là 'P').
         if (StartsWith(d, "EPSON") && d.Length >= 6 && d[5] >= 0x61 && d[5] <= 0x7A)
             return new Device(Proto.Epson, sourceIp, null, null, null, null, null);
         return null;
     }
 
-    /// <summary>Gói SAVE 33 byte đặt IP tĩnh — hằng số đúng theo từng SDK.</summary>
-    public static byte[] BuildSave(Proto proto, byte[] mac, string ip, string mask, string gateway)
+    /// <summary>Gói SAVE 33 byte đặt IP tĩnh. Byte 16..17 / 30..31: giá trị máy đang báo nếu có, không thì hằng SDK.</summary>
+    public static byte[] BuildSave(Proto proto, byte[] mac, string ip, string mask, string gateway,
+        byte[]? keep17 = null, byte[]? keep31 = null)
     {
         if (mac.Length != 6) throw new ArgumentException("MAC phải 6 byte");
         var ipB = ParseIp(ip) ?? throw new ArgumentException("IP không hợp lệ");
@@ -104,12 +110,15 @@ public static class LanNetConfig
         var (tag, c1, c2) = proto switch
         {
             // udpNetConfig: tag + MAC + 22 00 + IP + mask + gw + 8C 17 + dhcp(00 = tĩnh)
-            Proto.Xprinter => ("XP0001SAVE", new byte[] { 0x22, 0x00 }, new byte[] { 0x8C, 0x17, 0x00 }),
+            Proto.Xprinter => ("XP0001SAVE", new byte[] { 0x22, 0x00 }, new byte[] { 0x8C, 0x17 }),
             // IpUpdata: tag + MAC + 0F 00 + IP + mask + gw + 05 B4 + 00
-            Proto.Rongta => ("MP4200SAVE", new byte[] { 0x0F, 0x00 }, new byte[] { 0x05, 0xB4, 0x00 }),
+            Proto.Rongta => ("MP4200SAVE", new byte[] { 0x0F, 0x00 }, new byte[] { 0x05, 0xB4 }),
             _ => throw new NotSupportedException("Epson: không có gói đổi IP đã xác minh — dùng ARP + ping."),
         };
-        return Encoding.ASCII.GetBytes(tag).Concat(mac).Concat(c1).Concat(ipB).Concat(maskB).Concat(gwB).Concat(c2).ToArray();
+        if (keep17 is { Length: 2 }) c1 = keep17;
+        if (keep31 is { Length: 2 }) c2 = keep31;
+        return Encoding.ASCII.GetBytes(tag).Concat(mac).Concat(c1).Concat(ipB).Concat(maskB).Concat(gwB).Concat(c2)
+            .Append((byte)0x00).ToArray();
     }
 
     // —— IPv4 ——
@@ -289,7 +298,7 @@ public static class LanNetConfig
     /// <summary>Gửi SAVE (broadcast, máy in chọn theo MAC) 3 lần — SDK không có ACK chuẩn.</summary>
     public static async Task SendStaticIpAsync(Device d, string ip, string mask, string gateway)
     {
-        var pkt = BuildSave(d.Proto, d.Mac!, ip, mask, gateway);
+        var pkt = BuildSave(d.Proto, d.Mac!, ip, mask, gateway, d.Keep17, d.Keep31);
         var socks = OpenSockets();
         try
         {

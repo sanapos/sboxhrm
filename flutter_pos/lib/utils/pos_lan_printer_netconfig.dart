@@ -56,6 +56,8 @@ class PosLanNetDevice {
     this.gateway,
     this.dhcp,
     this.model,
+    this.keep17,
+    this.keep31,
   });
 
   final PosLanNetProto proto;
@@ -67,6 +69,12 @@ class PosLanNetDevice {
   final String? gateway;
   final bool? dhcp;
   final String? model;
+
+  /// Byte FOUND 17..18 và 31..32 (SDK không đọc; 31..32 = 8C 23 = 9100 LE trên ZY80-Q2 — nhiều khả
+  /// năng là cổng in). Gói SAVE lệch FOUND đúng 1 byte, nên gửi lại nguyên giá trị máy đang báo
+  /// thay hằng SDK để không đổi nhầm cổng in. Đã thử thật: ZY80-Q2 .89 → .201 → .89, giữ 9100.
+  final Uint8List? keep17;
+  final Uint8List? keep31;
 
   String get macText => mac == null
       ? ''
@@ -116,7 +124,11 @@ class PosLanNetCodec {
   static String? _cString(Uint8List d, int o) {
     final out = StringBuffer();
     for (var i = o; i < d.length && d[i] != 0; i++) {
-      if (d[i] < 0x20 || d[i] > 0x7E) return null;
+      // Sau khi đổi IP, vùng này có thể còn rác bộ nhớ — chỉ nhận ký tự tên model.
+      final c = d[i];
+      final ok = (c >= 0x30 && c <= 0x39) || (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A) ||
+          c == 0x20 || c == 0x2D || c == 0x5F || c == 0x2E || c == 0x2F;
+      if (!ok) return null;
       out.writeCharCode(d[i]);
     }
     final s = out.toString().trim();
@@ -134,6 +146,8 @@ class PosLanNetCodec {
         mask: _ip(d, 23),
         gateway: _ip(d, 27),
         dhcp: d[33] == 1,
+        keep17: Uint8List.fromList(d.sublist(17, 19)),
+        keep31: Uint8List.fromList(d.sublist(31, 33)),
       );
     }
     // IpScanner: MAC 11..16, DHCP [33] != 0 (SDK lấy IP từ nguồn gói). IP/mask/gw 19/23/27
@@ -148,6 +162,8 @@ class PosLanNetCodec {
         gateway: _isZero(d, 27) ? null : _ip(d, 27),
         dhcp: d[33] != 0,
         model: _cString(d, 34),
+        keep17: Uint8List.fromList(d.sublist(17, 19)),
+        keep31: Uint8List.fromList(d.sublist(31, 33)),
       );
     }
     // ENPC: "EPSON" + loại gói; trả lời viết thường (gói dò của chính mình là 'P').
@@ -157,14 +173,18 @@ class PosLanNetCodec {
     return null;
   }
 
-  /// Gói SAVE (33 byte) đặt IP tĩnh — hằng số đúng theo từng SDK.
+  /// Gói SAVE (33 byte) đặt IP tĩnh. Byte 16..17 / 30..31: giá trị máy đang báo ([keep17] / [keep31]
+  /// từ FOUND) nếu có, không thì hằng số của SDK hãng.
   static Uint8List save(
     PosLanNetProto proto, {
     required Uint8List mac,
     required String ip,
     required String mask,
     required String gateway,
+    Uint8List? keep17,
+    Uint8List? keep31,
   }) {
+    List<int> pick(Uint8List? k, List<int> sdk) => k != null && k.length == 2 ? k : sdk;
     if (mac.length != 6) throw ArgumentError('MAC phải 6 byte');
     final ipB = parseIpv4(ip), maskB = parseIpv4(mask), gwB = parseIpv4(gateway);
     if (ipB == null || maskB == null || gwB == null) {
@@ -177,21 +197,23 @@ class PosLanNetCodec {
         b
           ..add(_ascii('XP0001SAVE'))
           ..add(mac)
-          ..add(const [0x22, 0x00])
+          ..add(pick(keep17, const [0x22, 0x00]))
           ..add(ipB)
           ..add(maskB)
           ..add(gwB)
-          ..add(const [0x8C, 0x17, 0x00]);
+          ..add(pick(keep31, const [0x8C, 0x17]))
+          ..addByte(0x00);
       case PosLanNetProto.rongta:
         // IpUpdata: tag + MAC + 0F 00 + IP + mask + gw + 05 B4 + 00.
         b
           ..add(_ascii('MP4200SAVE'))
           ..add(mac)
-          ..add(const [0x0F, 0x00])
+          ..add(pick(keep17, const [0x0F, 0x00]))
           ..add(ipB)
           ..add(maskB)
           ..add(gwB)
-          ..add(const [0x05, 0xB4, 0x00]);
+          ..add(pick(keep31, const [0x05, 0xB4]))
+          ..addByte(0x00);
       case PosLanNetProto.epson:
         throw UnsupportedError('Epson: không có gói đổi IP đã xác minh');
     }
@@ -395,7 +417,7 @@ class PosLanNetConfig {
   static Future<void> sendStaticIp(PosLanNetDevice dev,
       {required String ip, required String mask, required String gateway}) async {
     final pkt = PosLanNetCodec.save(dev.proto,
-        mac: dev.mac!, ip: ip, mask: mask, gateway: gateway);
+        mac: dev.mac!, ip: ip, mask: mask, gateway: gateway, keep17: dev.keep17, keep31: dev.keep31);
     await _multicastLock(true);
     RawDatagramSocket? sock;
     try {

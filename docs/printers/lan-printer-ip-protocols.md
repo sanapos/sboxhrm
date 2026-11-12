@@ -15,7 +15,16 @@ Code: `flutter_client/lib/utils/pos_lan_printer_netconfig.dart` (bản sao ở `
 
 Kiểm chứng 2026-10-26: máy Zywell **ZY80-Q2** thật (192.168.1.89) trả lời `MP4200FIND` bằng gói 64 byte
 `4d 50 34 32 30 30 46 4f 55 4e 44 | 00 60 35 d1 f3 82 | 3c 00 | c0 a8 01 59 | ff ff ff 00 | c0 a8 01 01 | 8c 23 | 00 | "ZY80-Q2" 00…`
-→ MAC @11, IP @19, mask @23, gw @27, DHCP @33, model ASCII @34 (layout giống hệt Xprinter). Chưa gửi SAVE tới máy thật.
+→ MAC @11, IP @19, mask @23, gw @27, DHCP @33, model ASCII @34 (layout giống hệt Xprinter).
+
+**Đã thử SAVE trên máy thật (2026-10-26):** ZY80-Q2 192.168.1.89 → 192.168.1.201 → 192.168.1.89. Mỗi lần máy nhận IP mới
+sau ~2 giây, cổng 9100 mở ngay, không cần tắt/bật, không có gói ACK; mask / gw / DHCP / byte 17..18 / 31..32 giữ nguyên.
+Gói đã gửi: `4d 50 34 32 30 30 53 41 56 45 | 00 60 35 d1 f3 82 | 3c 00 | c0 a8 01 c9 | ff ff ff 00 | c0 a8 01 01 | 8c 23 | 00`.
+
+Quan trọng: gói SAVE lệch gói FOUND đúng 1 byte (tag ngắn hơn 1), nên SAVE 16..17 ↔ FOUND 17..18 và SAVE 30..31 ↔ FOUND 31..32.
+Trên ZY80-Q2 hai ô đó là `3C 00` và `8C 23` (= 9100 little-endian — nhiều khả năng là cổng in), trong khi SDK Rongta gửi hằng
+`0F 00` / `05 B4`. Gửi hằng SDK có thể đổi cổng in của máy, nên code gửi lại **nguyên giá trị máy đang báo** (chỉ dùng hằng SDK
+khi không có gói FOUND). Sau khi đổi IP, vùng model (@34) trả về rác bộ nhớ — code chỉ nhận ký tự chữ/số/`-_./`.
 
 Lưu ý khi dùng:
 - Gói SAVE không có ACK chuẩn: app gửi 3 lần rồi chờ TCP 9100 ở IP mới (tối đa 20 s). Có máy cần tắt/bật lại.
