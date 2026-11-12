@@ -57,6 +57,7 @@ public sealed class MainForm : Form
 
     readonly ModernButton _btnScan = new() { Text = "Quét mạng", Kind = ModernButton.StyleKind.Secondary, Width = 110, Height = 40 };
     readonly ModernButton _btnTestIp = new() { Text = "In thử IP", Kind = ModernButton.StyleKind.Secondary, Width = 110, Height = 40 };
+    readonly ModernButton _btnNetCfg = new() { Text = "Khác lớp mạng…", Kind = ModernButton.StyleKind.Secondary, Width = 140, Height = 40 };
     readonly ModernButton _btnAddLan = new() { Text = "Thêm máy LAN", Kind = ModernButton.StyleKind.Primary, Width = 130, Height = 40 };
     readonly ModernButton _btnCheckOnline = new() { Text = "Kiểm tra online", Kind = ModernButton.StyleKind.Secondary, Width = 140, Height = 40 };
     readonly ModernButton _btnUsbRefresh = new() { Text = "Tải lại USB", Kind = ModernButton.StyleKind.Secondary, Width = 120, Height = 40 };
@@ -304,7 +305,7 @@ public sealed class MainForm : Form
         lanGrid.Controls.Add(_lanPort, 0, 3);
         lanGrid.Controls.Add(_subnet, 0, 4);
         lanGrid.Controls.Add(_hitList, 0, 5);
-        lanGrid.Controls.Add(MakeButtonRow(_btnScan, _btnTestIp, _btnAddLan), 0, 6);
+        lanGrid.Controls.Add(MakeButtonRow(_btnScan, _btnTestIp, _btnAddLan, _btnNetCfg), 0, 6);
         lanCard.Controls.Add(lanGrid);
         addRow.Controls.Add(lanCard, 0, 0);
 
@@ -366,6 +367,7 @@ public sealed class MainForm : Form
         _btnScan.Click += async (_, _) => await ScanLanAsync();
         _btnTestIp.Click += async (_, _) => await TestLanIpAsync();
         _btnAddLan.Click += async (_, _) => await AddLanAsync();
+        _btnNetCfg.Click += async (_, _) => await NetConfigAsync();
         _btnCheckOnline.Click += async (_, _) =>
         {
             Log("Đang kiểm tra online…");
@@ -925,6 +927,48 @@ public sealed class MainForm : Form
             UiMsg.Error(ex.Message, "Tìm máy in");
         }
         finally { _btnScan.Enabled = true; }
+    }
+
+    /// <summary>Dò máy in khác lớp mạng (UDP broadcast) → đổi IP → lưu: cập nhật máy đang dùng IP cũ, hoặc thêm máy mới.</summary>
+    async Task NetConfigAsync()
+    {
+        var known = _printers.Where(ConnLabel.IsLan).Select(p => p.LanHost ?? "").Where(h => h.Length > 0)
+            .Concat(_hits.Select(h => h.Host));
+        using var f = new NetConfigForm(known);
+        if (f.ShowDialog(this) != DialogResult.OK || f.NewIp == null) return;
+        var ip = f.NewIp;
+        Log($"✓ Đổi IP máy in {f.OldIp} → {ip}:9100");
+        _lanIp.Text = ip;
+        _lanPort.Text = "9100";
+        _hits.Add(new LanScanner.Hit(ip, 9100, 0));
+        _hitList.Items.Add($"{ip}:9100  (IP mới)");
+        if (_api == null)
+        {
+            UiMsg.Info($"Máy in đã ở {ip}:9100. Đăng nhập rồi bấm «Thêm máy LAN» để lưu.", "Đổi IP thành công");
+            return;
+        }
+        var old = _printers.FirstOrDefault(p => ConnLabel.IsLan(p) &&
+            string.Equals(p.LanHost, f.OldIp, StringComparison.OrdinalIgnoreCase));
+        if (old != null)
+        {
+            try
+            {
+                await _api.UpdateLanPrinterAsync(old.Id, old.Name, ip, 9100, old.PaperSize,
+                    old.IsDefault, true, sortOrder: 0, CancellationToken.None);
+                Log($"Đã cập nhật «{old.Name}» sang {ip}:9100");
+                await RefreshPrintersAsync();
+                await SyncAgentIfNeededAsync();
+                await ProbeHealthAsync();
+                UiMsg.Info($"Đã đổi IP và cập nhật «{old.Name}» → {ip}:9100.", "Đổi IP thành công");
+            }
+            catch (Exception ex) { UiMsg.Error(ex.Message, "Lưu IP mới thất bại"); }
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_nameBox.Text) || _nameBox.Text.StartsWith("Máy in ", StringComparison.OrdinalIgnoreCase))
+            _nameBox.Text = "Máy in " + ip;
+        _hitList.SelectedIndex = _hitList.Items.Count - 1;
+        if (UiMsg.Confirm($"Máy in «{f.DeviceTitle}» đã ở {ip}:9100.\nThêm vào danh sách máy in của cửa hàng?", "Đổi IP thành công"))
+            await ConnectLanByIpAsync();
     }
 
     async Task TestLanIpAsync()

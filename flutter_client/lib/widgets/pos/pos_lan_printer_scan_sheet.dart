@@ -1,9 +1,13 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../l10n/app_tr.dart';
+import '../../utils/pos_lan_printer_netconfig.dart';
 import '../../utils/pos_lan_printer_scan.dart';
 import '../../utils/pos_thermal_printer_settings.dart';
+import 'pos_lan_printer_ip_dialog.dart';
 import 'pos_theme.dart';
 
 Future<PosLanPrinterHit?> showPosLanPrinterScanSheet(BuildContext context) {
@@ -34,6 +38,11 @@ class _LanScanSheetState extends State<_LanScanSheet> {
   String _ranges = '';
   final _hits = <PosLanPrinterHit>[];
 
+  /// Máy in trả lời dò UDP broadcast (kể cả khác lớp mạng).
+  final _udp = <PosLanNetDevice>[];
+  var _links = <PosLanLink>[];
+  var _udpRunning = false;
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +64,7 @@ class _LanScanSheetState extends State<_LanScanSheet> {
       _error = null;
       _ranges = '';
       _hits.clear();
+      _udp.clear();
     });
     if (kIsWeb) {
       setState(() {
@@ -74,6 +84,9 @@ class _LanScanSheetState extends State<_LanScanSheet> {
       return;
     }
     setState(() => _ranges = PosLanPrinterScan.rangesLabel(locals));
+    _links = await PosLanNetConfig.localLinks(locals);
+    if (!mounted) return;
+    unawaited(_discoverUdp());
     final hits = await PosLanPrinterScan.scan(
       isCancelled: () => _cancelled || !mounted,
       onProgress: (done, total, hit) {
@@ -94,6 +107,76 @@ class _LanScanSheetState extends State<_LanScanSheet> {
           ..addAll(hits);
       }
     });
+  }
+
+  Future<void> _discoverUdp() async {
+    setState(() => _udpRunning = true);
+    await PosLanNetConfig.discover(
+      timeout: const Duration(seconds: 3),
+      onFound: (d) {
+        if (mounted) setState(() => _udp.add(d));
+      },
+    );
+    if (mounted) setState(() => _udpRunning = false);
+  }
+
+  /// Máy in ở IP mà máy POS không cùng lớp mạng (không in được trực tiếp).
+  bool _otherSubnet(PosLanNetDevice d) =>
+      !_links.any((l) => sameSubnet(d.ip, l.ip, l.mask));
+
+  List<PosLanNetDevice> get _udpOther => _udp.where(_otherSubnet).toList();
+
+  /// Máy in cùng lớp mạng chỉ thấy qua UDP (TCP 9100 chưa trả lời).
+  List<PosLanNetDevice> get _udpSameOnly => _udp
+      .where((d) => !_otherSubnet(d) && !_hits.any((h) => h.host == d.ip))
+      .toList();
+
+  PosLanNetDevice? _udpFor(String host) {
+    for (final d in _udp) {
+      if (d.ip == host) return d;
+    }
+    return null;
+  }
+
+  Future<void> _changeIp(PosLanNetDevice d) async {
+    if (!d.canSetIp) {
+      await showPosLanPrinterIpHelp(context, device: d);
+      return;
+    }
+    if (_links.isEmpty) return;
+    final hit = await showPosLanPrinterIpDialog(
+      context,
+      device: d,
+      links: _links,
+      avoid: {for (final h in _hits) h.host, for (final u in _udp) u.ip}..remove(d.ip),
+    );
+    if (hit == null || !mounted) return;
+    Navigator.pop(context, hit);
+  }
+
+  Widget _udpTile(PosLanNetDevice d, {required bool other}) {
+    final info = [
+      if (d.macText.isNotEmpty) 'MAC ${d.macText}',
+      if (d.mask != null) 'mask ${d.mask}',
+      if (d.dhcp != null) d.dhcp! ? 'DHCP' : 'IP tĩnh',
+    ].join(' · ');
+    return ListTile(
+      leading: Icon(
+        other ? Icons.warning_amber_rounded : Icons.print,
+        color: other ? Colors.orange.shade800 : PosTheme.kiotBlue,
+      ),
+      title: Text(d.title),
+      subtitle: Text(tr(other
+          ? 'Khác lớp mạng với máy này — chưa in được. $info'
+          : 'Chưa mở cổng 9100. $info')),
+      trailing: other
+          ? FilledButton.tonal(
+              onPressed: () => _changeIp(d),
+              child: Text(tr(d.canSetIp ? 'Đổi IP' : 'Hướng dẫn')),
+            )
+          : null,
+      onTap: () => _changeIp(d),
+    );
   }
 
   @override
@@ -137,9 +220,10 @@ class _LanScanSheetState extends State<_LanScanSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Text(
                 tr(
-                  'Tìm Zywell / Xprinter / HPRT (cổng 9100) trên mạng nội bộ.',
+                  'Tìm Zywell / Xprinter / HPRT (cổng 9100) trên mạng nội bộ, '
+                  'và máy in Xprinter / Rongta / Epson còn IP khác lớp mạng (dò broadcast).',
                 ),
-                style: TextStyle(fontSize: 13, color: PosTheme.textSecondary),
+                style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
               ),
             ),
             // Máy in khác dải này (vd máy in 192.168.1.x, điện thoại 192.168.0.x) sẽ không quét thấy —
@@ -185,7 +269,7 @@ class _LanScanSheetState extends State<_LanScanSheet> {
               ),
             const Divider(height: 16),
             Expanded(
-              child: _hits.isEmpty && !_running
+              child: _hits.isEmpty && _udp.isEmpty && !_running && !_udpRunning
                   ? Center(
                       child: Padding(
                         padding: const EdgeInsets.all(24),
@@ -198,28 +282,62 @@ class _LanScanSheetState extends State<_LanScanSheet> {
                         ),
                       ),
                     )
-                  : ListView.builder(
-                      itemCount: _hits.length,
-                      itemBuilder: (_, i) {
-                        final h = _hits[i];
-                        return ListTile(
-                          leading: Icon(Icons.print, color: PosTheme.kiotBlue),
-                          title: Text(h.title),
-                          subtitle: Text(
-                            tr(
-                              h.brand == PosThermalPrinterBrand.generic
-                                  ? 'ESC/POS · cổng ${h.port}'
-                                  : '${h.brand.label} · cổng ${h.port}',
+                  : ListView(
+                      children: [
+                        if (_udpOther.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                            child: Text(
+                              tr('Máy in khác lớp mạng (cần đổi IP)'),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: Colors.orange.shade800,
+                              ),
                             ),
                           ),
-                          onTap: () => Navigator.pop(context, h),
-                        );
-                      },
+                        for (final d in _udpOther) _udpTile(d, other: true),
+                        for (final h in _hits) _hitTile(h),
+                        for (final d in _udpSameOnly) _udpTile(d, other: false),
+                      ],
                     ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => showPosLanPrinterIpHelp(context),
+                  icon: const Icon(Icons.help_outline, size: 18),
+                  label: Text(tr('Không thấy máy in? Hướng dẫn đổi IP')),
+                ),
+              ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _hitTile(PosLanPrinterHit h) {
+    final u = _udpFor(h.host);
+    return ListTile(
+      leading: const Icon(Icons.print, color: PosTheme.kiotBlue),
+      title: Text(h.title),
+      subtitle: Text(
+        tr(
+          h.brand == PosThermalPrinterBrand.generic
+              ? 'ESC/POS · cổng ${h.port}'
+              : '${h.brand.label} · cổng ${h.port}',
+        ),
+      ),
+      // Máy in DHCP: đặt IP tĩnh để router không đổi IP về sau.
+      trailing: u != null && u.canSetIp && u.dhcp == true
+          ? TextButton(
+              onPressed: () => _changeIp(u),
+              child: Text(tr('Đặt IP tĩnh')),
+            )
+          : null,
+      onTap: () => Navigator.pop(context, h),
     );
   }
 }

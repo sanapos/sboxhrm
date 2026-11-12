@@ -113,6 +113,17 @@ class MainActivity : FlutterFragmentActivity() {
                 if (call.method == "info") result.success(NetworkProbe.info(applicationContext))
                 else result.notImplemented()
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LanPrinterNet.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "multicastLock" -> {
+                        LanPrinterNet.multicastLock(applicationContext, call.argument<Boolean>("on") == true)
+                        result.success(true)
+                    }
+                    "links" -> result.success(LanPrinterNet.links(applicationContext))
+                    else -> result.notImplemented()
+                }
+            }
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, FILE_CHANNEL)
             .setMethodCallHandler { call, result ->

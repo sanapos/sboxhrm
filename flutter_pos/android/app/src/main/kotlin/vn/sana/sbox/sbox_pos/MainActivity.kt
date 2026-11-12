@@ -43,6 +43,17 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LanPrinterNet.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "multicastLock" -> {
+                        LanPrinterNet.multicastLock(applicationContext, call.argument<Boolean>("on") == true)
+                        result.success(true)
+                    }
+                    "links" -> result.success(LanPrinterNet.links(applicationContext))
+                    else -> result.notImplemented()
+                }
+            }
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, OfflineVaultMirror.CHANNEL)
             .setMethodCallHandler { call, result ->
                 val ctx = applicationContext
