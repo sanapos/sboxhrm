@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Đổi project iOS dùng chung thành SBOX BOSS hoặc SBOX Nhân Viên, ngay trên máy build Codemagic.
+"""Đổi project iOS dùng chung thành SBOX BOSS, SBOX Nhân Viên hoặc SBOX KDS, ngay trên máy build Codemagic.
 
 Đổi mã bundle, tên app, icon, và viết câu xin quyền riêng theo đúng chức năng của từng app.
 BOSS không có khuôn mặt, vị trí (plugin bị gỡ ở prepare_ios_pos_build.py). Nhân Viên có thêm câu cho API vị trí «luôn luôn» (ITMS-90683).
 
-Cách dùng (trong flutter_client): python3 ../scripts/ios_companion_setup.py boss|staff
+KDS (chỉ màn hình bếp) cũng không có khuôn mặt, vị trí; chưa có Firebase nên bỏ quyền thông báo đẩy (nhận món qua SignalR).
+
+Cách dùng (trong flutter_client): python3 ../scripts/ios_companion_setup.py boss|staff|kds
 """
 from __future__ import annotations
 
@@ -18,6 +20,7 @@ APPS = {
     "boss": ("boss.sboxpos.com", "SBOX BOSS"),
     # Tên dưới biểu tượng iPhone (CFBundleDisplayName) — «SBOX Nhân Viên» bị cắt; tên App Store giữ nguyên.
     "staff": ("staff.sboxpos.com", "Nhân Viên"),
+    "kds": ("kds.sboxpos.com", "SBOX KDS"),
 }
 BOSS_USAGE = {
     "NSCameraUsageDescription": "Camera dùng để quét mã vạch và chụp ảnh hàng hóa, chứng từ, chỉ khi bạn chủ động dùng. Ứng dụng không quay video nền.",
@@ -45,7 +48,19 @@ STAFF_USAGE = {
     "NSLocationAlwaysAndWhenInUseUsageDescription": "SBOX Nhân Viên không dùng vị trí khi chạy nền. Vị trí chỉ được lấy khi bạn đang mở ứng dụng: lúc chấm công, check-in và định kỳ nếu cửa hàng bật Bản đồ nhân sự.",
     "NSLocationAlwaysUsageDescription": "SBOX Nhân Viên không dùng vị trí khi chạy nền. Vị trí chỉ được lấy khi bạn đang mở ứng dụng: lúc chấm công, check-in và định kỳ nếu cửa hàng bật Bản đồ nhân sự.",
 }
+KDS_USAGE = {
+    "NSCameraUsageDescription": "SBOX KDS không dùng camera. Màn hình bếp chỉ hiển thị món cần làm.",
+    "NSLocalNetworkUsageDescription": "Mạng nội bộ dùng để nhận món từ máy bán hàng và in phiếu bếp qua máy in trong cùng WiFi cửa hàng.",
+    "NSBluetoothAlwaysUsageDescription": "Bluetooth dùng để kết nối máy in phiếu bếp.",
+    "NSBluetoothPeripheralUsageDescription": "Bluetooth dùng để kết nối máy in phiếu bếp.",
+    "NSFaceIDUsageDescription": "Face ID chỉ dùng để đăng nhập nhanh vào SBOX KDS thay cho mật khẩu khi bạn đã bật; ứng dụng không tự bật.",
+    "NSPhotoLibraryUsageDescription": "SBOX KDS không đọc thư viện ảnh.",
+    "NSMicrophoneUsageDescription": "SBOX KDS không dùng micro và không ghi âm.",
+    "NSSpeechRecognitionUsageDescription": "SBOX KDS không dùng nhận dạng giọng nói.",
+}
+USAGE = {"boss": BOSS_USAGE, "staff": STAFF_USAGE, "kds": KDS_USAGE}
 PLIST = "ios/Runner/Info.plist"
+ENTITLEMENTS = Path("ios/Runner/Runner.entitlements")
 OLD_BUNDLE = "PRODUCT_BUNDLE_IDENTIFIER = vn.sana.sbox;"
 ICON_DIR = Path("ios/Runner/Assets.xcassets/AppIcon.appiconset")
 
@@ -65,17 +80,27 @@ def main() -> None:
         raise SystemExit(f"Expected 3 Runner bundle ids, found {count}")
     project.write_text(text.replace(OLD_BUNDLE, f"PRODUCT_BUNDLE_IDENTIFIER = {bundle};"), encoding="utf-8")
 
-    # Thông báo đẩy: mỗi bundle có cấu hình Firebase riêng, fcm_service đọc tệp native này.
-    firebase = Path(f"ios/flavor_firebase/{app}-GoogleService-Info.plist")
-    if f"<string>{bundle}</string>" not in firebase.read_text(encoding="utf-8"):
-        raise SystemExit(f"{firebase} is not for {bundle}")
-    shutil.copyfile(firebase, "ios/Runner/GoogleService-Info.plist")
+    if app == "kds":
+        # KDS chưa đăng ký Firebase (fcm_service bỏ qua khi kitchenApp): bỏ quyền thông báo đẩy và Wi‑Fi info để
+        # App ID kds.sboxpos.com (không bật hai khả năng này) ký được.
+        ent = ENTITLEMENTS.read_text(encoding="utf-8")
+        for key in ("aps-environment", "com.apple.developer.networking.wifi-info"):
+            ent, n = re.subn(rf"\s*<key>{re.escape(key)}</key>\s*<(?:string>[^<]*</string|true/)>", "", ent)
+            if n != 1:
+                raise SystemExit(f"{ENTITLEMENTS}: expected one {key}, found {n}")
+        ENTITLEMENTS.write_text(ent, encoding="utf-8")
+    else:
+        # Thông báo đẩy: mỗi bundle có cấu hình Firebase riêng, fcm_service đọc tệp native này.
+        firebase = Path(f"ios/flavor_firebase/{app}-GoogleService-Info.plist")
+        if f"<string>{bundle}</string>" not in firebase.read_text(encoding="utf-8"):
+            raise SystemExit(f"{firebase} is not for {bundle}")
+        shutil.copyfile(firebase, "ios/Runner/GoogleService-Info.plist")
 
     plist(f"Set :CFBundleDisplayName {name}")
-    if app == "boss":
-        # BOSS gỡ hẳn plugin vị trí (prepare_ios_pos_build.py); verify_ios_pos_ipa.py không cho còn câu vị trí.
+    if app in ("boss", "kds"):
+        # BOSS / KDS gỡ hẳn plugin vị trí (prepare_ios_pos_build.py); verify_ios_pos_ipa.py không cho còn câu vị trí.
         plist("Delete :NSLocationWhenInUseUsageDescription")
-    for key, value in (BOSS_USAGE if app == "boss" else STAFF_USAGE).items():
+    for key, value in USAGE[app].items():
         # Info.plist dùng chung chưa có khóa «luôn luôn»: Set lỗi thì Add.
         try:
             plist(f"Set :{key} {value}")

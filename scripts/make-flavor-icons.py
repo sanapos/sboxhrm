@@ -32,7 +32,7 @@ FLAVORS = {
     # (brand700 #0B6A91 → brand400 #3FA6D2 trong sbox_tokens.dart), chữ S trắng.
     "hrm": dict(bg=("#0B6A91", "#3FA6D2"), s=("#DDF1FA", "#FFFFFF")),
 }
-IOS_FLAVORS = {"pos", "boss", "staff"}
+IOS_FLAVORS = {"pos", "boss", "staff", "kds"}
 IOS_APPICON = CLIENT / "ios" / "Runner" / "Assets.xcassets" / "AppIcon.appiconset"
 
 

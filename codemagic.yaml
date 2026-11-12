@@ -540,6 +540,82 @@ workflows:
         submit_to_testflight: false
         submit_to_app_store: false
 
+  # SBOX KDS (chỉ màn hình bếp, iPad / iPhone): như BOSS — gỡ khuôn mặt, vị trí; không Firebase / thông báo đẩy
+  # (nhận món qua SignalR). Dừng ở TestFlight, không gửi Apple duyệt.
+  ios-kds-release:
+    name: iOS SBOX KDS (TestFlight)
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+    working_directory: flutter_client
+
+    cache:
+      cache_paths:
+        - ~/.pub-cache
+        - ios/Pods
+
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - appstore_credentials
+      vars:
+        APP_STORE_APP_ID: "6833763544"  # SBOX KDS (kds.sboxpos.com), tạo 12/11/2026
+        BUNDLE_ID: "kds.sboxpos.com"
+        API_BASE_URL: "https://sboxpos.com"
+        APP_VERSION: "1.0.0"
+        SBOX_POS_IOS: "1"
+
+    scripts:
+      - name: Check App Store Connect app id
+        script: |
+          case "$APP_STORE_APP_ID" in
+            ''|*[!0-9]*) echo "ERROR: APP_STORE_APP_ID chưa có — tạo app SBOX KDS (kds.sboxpos.com) trên App Store Connect"; exit 1 ;;
+          esac
+
+      - name: Point iOS project at SBOX KDS
+        script: python3 "$CM_BUILD_DIR/scripts/ios_companion_setup.py" kds
+
+      - name: Remove face and location from SBOX KDS
+        script: python3 "$CM_BUILD_DIR/scripts/prepare_ios_pos_build.py" "$CM_BUILD_DIR/flutter_client"
+
+      - name: Fetch signing files and set up code signing
+        script: bash "$CM_BUILD_DIR/scripts/ios_signing.sh"
+
+      - name: Get Flutter packages
+        script: flutter pub get
+
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod install --repo-update
+
+      - name: Build IPA
+        script: |
+          set -e
+          BUILD_NUMBER=$(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APP_ID" || echo 0) + 1))
+          flutter build ipa --release \
+            --dart-define=API_BASE_URL="$API_BASE_URL" \
+            --dart-define=SBOX_APP=kds \
+            --build-name="$APP_VERSION" \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
+
+      - name: Verify IPA has no face or location code
+        script: python3 "$CM_BUILD_DIR/scripts/verify_ios_pos_ipa.py" build/ios/ipa/*.ipa
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: false
+        submit_to_app_store: false
+
   ios-debug:
     name: iOS Debug (Ad Hoc)
     max_build_duration: 90
