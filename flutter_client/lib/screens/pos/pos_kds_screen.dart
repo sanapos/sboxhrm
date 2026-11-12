@@ -65,17 +65,20 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
   Color get _orangeSoft => _p.orangeSoft;
   Color get _green => _p.green;
   Color get _greenSoft => _p.greenSoft;
-  Color get _chipOn => _blue;
+  /// Màu nhấn của màn (logo, BẾP, nút chọn, «Tất cả»): app SBOX KDS cam theo logo; app khác như [_blue].
+  Color get _brand => _p.brand;
+  Color get _brandSoft => _p.brandSoft;
+  Color get _chipOn => _brand;
   Color get _sheet => _p.sheet;
   Color get _ticketHead => _p.ticketHead;
-  Color get _accent => _blue;
+  Color get _accent => _brand;
   Color get _note => _p.note;
   Color get _cooking => _blue;
   Color get _ready => _green;
   Color get _late => _p.late;
   Color get _voided => _p.voided;
   Color get _namePanel => _p.namePanel;
-  Color get _freshGlow => _blue;
+  Color get _freshGlow => _brand;
 
   final _api = ApiService();
   final _floor = PosFloorRealtimeSubscription(
@@ -182,8 +185,14 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     });
   }
 
+  /// App SBOX KDS: thanh trạng thái / điều hướng cùng màu thanh đầu màn bếp (sáng / tối).
+  void _syncSystemBand() {
+    if (SboxColors.isKds) SboxColors.kdsDarkChrome.value = _dark;
+  }
+
   @override
   void dispose() {
+    if (SboxColors.isKds) SboxColors.kdsDarkChrome.value = false;
     PosQrOrderVoiceAlert.instance.leaveKds();
     PosKdsAlert.leaveUi();
     unawaited(PosKdsAlert.keepScreenOn(false));
@@ -294,6 +303,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     _kdsPrinterId = prefs.getString('pos_kds_printer_id');
     _newestFirst = prefs.getBool('pos_kds_newest_first') ?? false;
     _dark = prefs.getBool('pos_kds_dark') ?? false;
+    _syncSystemBand();
     _textScale = (prefs.getDouble('pos_kds_text_scale') ?? 1.0).clamp(1.0, 1.4);
     // Mặc định mở «Gộp món»; nhớ lựa chọn lần trước trên máy.
     _view = prefs.getString('pos_kds_view') == 'table' ? _KdsView.table : _KdsView.dish;
@@ -1287,7 +1297,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         brightness: _dark ? Brightness.dark : Brightness.light,
         scaffoldBackgroundColor: _bg,
         colorScheme: (_dark ? const ColorScheme.dark() : const ColorScheme.light()).copyWith(
-          primary: _blue,
+          primary: _brand,
           secondary: _orange,
           surface: _card,
           onSurface: _ink,
@@ -1357,13 +1367,13 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     onPressed: () => Navigator.of(context).maybePop(),
                     icon: Icon(Icons.arrow_back, color: _ink),
                   ),
-                Icon(Icons.soup_kitchen, color: _blue, size: narrow ? 22 : 28),
+                Icon(Icons.soup_kitchen, color: _brand, size: narrow ? 24 : 28),
                 if (!narrow) ...[
                   const SizedBox(width: 6),
                   Text(
                     tr('BẾP'),
                     style: TextStyle(
-                      color: _blue,
+                      color: _brand,
                       fontWeight: FontWeight.w800,
                       fontSize: 24,
                       letterSpacing: 0.4,
@@ -1374,6 +1384,29 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                 const SizedBox(width: 10),
                 _viewToggle(compact: narrow),
                 const SizedBox(width: 8),
+                if (narrow)
+                  Expanded(
+                    child: Center(
+                      // Không đủ chỗ (cỡ chữ lớn / máy hẹp) thì co chữ, không xuống dòng «14:3 / 0».
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: _KdsTickText(
+                          tick: _nowTick,
+                          style: TextStyle(
+                            color: _ink,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 17,
+                            fontFeatures: const [FontFeature.tabularFigures()],
+                          ),
+                          builder: (n) => DateFormat('HH:mm').format(n),
+                        ),
+                      ),
+                    ),
+                  )
+                // iPhone nằm ngang / máy tính bảng nhỏ: dải đếm bị cắt cạnh đồng hồ — hàng lọc dưới đã có số.
+                else if (MediaQuery.sizeOf(context).width < 1100)
+                  const Spacer()
+                else
                 Expanded(
                   child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -1438,7 +1471,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     onPressed: _speakPending,
                     icon: Icon(
                       _voiceOn ? Icons.volume_up : Icons.volume_off,
-                      color: _voiceOn ? _blue : _muted,
+                      color: _voiceOn ? _brand : _muted,
                     ),
                   ),
                   IconButton(
@@ -1446,7 +1479,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                     onPressed: _openKdsPrintSettings,
                     icon: Icon(
                       _printOnDone ? Icons.print : Icons.print_disabled,
-                      color: _printOnDone ? _blue : _muted,
+                      color: _printOnDone ? _brand : _muted,
                     ),
                   ),
                 ],
@@ -1516,6 +1549,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             unawaited(_toggleKdsFullscreen());
           case 'theme':
             setState(() => _dark = !_dark);
+            _syncSystemBand();
             unawaited(_saveKdsPrintPrefs());
           case 'text_scale':
             setState(() => _textScale = _textScale >= 1.35 ? 1.0 : (_textScale >= 1.15 ? 1.4 : 1.2));
@@ -1525,9 +1559,12 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             unawaited(_saveKdsPrintPrefs());
             unawaited(_loadTickets(silent: true));
           case 'account':
+            // Trang tài khoản nền sáng: dải thanh hệ thống về sáng khi mở, trả lại theo màn bếp khi quay về.
+            if (SboxColors.isKds) SboxColors.kdsDarkChrome.value = false;
             await Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const CompanionAccountScreen()),
             );
+            if (mounted) _syncSystemBand();
           case 'logout':
             await showPosLogoutDialog(context);
         }
@@ -1560,7 +1597,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           item('voice_settings', Icons.record_voice_over_outlined, tr('Chọn giọng và tốc độ')),
           item('kds_print', Icons.print_outlined, tr('Máy in KDS · âm thanh')),
           const PopupMenuDivider(),
-          item('pos_settings', Icons.tune, tr('Thiết lập SBOX')),
+          if (!SboxAppVariant.kitchenApp) item('pos_settings', Icons.tune, tr('Thiết lập SBOX')),
           // App SBOX KDS không có hub «Nhiều hơn» → thông tin, đăng xuất ở đây.
           if (SboxAppVariant.kitchenApp) item('account', Icons.info_outline, tr('Thông tin & tài khoản')),
           if (SboxAppVariant.kitchenApp) item('logout', Icons.logout, tr('Đăng xuất')),
@@ -1612,7 +1649,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
                   child: Row(children: [
-                    Icon(Icons.history, color: _blue),
+                    Icon(Icons.history, color: _brand),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(tr('Đã ra món · 6 giờ gần nhất'),
@@ -1796,15 +1833,15 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         width: double.infinity,
         decoration: BoxDecoration(border: Border(bottom: BorderSide(color: _line))),
         child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(children: [
-            _toneChip(withN(tr('Tất cả'), countOf(null)), null, _blue, _blueSoft),
+        padding: const EdgeInsets.fromLTRB(12, 8, 4, 8),
+        child: Wrap(
+          runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _toneChip(withN(tr('Tất cả'), countOf(null)), null, _brand, _brandSoft),
             _toneChip(withN(tr('Chờ làm'), countOf('queued')), 'queued', _orange, _orangeSoft),
             _toneChip(withN(tr('Đang làm'), countOf('cooking')), 'cooking', _blue, _blueSoft),
             _toneChip(withN(tr('Làm xong'), countOf('ready')), 'ready', _green, _greenSoft),
-            const SizedBox(width: 12),
             _filterChip(
               lateN > 0 ? '${tr('Trễ')} ($lateN)' : tr('Trễ'),
               _lateOnly,
@@ -1812,7 +1849,9 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               accent: _late,
             ),
             _filterChip(
-              noDishN > 0 ? '${tr('Bàn chưa làm món nào')} ($noDishN)' : tr('Bàn chưa làm món nào'),
+              _narrowChips
+                  ? (noDishN > 0 ? '${tr('Bàn chưa làm')} ($noDishN)' : tr('Bàn chưa làm'))
+                  : (noDishN > 0 ? '${tr('Bàn chưa làm món nào')} ($noDishN)' : tr('Bàn chưa làm món nào')),
               _noDishTables,
               () => setState(() {
                 _noDishTables = !_noDishTables;
@@ -1821,17 +1860,19 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
             ),
             if (_lastBumpedOrderId != null)
               _filterChip(tr('↶ Gọi lại vé vừa ra'), false, () => unawaited(_recall()), accent: _orange),
-          ]),
+          ],
         ),
       ),
       ),
     );
   }
 
+  bool get _narrowChips => MediaQuery.sizeOf(context).width < 760;
+
   Widget _toneChip(String label, String? value, Color accent, Color soft) {
     final on = _statusFilter == value;
     return Padding(
-      padding: EdgeInsets.only(right: 8),
+      padding: EdgeInsets.only(right: _narrowChips ? 6 : 8),
       child: Material(
         color: on ? accent : soft,
         shape: StadiumBorder(),
@@ -1839,7 +1880,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           customBorder: StadiumBorder(),
           onTap: () => setState(() => _statusFilter = value),
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: EdgeInsets.symmetric(horizontal: _narrowChips ? 10 : 12, vertical: 6),
             child: Text(
               label,
               style: TextStyle(
@@ -1856,9 +1897,9 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
 
   Widget _filterChip(String label, bool on, VoidCallback tap,
       {Color? accent}) {
-    accent ??= _blue;
+    accent ??= _brand;
     return Padding(
-      padding: EdgeInsets.only(right: 8),
+      padding: EdgeInsets.only(right: _narrowChips ? 6 : 8),
       child: Material(
         color: on ? accent : _chipIdle,
         shape: StadiumBorder(
@@ -1870,13 +1911,13 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
           customBorder: StadiumBorder(),
           onTap: tap,
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            padding: EdgeInsets.symmetric(horizontal: _narrowChips ? 10 : 12, vertical: 6),
             child: Text(
               label,
               style: TextStyle(
                 color: on ? Colors.white : _ink,
                 fontWeight: FontWeight.w700,
-                fontSize: 13,
+                fontSize: 12,
               ),
             ),
           ),
@@ -1916,7 +1957,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       ),
                     ),
                   ),
-                  Text(tr('Máy in KDS'),
+                  Text(tr(SboxAppVariant.kitchenApp ? 'Âm thanh & máy in' : 'Máy in KDS'),
                       style: TextStyle(
                           color: _ink,
                           fontWeight: FontWeight.w700,
@@ -1952,6 +1993,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                       unawaited(_saveKdsPrintPrefs());
                     },
                   ),
+                  if (!SboxAppVariant.kitchenApp)
                   SwitchListTile(
                     contentPadding: EdgeInsets.zero,
                     title: Text(tr('Ting khi in phiếu từ máy khác'),
@@ -2520,7 +2562,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(
-          color: fresh ? _blue : (late ? _late.withOpacity(0.55) : _line),
+          color: fresh ? _freshGlow : (late ? _late.withOpacity(0.55) : _line),
           width: fresh || late ? 1.5 : 1,
         ),
       ),
@@ -2678,7 +2720,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       icon: Icon(
         Icons.volume_up,
         size: 20,
-        color: _voiceOn ? _blue : _muted,
+        color: _voiceOn ? _brand : _muted,
       ),
     );
   }
@@ -2815,7 +2857,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
                             unawaited(_aggDone(a));
                           },
                           style: FilledButton.styleFrom(
-                            backgroundColor: _blue,
+                            backgroundColor: _green,
                             foregroundColor: Colors.white,
                             padding: EdgeInsets.symmetric(vertical: 14),
                           ),
@@ -2955,7 +2997,7 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
         side: BorderSide(
-          color: fresh ? _blue : (late ? _late.withOpacity(0.55) : _line),
+          color: fresh ? _freshGlow : (late ? _late.withOpacity(0.55) : _line),
           width: fresh || late ? 1.5 : 1,
         ),
       ),
@@ -3013,7 +3055,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    [if ((t.orderNo ?? '').isNotEmpty) t.orderNo!, if ((t.channel ?? '').trim().isNotEmpty) t.channel!.trim()].join(' · '),
+                    [
+                      if ((t.orderNo ?? '').isNotEmpty) t.orderNo!,
+                      if ((t.channel ?? '').trim().isNotEmpty && t.channel!.trim() != 'Bán trực tiếp') t.channel!.trim(),
+                    ].join(' · '),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
@@ -3454,6 +3499,8 @@ class _KdsPalette {
     required this.chipIdle,
     required this.blue,
     required this.blueSoft,
+    required this.brand,
+    required this.brandSoft,
     required this.orange,
     required this.orangeSoft,
     required this.green,
@@ -3466,7 +3513,7 @@ class _KdsPalette {
     required this.namePanel,
   });
 
-  final Color bg, bar, card, line, ink, muted, chipIdle, blue, blueSoft, orange, orangeSoft;
+  final Color bg, bar, card, line, ink, muted, chipIdle, blue, blueSoft, brand, brandSoft, orange, orangeSoft;
   final Color green, greenSoft, sheet, ticketHead, note, late, voided, namePanel;
 
   static const day = _KdsPalette(
@@ -3479,6 +3526,8 @@ class _KdsPalette {
     chipIdle: Color(0xFFF2F4F7),
     blue: SboxColors.posApp ? SboxColors.brand600 : Color(0xFF1F6FA3),
     blueSoft: SboxColors.posApp ? SboxColors.brand50 : Color(0xFFEAF2F8),
+    brand: SboxColors.isKds ? SboxColors.brand600 : SboxColors.posApp ? SboxColors.brand600 : Color(0xFF1F6FA3),
+    brandSoft: SboxColors.isKds || SboxColors.posApp ? SboxColors.brand50 : Color(0xFFEAF2F8),
     orange: Color(0xFFB7791F),
     orangeSoft: Color(0xFFFBF3E4),
     green: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF15803D)),
@@ -3501,6 +3550,8 @@ class _KdsPalette {
     chipIdle: Color(0xFF232830),
     blue: SboxColors.posApp ? SboxColors.brand300 : Color(0xFF5BA4D4),
     blueSoft: SboxColors.posApp ? Color(0xFF16292B) : Color(0xFF182A38),
+    brand: SboxColors.isKds ? SboxColors.brand400 : SboxColors.posApp ? SboxColors.brand300 : Color(0xFF5BA4D4),
+    brandSoft: SboxColors.isKds ? Color(0xFF2E1D12) : SboxColors.posApp ? Color(0xFF16292B) : Color(0xFF182A38),
     orange: Color(0xFFD9A048),
     orangeSoft: Color(0xFF2C2416),
     green: SboxColors.posApp ? SboxColors.brand400 : Color(0xFF2F9E66),

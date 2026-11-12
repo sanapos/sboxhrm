@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../theme/sbox_tokens.dart';
+
 /// App SBOX POS, SBOX Nhân Viên: các thanh cùng màu nền trang sáng nên icon hệ thống phải tối.
 /// SBOX HRM (không đặt SBOX_APP) cũng vậy: thanh hệ thống trắng như AppBar — xem [SboxColors.lightSystemBars].
 /// SBOX BOSS liền một nền nhạt từ trên xuống dưới: icon hệ thống tối.
@@ -18,9 +20,22 @@ const kPlayOverlayDarkTheme = SystemUiOverlayStyle(
   systemNavigationBarContrastEnforced: false,
 );
 
+/// SBOX KDS: thanh hệ thống theo giao diện sáng / tối riêng của màn bếp ([SboxColors.kdsDarkChrome]).
+const _kdsApp = String.fromEnvironment('SBOX_APP') == 'kds';
+
+const _kOverlayLightChrome = SystemUiOverlayStyle(
+  statusBarIconBrightness: Brightness.dark,
+  statusBarBrightness: Brightness.light,
+  systemNavigationBarIconBrightness: Brightness.dark,
+  systemStatusBarContrastEnforced: false,
+  systemNavigationBarContrastEnforced: false,
+);
+
 /// Kiểu thanh hệ thống cho khung app theo giao diện sáng / tối.
-SystemUiOverlayStyle playOverlayFor({required bool darkTheme}) =>
-    darkTheme && !_alwaysLightChrome ? kPlayOverlayDarkTheme : kPlayOverlayOnDarkBg;
+SystemUiOverlayStyle playOverlayFor({required bool darkTheme}) {
+  if (_kdsApp) return SboxColors.kdsDarkChrome.value ? kPlayOverlayDarkTheme : _kOverlayLightChrome;
+  return darkTheme && !_alwaysLightChrome ? kPlayOverlayDarkTheme : kPlayOverlayOnDarkBg;
+}
 
 /// POS / Nhân Viên: luôn khung sáng (không theo chế độ tối).
 const _alwaysLightChrome =
@@ -63,7 +78,7 @@ Future<void> restoreSystemBarsEdgeToEdge() async {
     overlays: SystemUiOverlay.values,
   );
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-  SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnDarkBg);
+  SystemChrome.setSystemUIOverlayStyle(_kdsApp ? playOverlayFor(darkTheme: false) : kPlayOverlayOnDarkBg);
   await hideNavigationBarIfHrm();
 }
 

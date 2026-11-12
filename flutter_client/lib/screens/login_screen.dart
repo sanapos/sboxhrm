@@ -83,10 +83,12 @@ class _LoginScreenState extends State<LoginScreen>
   Map<String, dynamic>? _storeAgentContact;
 
   bool get _isPos => SboxAppVariant.posBranding;
-  Color get _brand =>
-      SboxColors.posApp ? SboxColors.brand700 : _isPos ? SboxColors.successText : SboxColors.brand600;
+  // SBOX KDS: cam theo logo (posBranding vẫn đúng vì KDS là bản POS độc lập, nhưng không dùng xanh lá POS cũ).
+  Color get _brand => SboxColors.isKds
+      ? SboxColors.brand600
+      : SboxColors.posApp ? SboxColors.brand700 : _isPos ? SboxColors.successText : SboxColors.brand600;
   Color get _brandDim =>
-      SboxColors.posApp ? SboxColors.brand800 : _isPos ? (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF1B5E20)) : (SboxColors.posApp ? SboxColors.brand800 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF004ABA));
+      SboxColors.isKds || SboxColors.posApp ? SboxColors.brand800 : _isPos ? (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF1B5E20)) : (SboxColors.posApp ? SboxColors.brand800 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF004ABA));
   Timer? _agentLookupDebounce;
   String _appVersionLabel = '';
 

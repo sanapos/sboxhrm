@@ -108,7 +108,10 @@ class ZKTecoApp extends StatelessWidget {
           ],
           locale: themeProvider.locale,
           builder: (context, child) {
+            // SBOX KDS: màn bếp đổi sáng / tối → dải thanh hệ thống và icon đổi theo.
             return ValueListenableBuilder<bool>(
+              valueListenable: SboxColors.kdsDarkChrome,
+              builder: (context, _, __) => ValueListenableBuilder<bool>(
               valueListenable: SystemUiInsetMode.immersive,
               builder: (context, immersive, _) {
                 var mediaQuery = mediaQueryWithSystemPadding(
@@ -158,7 +161,13 @@ class ZKTecoApp extends StatelessWidget {
                           ctx,
                           ColoredBox(
                             // SBOX POS: nền trang, đổi màn không nháy dải cobalt / đen.
-                            color: SboxColors.posApp ? SboxColors.page : SboxColors.isBoss ? SboxColors.bar : const Color(0xFF000000),
+                            color: SboxColors.posApp
+                                ? SboxColors.page
+                                : SboxColors.isBoss
+                                    ? SboxColors.bar
+                                    : SboxColors.isKds
+                                        ? SboxColors.systemBandFor(dark: false)
+                                        : const Color(0xFF000000),
                             child: PosTouchImeHost(
                               child: PosKeyboardLift(
                                 child: DefaultTextStyle(
@@ -177,6 +186,7 @@ class ZKTecoApp extends StatelessWidget {
                   ),
                 ));
               },
+            ),
             );
           },
           routes: {

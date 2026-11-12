@@ -29,6 +29,20 @@ void main() {
     }
   });
 
+  test('SBOX KDS trên iOS là app App Store: khóa máy chủ, bỏ khuôn mặt / vị trí trong trang pháp lý', () async {
+    await _useApp('kds.sboxpos.com', TargetPlatform.iOS);
+    expect(SboxAppVariant.kitchenApp, isTrue);
+    expect(SboxAppVariant.iosStoreApp, isTrue);
+    expect(SboxAppVariant.fixedServer, isTrue);
+    final legal = SboxAppVariant.rebrandLegal('## 2. Dữ liệu\n- Ảnh khuôn mặt khi chấm công\n- Tên, email');
+    expect(legal, isNot(contains('khuôn mặt')));
+    expect(legal, contains('Tên, email'));
+
+    await _useApp('kds.sboxpos.com', TargetPlatform.android);
+    expect(SboxAppVariant.iosStoreApp, isFalse);
+    expect(SboxAppVariant.fixedServer, isFalse);
+  });
+
   test('SBOX POS trên iOS khóa máy chủ, trên Android đổi được', () async {
     await _useApp(SboxAppVariant.iosPosBundleId, TargetPlatform.iOS);
     expect(SboxAppVariant.fixedServer, isTrue);

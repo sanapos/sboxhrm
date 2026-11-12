@@ -26,9 +26,9 @@ fun ComponentActivity.applyPlayEdgeToEdge() {
     }
 
     // SBOX POS, SBOX HRM (sbox.sana.vn*), Nhân Viên, BOSS: các thanh cùng màu nền sáng của app nên
-    // icon hệ thống tối; KDS giữ dải đen, icon sáng.
+    // icon hệ thống tối. KDS: thanh trắng như thanh đầu màn bếp (màn bếp tối thì Flutter đổi icon sáng).
     val lightBars = packageName.startsWith("sbox.sana.vn") || packageName.startsWith("staff.sboxpos.com") ||
-        packageName.startsWith("boss.sboxpos.com")
+        packageName.startsWith("boss.sboxpos.com") || packageName.startsWith("kds.sboxpos.com")
     fun darkSystemBarIcons() {
         WindowCompat.getInsetsController(window, window.decorView).apply {
             isAppearanceLightStatusBars = lightBars

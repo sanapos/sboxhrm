@@ -51,9 +51,10 @@ abstract final class SboxAppVariant {
   static bool get iosPosApp =>
       !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && standalonePos && !kitchenApp;
 
-  /// App bán trên App Store (POS, BOSS, Nhân Viên): không đăng ký tài khoản, không mời mua, gia hạn, không nhắc nền tảng khác.
+  /// App bán trên App Store (POS, BOSS, Nhân Viên, KDS): không đăng ký tài khoản, không mời mua, gia hạn,
+  /// không nhắc nền tảng khác, khóa máy chủ ([fixedServer]).
   static bool get iosStoreApp =>
-      iosPosApp || (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && (bossApp || staffApp));
+      iosPosApp || (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS && (bossApp || staffApp || kitchenApp));
 
   /// App SBOX BOSS: đăng nhập xong mở shell BOSS (tổng quan / cuối ngày), không vào HRM hay POS.
   static bool get bossApp => _bossFromDefine || _bossFromPackage;
@@ -166,6 +167,8 @@ abstract final class SboxAppVariant {
     if (iosPosApp) return stripIosPosLegal(s);
     if (!companionApp) return s;
     if (staffApp) s = _staffHelp(s);
+    // SBOX KDS iOS: không khuôn mặt, vị trí, chấm công (App Store 2.3.1) — như SBOX POS iOS.
+    if (kitchenApp && iosStoreApp) s = stripIosPosLegal(s);
     if (bossApp && iosStoreApp) {
       s = stripIosPosLegal(s, keepHr: true).replaceAll('**Cài đặt → Xóa tài khoản**', '**Thêm → Xóa tài khoản**');
     }

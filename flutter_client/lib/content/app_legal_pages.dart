@@ -8,6 +8,53 @@ abstract final class AppLegalPages {
   static const supportEmail = 'sboxhrm@gmail.com';
   static const hotline = '0973 024 042';
 
+  /// Trợ giúp riêng app SBOX KDS (chỉ màn hình bếp): trang Trợ giúp chung nói chấm công, kho, Print Agent… không có trong app.
+  static const kdsHelp = '''
+# Trợ giúp
+
+Hướng dẫn dùng màn hình bếp SBOX KDS. Cần hỗ trợ? Gọi hotline **$hotline** (có Zalo) hoặc gửi **Báo lỗi & Góp ý** ở menu ⋮ → **Thông tin & tài khoản**.
+
+## Bắt đầu
+
+- **Đăng nhập**: nhập mã cửa hàng, email hoặc số điện thoại và mật khẩu do chủ cửa hàng / quản lý cấp.
+- **Quên mật khẩu**: ở màn đăng nhập bấm **Quên mật khẩu?** → nhận mã OTP → đặt mật khẩu mới.
+- Đặt máy ở bếp hoặc quầy pha chế và cắm sạc; khi đang mở màn bếp, màn hình luôn sáng.
+
+## Nhận món
+
+- Món hiện ngay khi thu ngân hoặc phục vụ bấm **Báo bếp** trên SBOX POS (máy bán hàng, điện thoại hoặc web).
+- Có món mới: chuông kêu và đọc tên món (tắt / bật ở menu ⋮).
+- Ghi chú, phần thêm của khách hiện ngay dưới tên món.
+
+## Hai cách xem
+
+- **Gộp món**: món giống nhau của nhiều bàn gộp thành một thẻ; chạm thẻ để làm / ra món theo từng bàn.
+- **Theo bàn**: đủ món của từng bàn, từng hóa đơn.
+- Hàng lọc: **Chờ làm**, **Đang làm**, **Làm xong**, **Trễ**, **Bàn chưa làm**.
+
+## Chế biến
+
+- **Bắt đầu làm**: báo cho quầy món đang được làm.
+- **Ra món**: món xong, quầy và phục vụ thấy ngay; thẻ rời khỏi bảng.
+- Bấm nhầm: chạm **↶ Gọi lại vé vừa ra**, hoặc biểu tượng đồng hồ ở góc trên để xem vé đã ra trong 6 giờ và **Gọi lại**.
+- Thẻ viền đỏ là món chờ quá số phút báo trễ (đổi ở menu ⋮ → **Âm thanh & máy in**).
+
+## Tùy chỉnh
+
+- Menu ⋮: giao diện sáng / tối, cỡ chữ, thứ tự món (lâu nhất / mới nhất trước), toàn màn hình, giọng đọc.
+- **In phiếu khi bấm Ra món** (tùy chọn): chọn máy in của cửa hàng ở **Âm thanh & máy in**.
+
+## Tài khoản
+
+- Menu ⋮ → **Thông tin & tài khoản**: điều khoản, chính sách bảo mật, báo lỗi, **Xóa tài khoản**.
+- Menu ⋮ → **Đăng xuất**.
+
+## Liên hệ hỗ trợ
+
+- Hotline / Zalo: **$hotline**
+- Email: **$supportEmail**
+''';
+
   static String? defaultFor(String type) => switch (type) {
         'privacy' => privacy,
         'terms' => terms,

@@ -40,6 +40,13 @@ class _AppInfoScreenState extends State<AppInfoScreen> {
   }
 
   Future<void> _loadPage() async {
+    // SBOX KDS: trợ giúp riêng màn bếp — trang chung trên máy chủ nói chấm công, kho… không có trong app.
+    // Chạy đồng bộ ngay trong initState → gán thẳng, không setState.
+    if (SboxAppVariant.kitchenApp && widget.type == 'help') {
+      _content = AppLegalPages.kdsHelp;
+      _loading = false;
+      return;
+    }
     String? server;
     try {
       final res = await ApiService().getAppPage(widget.type);

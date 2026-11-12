@@ -20,6 +20,16 @@ abstract final class SboxColors {
   static const _bossApp = String.fromEnvironment('SBOX_APP') == 'boss';
   static const isBoss = _bossApp;
 
+  /// App SBOX KDS (build với SBOX_APP=kds): màu nhấn cam theo logo (#D86A2C, đậm #BA4F18 cho chữ / nút trắng).
+  /// Thanh hệ thống đổi theo giao diện sáng / tối của màn bếp ([kdsDarkChrome]).
+  static const _kdsApp = String.fromEnvironment('SBOX_APP') == 'kds';
+  static const isKds = _kdsApp;
+
+  /// Màn bếp đang ở giao diện tối (màn bếp đặt): dải thanh trạng thái / điều hướng đổi theo.
+  static final kdsDarkChrome = ValueNotifier<bool>(false);
+  static const kdsBarDay = Color(0xFFFFFFFF);
+  static const kdsBarNight = Color(0xFF15181D);
+
   /// Nền thanh tiêu đề và chữ, icon trên đó: BOSS cùng màu nền trang, chữ xanh đen. App khác giữ thanh trắng, chữ tối.
   static const bar = _bossApp ? page : white;
   static const onBar = _bossApp ? brand800 : text;
@@ -43,20 +53,20 @@ abstract final class SboxColors {
   static const barHeight = _bossApp ? 44.0 : 56.0;
 
   // ── Thương hiệu: xanh biển #158DC0 ──────────────────────────────
-  static const brand50 = _bossApp ? Color(0xFFEEF1F7) : _staffApp ? Color(0xFFE8F7F3) : _posOnly ? Color(0xFFEDFAFA) : Color(0xFFE8F5FB);
-  static const brand100 = _bossApp ? Color(0xFFDCE2EE) : _staffApp ? Color(0xFFC9EDE4) : _posOnly ? Color(0xFFCFEFEF) : Color(0xFFBFE3F3);
-  static const brand200 = _bossApp ? Color(0xFFB9C4DA) : _staffApp ? Color(0xFF9FDFD0) : _posOnly ? Color(0xFFA6E3E4) : Color(0xFF94D0EA);
-  static const brand300 = _bossApp ? Color(0xFF8E9DBD) : _staffApp ? Color(0xFF66CDB6) : _posOnly ? Color(0xFF5BD2D6) : Color(0xFF6FC0E3);
-  static const brand400 = _bossApp ? Color(0xFF60739B) : _staffApp ? Color(0xFF23A68E) : _posOnly ? Color(0xFF28BDBF) : Color(0xFF3FA6D2);
+  static const brand50 = _kdsApp ? Color(0xFFFDF1EA) : _bossApp ? Color(0xFFEEF1F7) : _staffApp ? Color(0xFFE8F7F3) : _posOnly ? Color(0xFFEDFAFA) : Color(0xFFE8F5FB);
+  static const brand100 = _kdsApp ? Color(0xFFFADCC9) : _bossApp ? Color(0xFFDCE2EE) : _staffApp ? Color(0xFFC9EDE4) : _posOnly ? Color(0xFFCFEFEF) : Color(0xFFBFE3F3);
+  static const brand200 = _kdsApp ? Color(0xFFF5B993) : _bossApp ? Color(0xFFB9C4DA) : _staffApp ? Color(0xFF9FDFD0) : _posOnly ? Color(0xFFA6E3E4) : Color(0xFF94D0EA);
+  static const brand300 = _kdsApp ? Color(0xFFF0975E) : _bossApp ? Color(0xFF8E9DBD) : _staffApp ? Color(0xFF66CDB6) : _posOnly ? Color(0xFF5BD2D6) : Color(0xFF6FC0E3);
+  static const brand400 = _kdsApp ? Color(0xFFE87A3A) : _bossApp ? Color(0xFF60739B) : _staffApp ? Color(0xFF23A68E) : _posOnly ? Color(0xFF28BDBF) : Color(0xFF3FA6D2);
   /// Màu thương hiệu (logo, thanh tiêu đề, biểu đồ, điểm nhấn).
-  static const brand500 = _bossApp ? Color(0xFF3A4C74) : _staffApp ? Color(0xFF1A927E) : _posOnly ? Color(0xFF1C8F91) : Color(0xFF158DC0);
+  static const brand500 = _kdsApp ? Color(0xFFD86A2C) : _bossApp ? Color(0xFF3A4C74) : _staffApp ? Color(0xFF1A927E) : _posOnly ? Color(0xFF1C8F91) : Color(0xFF158DC0);
   /// Nút chính, chữ liên kết, tab đang chọn — đủ tương phản chữ trắng (≈4.8:1).
-  static const brand600 = _bossApp ? Color(0xFF2C3C5E) : _staffApp ? Color(0xFF148573) : _posOnly ? Color(0xFF147A7C) : Color(0xFF0F7BA8);
+  static const brand600 = _kdsApp ? Color(0xFFBA4F18) : _bossApp ? Color(0xFF2C3C5E) : _staffApp ? Color(0xFF148573) : _posOnly ? Color(0xFF147A7C) : Color(0xFF0F7BA8);
   /// Di chuột / nhấn.
-  static const brand700 = _bossApp ? Color(0xFF243250) : _staffApp ? Color(0xFF106C5E) : _posOnly ? Color(0xFF106668) : Color(0xFF0B6A91);
-  static const brand800 = _bossApp ? Color(0xFF1D2842) : _staffApp ? Color(0xFF0D5A4E) : _posOnly ? Color(0xFF0E5658) : Color(0xFF095A7B);
+  static const brand700 = _kdsApp ? Color(0xFF9C4114) : _bossApp ? Color(0xFF243250) : _staffApp ? Color(0xFF106C5E) : _posOnly ? Color(0xFF106668) : Color(0xFF0B6A91);
+  static const brand800 = _kdsApp ? Color(0xFF7E3410) : _bossApp ? Color(0xFF1D2842) : _staffApp ? Color(0xFF0D5A4E) : _posOnly ? Color(0xFF0E5658) : Color(0xFF095A7B);
   /// Chữ trên nền xanh nhạt.
-  static const brand900 = _bossApp ? Color(0xFF141D33) : _staffApp ? Color(0xFF0A423A) : _posOnly ? Color(0xFF0A3F41) : Color(0xFF084B67);
+  static const brand900 = _kdsApp ? Color(0xFF5E260B) : _bossApp ? Color(0xFF141D33) : _staffApp ? Color(0xFF0A423A) : _posOnly ? Color(0xFF0A3F41) : Color(0xFF084B67);
 
   /// Ô icon (truy cập nhanh, nhóm chức năng): nền chuyển màu thương hiệu của app, biểu tượng trắng.
   /// SBOX BOSS theo logo: nền xanh đen, biểu tượng vàng gold.
@@ -67,7 +77,7 @@ abstract final class SboxColors {
   static const primary = brand600;
 
   /// Dạng MaterialColor (cho API cần đủ tông shade50..shade900).
-  static const brandSwatch = MaterialColor(_bossApp ? 0xFF3A4C74 : _staffApp ? 0xFF148573 : _posOnly ? 0xFF147A7C : 0xFF158DC0, <int, Color>{
+  static const brandSwatch = MaterialColor(_kdsApp ? 0xFFD86A2C : _bossApp ? 0xFF3A4C74 : _staffApp ? 0xFF148573 : _posOnly ? 0xFF147A7C : 0xFF158DC0, <int, Color>{
     50: brand50, 100: brand100, 200: brand200, 300: brand300, 400: brand400,
     500: brand500, 600: brand600, 700: brand700, 800: brand800, 900: brand900,
   });
@@ -99,6 +109,7 @@ abstract final class SboxColors {
 
   /// Màu dải sau thanh hệ thống theo giao diện sáng / tối.
   static Color systemBandFor({required bool dark}) {
+    if (_kdsApp) return kdsDarkChrome.value ? kdsBarNight : kdsBarDay;
     if (_posApp || _bossApp) return chrome;
     if (_hrmApp) return dark ? darkSurface : chrome;
     return systemBand;
