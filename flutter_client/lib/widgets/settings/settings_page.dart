@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 import 'package:flutter/services.dart';
 
 import '../../l10n/app_tr.dart';
@@ -150,8 +151,8 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
           Container(
             width: 44,
             height: 44,
-            decoration: BoxDecoration(color: SboxColors.brand50, borderRadius: BorderRadius.circular(12)),
-            child: Icon(widget.icon, color: SboxColors.brand600),
+            decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50, borderRadius: BorderRadius.circular(12)),
+            child: Icon(widget.icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.brand600),
           ),
           const SizedBox(width: 12),
         ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../widgets/sbox/sbox_ui.dart';
@@ -369,8 +370,8 @@ class ShiftRuleTimeline extends StatelessWidget {
             Container(
               width: 28,
               height: 28,
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), shape: BoxShape.circle),
-              child: Icon(icon, size: 15, color: color),
+              decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12), shape: BoxShape.circle),
+              child: Icon(icon, size: 15, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
             ),
             const SizedBox(width: 10),
             SizedBox(

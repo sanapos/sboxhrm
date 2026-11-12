@@ -1008,9 +1008,9 @@ class DashboardTabState extends State<DashboardTab> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10)),
-                child: Icon(icon, color: color, size: 20),
+                child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1129,9 +1129,9 @@ class DashboardTabState extends State<DashboardTab> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.1),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10)),
-                child: Icon(icon, color: color, size: 22),
+                child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -1882,9 +1882,9 @@ class DashboardTabState extends State<DashboardTab> {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.12),
+                        color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10)),
-                    child: Icon(icon, color: color, size: 16),
+                    child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 16),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
@@ -2077,10 +2077,10 @@ class DashboardTabState extends State<DashboardTab> {
       Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-            color: AdminHelpers.primary.withValues(alpha: 0.1),
+            color: SboxColors.isBoss ? SboxColors.iconBox : AdminHelpers.primary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10)),
         child: const Icon(Icons.fingerprint,
-            color: AdminHelpers.primary, size: 20),
+            color: SboxColors.isBoss ? SboxColors.iconOnBox : AdminHelpers.primary, size: 20),
       ),
       const SizedBox(width: 12),
       Expanded(

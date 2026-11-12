@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -170,8 +171,8 @@ class CommFileTile extends StatelessWidget {
             Container(
               width: 36,
               height: 36,
-              decoration: BoxDecoration(color: file.color.withValues(alpha: 0.12), borderRadius: SboxRadius.smAll),
-              child: Icon(file.icon, color: file.color, size: 20),
+              decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : file.color.withValues(alpha: 0.12), borderRadius: SboxRadius.smAll),
+              child: Icon(file.icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : file.color, size: 20),
             ),
             const SizedBox(width: 10),
             Expanded(

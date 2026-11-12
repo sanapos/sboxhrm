@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
@@ -116,10 +117,10 @@ class DpAvatar extends StatelessWidget {
     final hasPhoto = photo != null && photo!.isNotEmpty;
     return CircleAvatar(
       radius: size / 2,
-      backgroundColor: SboxColors.brand50,
+      backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
       foregroundImage: hasPhoto ? ApiService().storeImageProvider(photo!) : null,
       onForegroundImageError: hasPhoto ? (_, __) {} : null,
-      child: Text(initials, style: TextStyle(color: SboxColors.brand700, fontWeight: FontWeight.w800, fontSize: size * 0.4)),
+      child: Text(initials, style: TextStyle(color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700, fontWeight: FontWeight.w800, fontSize: size * 0.4)),
     );
   }
 }

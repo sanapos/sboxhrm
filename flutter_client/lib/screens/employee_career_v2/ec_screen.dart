@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/page_max_width.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_tr.dart';
@@ -396,8 +397,8 @@ class _EmployeeCareerV2ScreenState extends State<EmployeeCareerV2Screen> {
             Container(
               width: 30,
               height: 30,
-              decoration: BoxDecoration(color: k.color.withValues(alpha: 0.14), shape: BoxShape.circle),
-              child: Icon(k.icon, size: 17, color: k.color),
+              decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : k.color.withValues(alpha: 0.14), shape: BoxShape.circle),
+              child: Icon(k.icon, size: 17, color: SboxColors.isBoss ? SboxColors.iconOnBox : k.color),
             ),
             if (!last) Expanded(child: Container(width: 2, color: SboxColors.slate200)),
           ]),

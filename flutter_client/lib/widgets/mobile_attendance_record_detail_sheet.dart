@@ -295,8 +295,8 @@ class _MobileAttendanceRecordDetailBodyState
     final isCheckIn = record.punchType == 0;
     final punchColor = isTravel
         ? (record.punchType == 2
-            ? const Color(0xFF0EA5E9)
-            : (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF14B8A6)))
+            ? (SboxColors.isBoss ? SboxColors.brand300 : const Color(0xFF0EA5E9))
+            : (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand300 : Color(0xFF14B8A6)))
         : (isCheckIn ? PosTheme.kiotBlue : SboxColors.danger);
     final timeFmt = DateFormat('HH:mm:ss');
     final dateFmt = DateFormat('dd/MM/yyyy');

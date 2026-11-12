@@ -38,7 +38,7 @@ class WhMobileScaffold extends StatelessWidget {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kPlayOverlayOnLightBg,
       child: Scaffold(
-        backgroundColor: WhMobileTheme.bg,
+        backgroundColor: SboxColors.isBoss ? SboxColors.page : WhMobileTheme.bg,
         extendBody: true,
         floatingActionButton: floatingAction,
         body: Column(
@@ -81,7 +81,7 @@ class _WhGlassAppBar extends StatelessWidget {
     // Không dùng BackdropFilter blur: nền surfaceGlass đã gần đục, blur tính lại mỗi frame
     // cuộn (giật trên máy yếu).
     return Container(
-      padding: EdgeInsets.fromLTRB(8, topPadding + 4, 8, 12),
+      padding: EdgeInsets.fromLTRB(8, topPadding + (SboxColors.isBoss ? 0 : 4), 8, SboxColors.isBoss ? 2 : 12),
       decoration: BoxDecoration(
         color: SboxColors.appBarBg(WhMobileTheme.surfaceGlass),
         border: SboxColors.posApp
@@ -90,11 +90,11 @@ class _WhGlassAppBar extends StatelessWidget {
                 bottom: BorderSide(color: WhMobileTheme.divider.withOpacity(0.5)),
               ),
       ),
-      child: Row(
+      child: sboxBarScope(Row(
         children: [
           leading ??
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                icon: Icon(SboxColors.isBoss ? Icons.arrow_back : Icons.arrow_back_ios_new_rounded, size: SboxColors.isBoss ? 24 : 20),
                 color: SboxColors.appBarFg(WhMobileTheme.primary),
                 onPressed: () => Navigator.maybePop(context),
               ),
@@ -112,7 +112,7 @@ class _WhGlassAppBar extends StatelessWidget {
                   Text(tr(subtitle!),
                       style: SboxColors.posApp
                           ? WhMobileTheme.caption.copyWith(color: SboxColors.onChromeMuted)
-                          : WhMobileTheme.caption,
+                          : SboxColors.isBoss ? WhMobileTheme.caption.copyWith(color: SboxColors.onBar) : WhMobileTheme.caption,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis),
               ],
@@ -136,7 +136,7 @@ class _WhGlassAppBar extends StatelessWidget {
                   ]
                 : actions!),
         ],
-      ),
+      )),
     );
   }
 }
@@ -830,7 +830,14 @@ class WhEmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 56, color: WhMobileTheme.textTertiary),
+            SboxColors.isBoss
+                ? Container(
+                    width: 72,
+                    height: 72,
+                    decoration: const BoxDecoration(color: SboxColors.iconBox, shape: BoxShape.circle),
+                    child: Icon(icon, size: 34, color: SboxColors.iconOnBox),
+                  )
+                : Icon(icon, size: 56, color: WhMobileTheme.textTertiary),
             const SizedBox(height: 16),
             Text(tr(title),
                 style: WhMobileTheme.titleMedium, textAlign: TextAlign.center),
@@ -882,10 +889,10 @@ class WhHubTile extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: c.withOpacity(0.1),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : c.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(icon, color: c, size: 26),
+                child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : c, size: 26),
               ),
               const SizedBox(height: 10),
               Text(

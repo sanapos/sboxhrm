@@ -51,7 +51,7 @@ class PosOfflineBanner extends StatelessWidget {
               '${pending > 0 ? ' $pending đơn offline' : ''}'
               '${carts > 0 ? '${pending > 0 ? ',' : ''} $carts giỏ hàng chưa lưu' : ''}'
               ' lên máy chủ…';
-          bg = (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF1565C0));
+          bg = (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF1565C0));
           icon = Icons.cloud_upload_outlined;
         }
         if (text == null) return const SizedBox.shrink();

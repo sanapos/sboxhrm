@@ -84,7 +84,7 @@ class SboxButton extends StatelessWidget {
     final fs = size == SboxButtonSize.sm ? SboxType.small : (size == SboxButtonSize.lg ? SboxType.titleSm : SboxType.body);
     final padH = size == SboxButtonSize.sm ? 12.0 : (size == SboxButtonSize.lg ? 22.0 : 16.0);
     final (bg, fg, side, hover) = switch (kind) {
-      SboxButtonKind.primary => (SboxColors.primary, Colors.white, null, SboxColors.primaryHover),
+      SboxButtonKind.primary => (SboxColors.action, SboxColors.onAction, null, SboxColors.isBoss ? SboxColors.goldDeep : SboxColors.primaryHover),
       SboxButtonKind.secondary => (SboxColors.white, SboxColors.slate700, SboxColors.borderStrong, SboxColors.slate50),
       SboxButtonKind.ghost => (Colors.transparent, SboxColors.primary, null, SboxColors.brand50),
       SboxButtonKind.danger => (SboxColors.danger, Colors.white, null, SboxColors.dangerText),
@@ -258,7 +258,12 @@ class SboxCard extends StatelessWidget {
     );
     return Material(
       color: SboxColors.surface,
-      shape: const RoundedRectangleBorder(borderRadius: SboxRadius.lgAll, side: BorderSide(color: SboxColors.border)),
+      elevation: SboxColors.isBoss ? 1 : 0,
+      shadowColor: SboxColors.isBoss ? const Color(0x22141B2C) : null,
+      shape: RoundedRectangleBorder(
+        borderRadius: SboxRadius.lgAll,
+        side: SboxColors.isBoss ? BorderSide.none : const BorderSide(color: SboxColors.border),
+      ),
       clipBehavior: Clip.antiAlias,
       child: onTap == null ? body : InkWell(onTap: onTap, child: body),
     );
@@ -349,8 +354,9 @@ class SboxEmptyState extends StatelessWidget {
           Container(
             width: 56,
             height: 56,
-            decoration: const BoxDecoration(color: SboxColors.brand50, shape: BoxShape.circle),
-            child: Icon(icon, size: 28, color: SboxColors.brand600),
+            decoration: const BoxDecoration(
+                color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50, shape: BoxShape.circle),
+            child: Icon(icon, size: 28, color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.brand600),
           ),
           const SizedBox(height: SboxSpace.md),
           Text(tr(title), style: SboxType.titleSmStyle(), textAlign: TextAlign.center),
@@ -453,8 +459,11 @@ class SboxMetricCard extends StatelessWidget {
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: tone.bg, borderRadius: SboxRadius.mdAll),
-            child: Icon(icon, size: 22, color: tone.solid),
+            decoration: BoxDecoration(
+              color: SboxColors.isBoss ? SboxColors.brand600 : tone.bg,
+              borderRadius: SboxRadius.mdAll,
+            ),
+            child: Icon(icon, size: 22, color: SboxColors.isBoss ? SboxColors.gold : tone.solid),
           ),
       ]),
     );
@@ -487,11 +496,15 @@ abstract final class SboxDialogs {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: danger ? SboxColors.dangerSoft : SboxColors.brand50,
+                  color: SboxColors.isBoss
+                      ? (danger ? SboxColors.danger : SboxColors.iconBox)
+                      : danger ? SboxColors.dangerSoft : SboxColors.brand50,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon ?? (danger ? Icons.warning_amber_rounded : Icons.help_outline_rounded),
-                    color: danger ? SboxColors.danger : SboxColors.brand600),
+                    color: SboxColors.isBoss
+                        ? (danger ? Colors.white : SboxColors.iconOnBox)
+                        : danger ? SboxColors.danger : SboxColors.brand600),
               ),
               const SizedBox(height: SboxSpace.lg),
               Text(tr(title), style: SboxType.titleStyle()),

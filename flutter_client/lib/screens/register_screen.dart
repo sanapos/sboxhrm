@@ -198,7 +198,7 @@ class _RegisterScreenState extends State<RegisterScreen>
   Color get _brand =>
       SboxColors.posApp ? SboxColors.brand700 : _isPos ? SboxColors.successText : SboxColors.brand600;
   Color get _brandDim =>
-      SboxColors.posApp ? SboxColors.brand800 : _isPos ? (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF1B5E20)) : (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF004ABA));
+      SboxColors.posApp ? SboxColors.brand800 : _isPos ? (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF1B5E20)) : (SboxColors.posApp ? SboxColors.brand800 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF004ABA));
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -658,11 +658,11 @@ class _RegisterScreenState extends State<RegisterScreen>
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: SboxColors.brand600.withValues(alpha: 0.1),
+                          color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand600.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.rocket_launch_rounded,
-                            color: SboxColors.brand600, size: 20),
+                            color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.brand600, size: 20),
                       ),
                       const SizedBox(width: 16),
                       Column(
@@ -1142,12 +1142,12 @@ class _RegisterScreenState extends State<RegisterScreen>
                               gradient: LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [_brand, _brandDim],
+                                colors: SboxColors.isBoss ? const [SboxColors.gold, SboxColors.goldMain] : [_brand, _brandDim],
                               ),
                               borderRadius: BorderRadius.circular(14),
                               boxShadow: [
                                 BoxShadow(
-                                  color: _brand.withValues(alpha: 0.28),
+                                  color: (SboxColors.isBoss ? SboxColors.goldDeep : _brand).withValues(alpha: 0.28),
                                   blurRadius: 16,
                                   offset: const Offset(0, 6),
                                 ),
@@ -1158,7 +1158,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
-                                foregroundColor: Colors.white,
+                                foregroundColor: SboxColors.onAction,
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14)),
                               ),
@@ -1222,7 +1222,7 @@ class _RegisterScreenState extends State<RegisterScreen>
     );
 
     return Container(
-      color: _isPos ? Colors.white : (SboxColors.posApp ? SboxColors.page : Color(0xFFF8F9FA)),
+      color: _isPos ? Colors.white : (SboxColors.posApp ? SboxColors.page : SboxColors.isBoss ? SboxColors.page : Color(0xFFF8F9FA)),
       child: SafeArea(
         child: isDesktop
             ? Stack(

@@ -90,7 +90,7 @@ class PermissionRoleCatalog {
       title: 'Chấm công',
       description: 'Chấm thô, lịch, duyệt, mobile, tăng ca, đổi ca',
       icon: Icons.access_time,
-      color: Color(0xFF0369A1),
+      color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1)),
       moduleCodes: [
         'DeviceUser',
         'Leave',
@@ -185,7 +185,7 @@ class PermissionRoleCatalog {
       description:
           'Tick từng phần cho Thu ngân / Thu chi: máy in, mẫu in, cửa hàng, HĐĐT…',
       icon: Icons.print_outlined,
-      color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
+      color: (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand400 : Color(0xFF0F766E)),
       moduleCodes: posSettingsModuleCodes,
     ),
     PermissionUiGroup(

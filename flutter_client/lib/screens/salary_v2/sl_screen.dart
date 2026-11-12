@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/page_max_width.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_tr.dart';
@@ -295,8 +296,8 @@ class _SalaryV2ScreenState extends State<SalaryV2Screen> {
     final title = Row(children: [
       Container(
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: SboxColors.successSoft, borderRadius: BorderRadius.circular(12)),
-        child: const Icon(Icons.request_quote_outlined, color: SboxColors.successText),
+        decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.success : SboxColors.successSoft, borderRadius: BorderRadius.circular(12)),
+        child: const Icon(Icons.request_quote_outlined, color: SboxColors.isBoss ? Colors.white : SboxColors.successText),
       ),
       const SizedBox(width: 12),
       Expanded(

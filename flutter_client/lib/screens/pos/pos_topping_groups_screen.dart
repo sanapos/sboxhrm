@@ -526,7 +526,7 @@ class _PosToppingGroupsScreenState extends State<PosToppingGroupsScreen> {
               onPressed: () => _editGroup(),
               icon: const Icon(Icons.add),
               label: Text(tr('Thêm nhóm')),
-              backgroundColor: PosTheme.kiotBlue,
+              backgroundColor: SboxColors.isBoss ? SboxColors.action : PosTheme.kiotBlue,
             )
           : null,
       body: _loading

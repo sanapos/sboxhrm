@@ -1365,10 +1365,10 @@ class _PosQuoteListScreenState extends State<PosQuoteListScreen> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: (color ?? PosTheme.kiotBlue).withValues(alpha: 0.10),
+                      color: SboxColors.isBoss ? SboxColors.iconBox : (color ?? PosTheme.kiotBlue).withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(icon, size: 22, color: color ?? PosTheme.kiotBlue),
+                    child: Icon(icon, size: 22, color: SboxColors.isBoss ? SboxColors.iconOnBox : color ?? PosTheme.kiotBlue),
                   ),
                   const SizedBox(height: 6),
                   Text(tr(label),

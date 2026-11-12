@@ -3,9 +3,11 @@ import 'package:flutter/services.dart';
 
 /// App SBOX POS, SBOX Nhân Viên: các thanh cùng màu nền trang sáng nên icon hệ thống phải tối.
 /// SBOX HRM (không đặt SBOX_APP) cũng vậy: thanh hệ thống trắng như AppBar — xem [SboxColors.lightSystemBars].
+/// SBOX BOSS liền một nền nhạt từ trên xuống dưới: icon hệ thống tối.
 const _posApp = bool.fromEnvironment('SBOX_POS_STANDALONE') ||
     String.fromEnvironment('SBOX_APP') == 'staff' ||
-    String.fromEnvironment('SBOX_APP') == '';
+    String.fromEnvironment('SBOX_APP') == '' ||
+    String.fromEnvironment('SBOX_APP') == 'boss';
 
 /// Giao diện tối (HRM bật chế độ tối): dải nền tối → icon hệ thống sáng.
 const kPlayOverlayDarkTheme = SystemUiOverlayStyle(

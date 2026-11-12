@@ -536,7 +536,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
 
   Widget _buildOverviewSection() {
     return Container(
-      color: Colors.white,
+      color: SboxColors.isBoss ? SboxColors.bar : Colors.white,
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
       child: HrmCollapsibleOverview(
         title: 'Bộ lọc',
@@ -552,7 +552,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
   Widget _buildFilters() {
     final cats = _categoryOptions;
     return Container(
-      color: Colors.white,
+      color: SboxColors.isBoss ? SboxColors.bar : Colors.white,
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -767,7 +767,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
               style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E))),
+                  color: (SboxColors.posApp ? SboxColors.brand800 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0C4A6E))),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
@@ -1280,7 +1280,7 @@ class _CashReportScreenState extends State<CashReportScreen> {
                           dCell(st.label, 112, i,
                               textColor: _statusColor(t)),
                           dCell(balText, 120, i,
-                              textColor: const Color(0xFF0284C7)),
+                              textColor: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7))),
                           dCell(_paymentLabel(t['paymentMethod']), 100, i),
                           dCell(t['description']?.toString() ?? '', descW, i,
                               maxLines: 2),

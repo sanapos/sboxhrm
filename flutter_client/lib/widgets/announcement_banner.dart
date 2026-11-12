@@ -95,7 +95,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
         3 => SboxColors.danger, // critical
         2 => const Color(0xFFEA580C), // warning
         1 => SboxColors.success, // success
-        _ => (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0891B2)), // info
+        _ => (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand400 : Color(0xFF0891B2)), // info
       };
 
   IconData _icon(int kind) => switch (kind) {
@@ -346,7 +346,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
       decoration: BoxDecoration(
         color: (SboxColors.posApp ? SboxColors.brand50 : Color(0xFFF0F9FF)),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0891B2)).withValues(alpha: 0.35)),
+        border: Border.all(color: (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand400 : Color(0xFF0891B2)).withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -355,7 +355,7 @@ class _AnnouncementBannerState extends State<AnnouncementBanner> {
             style: vietnameseTextStyle(const TextStyle(
               fontWeight: FontWeight.w700,
               fontSize: 14,
-              color: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
+              color: (SboxColors.posApp ? SboxColors.brand800 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0C4A6E)),
             )),
           ),
           const SizedBox(height: 10),

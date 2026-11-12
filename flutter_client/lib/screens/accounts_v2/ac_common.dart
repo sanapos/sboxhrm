@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 import 'package:flutter/material.dart';
 
@@ -190,7 +191,8 @@ class AcAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tone = a.isActive ? roleTone(a.role) : SboxTone.neutral;
-    final (bg, fg) = switch (tone) {
+    // BOSS: avatar xanh đen chữ vàng như logo; tài khoản bị khóa giữ màu xám.
+    final (bg, fg) = SboxColors.isBoss && a.isActive ? (SboxColors.iconBox, SboxColors.gold) : switch (tone) {
       SboxTone.violet => (SboxColors.violetSoft, SboxColors.violetText),
       SboxTone.brand => (SboxColors.brand50, SboxColors.brand700),
       SboxTone.warning => (SboxColors.warningSoft, SboxColors.warningText),

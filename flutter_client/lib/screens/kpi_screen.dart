@@ -2214,10 +2214,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-                color: _accent.withValues(alpha: 0.06),
+                color: SboxColors.isBoss ? SboxColors.iconBox : _accent.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(10)),
             child: const Icon(Icons.calendar_month_rounded,
-                color: _accent, size: 20),
+                color: SboxColors.isBoss ? SboxColors.iconOnBox : _accent, size: 20),
           ),
           const SizedBox(width: 12),
           Text(tr('Chu kỳ đánh giá'),
@@ -2304,7 +2304,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.1),
+              color: SboxColors.isBoss ? SboxColors.iconBox : statusColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -2315,7 +2315,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       : status == 1
                           ? Icons.lock
                           : Icons.lock_open,
-              color: statusColor,
+              color: SboxColors.isBoss ? SboxColors.iconOnBox : statusColor,
               size: 18,
             ),
           ),
@@ -2409,7 +2409,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.1),
+                color: SboxColors.isBoss ? SboxColors.iconBox : statusColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Icon(
@@ -2420,7 +2420,7 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                         : status == 2
                             ? Icons.calculate_rounded
                             : Icons.verified_rounded,
-                color: statusColor,
+                color: SboxColors.isBoss ? SboxColors.iconOnBox : statusColor,
                 size: 18,
               ),
             ),
@@ -5094,9 +5094,9 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
             Container(
               padding: EdgeInsets.all(isMobile ? 4 : 6),
               decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.12),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, color: color, size: isMobile ? 14 : 18),
+              child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: isMobile ? 14 : 18),
             ),
             const SizedBox(width: 8),
             Text(tr(title),
@@ -5138,10 +5138,10 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: SboxColors.slate50,
+          color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.slate50,
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, size: 48, color: SboxColors.slate300),
+        child: Icon(icon, size: 48, color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.slate300),
       ),
       const SizedBox(height: 16),
       Text(tr(text),

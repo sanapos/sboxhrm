@@ -8,8 +8,8 @@ import '../../models/task_v2.dart';
 import '../../services/api_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'work_common.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 import 'work_task_editor.dart' show WorkPerson, pickWorkPeople;
-import '../../theme/sbox_tokens.dart';
 
 /// Loại việc dùng được cho cửa hàng (ẩn loại phần mềm: lỗi / tính năng / cải tiến).
 const workBusinessTaskTypes = <TaskType>[

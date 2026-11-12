@@ -996,7 +996,7 @@ class CommFormatToolbar extends StatelessWidget {
     ('#DC2626', Color(0xFFDC2626)),
     ('#EA580C', Color(0xFFEA580C)),
     ('#16A34A', (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF16A34A))),
-    ('#158DC0', Color(0xFF158DC0)),
+    ('#158DC0', (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF158DC0))),
     ('#7C3AED', Color(0xFF7C3AED)),
   ];
 

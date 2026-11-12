@@ -177,7 +177,7 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
                   onPressed: () => _showDocumentDialog(),
                   icon: const Icon(Icons.note_add),
                   label: Text(tr('Thêm tài liệu')),
-                  backgroundColor: HrmPageChrome.primaryNavy,
+                  backgroundColor: SboxColors.isBoss ? SboxColors.action : HrmPageChrome.primaryNavy,
                 )
               : null,
     );
@@ -390,9 +390,9 @@ class _HrDocumentsScreenState extends State<HrDocumentsScreen>
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10)),
-              child: Icon(_getDocTypeIcon(type), color: color, size: 18),
+              child: Icon(_getDocTypeIcon(type), color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(

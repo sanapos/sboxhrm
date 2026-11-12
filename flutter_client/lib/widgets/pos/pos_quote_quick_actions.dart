@@ -43,10 +43,10 @@ Future<String?> showPosQuoteActionSheet(
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: (a.color ?? PosTheme.kiotBlue).withValues(alpha: 0.10),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : (a.color ?? PosTheme.kiotBlue).withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(a.icon, size: 22, color: a.color ?? PosTheme.kiotBlue),
+                  child: Icon(a.icon, size: 22, color: SboxColors.isBoss ? SboxColors.iconOnBox : a.color ?? PosTheme.kiotBlue),
                 ),
                 const SizedBox(height: 6),
                 Text(tr(a.label),

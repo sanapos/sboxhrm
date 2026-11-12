@@ -30,7 +30,7 @@ import '../widgets/sbox/sbox_charts.dart';
 import '../utils/branch_filter_helper.dart';
 /// Brand blue shades — cùng tông, đậm/nhạt khác để phân biệt trễ / sớm.
 const _theme = HrmPageChrome.primaryNavy; // #0056B3
-const _lateColor = Color(0xFF00408A); // đậm hơn — đi trễ
+const _lateColor = (SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF00408A)); // đậm hơn — đi trễ
 const _earlyColor = SboxColors.brand400; // nhạt hơn — về sớm
 
 /// Báo cáo tổng hợp đi trễ / về sớm — cùng thuật toán [computeDailyShiftPairs]

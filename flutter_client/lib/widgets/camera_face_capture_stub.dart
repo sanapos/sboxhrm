@@ -131,10 +131,10 @@ class _CameraFaceCaptureState extends State<CameraFaceCapture> {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
+                color: SboxColors.isBoss ? SboxColors.iconBox : Colors.white.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.close, color: Colors.white, size: 24),
+              child: const Icon(Icons.close, color: SboxColors.isBoss ? SboxColors.iconOnBox : Colors.white, size: 24),
             ),
           ),
           const Spacer(),

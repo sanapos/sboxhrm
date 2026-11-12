@@ -260,13 +260,13 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
                 child: ListTile(
                   dense: true,
                   leading: CircleAvatar(
-                    backgroundColor: SboxColors.brand50,
+                    backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
                     foregroundImage: (e['photoUrl'] ?? '').toString().startsWith('http')
                         ? NetworkImage(e['photoUrl'].toString())
                         : null,
                     child: Text(
                       (e['name'] ?? '?').toString().trim().split(' ').last.characters.take(1).toString().toUpperCase(),
-                      style: const TextStyle(color: SboxColors.brand700, fontWeight: FontWeight.w800),
+                      style: const TextStyle(color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700, fontWeight: FontWeight.w800),
                     ),
                   ),
                   title: Text(e['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),

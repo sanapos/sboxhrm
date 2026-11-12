@@ -698,14 +698,14 @@ class _PosPriceListDetailScreenState extends State<PosPriceListDetailScreen> {
       floatingActionButton: canEdit
           ? FloatingActionButton.extended(
               onPressed: _saving ? null : _saveAll,
-              backgroundColor: PosTheme.kiotBlue,
+              backgroundColor: SboxColors.isBoss ? SboxColors.action : PosTheme.kiotBlue,
               icon: _saving
                   ? const SizedBox(
                       width: 18,
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
                       ),
                     )
                   : const Icon(Icons.save_outlined),

@@ -103,8 +103,8 @@ class _PosRiskReportScreenState extends State<PosRiskReportScreen> {
       backgroundColor: PosTheme.background,
       appBar: AppBar(
         title: Text(tr('Nguy cơ gian lận')),
-        backgroundColor: PosTheme.kiotBlue,
-        foregroundColor: Colors.white,
+        backgroundColor: SboxColors.isBoss ? SboxColors.bar : PosTheme.kiotBlue,
+        foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
         actions: [
           IconButton(
             tooltip: tr('Xuất PNG'),

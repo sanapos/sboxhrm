@@ -589,8 +589,8 @@ class _CustomerPickerDialogState extends State<_CustomerPickerDialog> {
                                   contentPadding: const EdgeInsets.symmetric(horizontal: 4),
                                   leading: const CircleAvatar(
                                     radius: 16,
-                                    backgroundColor: SboxColors.brand50,
-                                    child: Icon(Icons.person_outline, size: 18, color: SboxColors.brand700),
+                                    backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
+                                    child: Icon(Icons.person_outline, size: 18, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700),
                                   ),
                                   title: Text(c['name']?.toString() ?? '',
                                       maxLines: 1, overflow: TextOverflow.ellipsis,
@@ -1782,10 +1782,10 @@ class _MembersTabState extends State<_MembersTab> with AutomaticKeepAliveClientM
         Row(children: [
           CircleAvatar(
             radius: 18,
-            backgroundColor: SboxColors.brand50,
+            backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
             child: Text(
               (m['customerName']?.toString() ?? '?').trim().split(' ').last.characters.firstOrNull?.toUpperCase() ?? '?',
-              style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.brand700),
+              style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700),
             ),
           ),
           const SizedBox(width: 10),

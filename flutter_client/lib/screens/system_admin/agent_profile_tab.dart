@@ -353,10 +353,10 @@ class AgentProfileTabState extends State<AgentProfileTab> {
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: AdminHelpers.primary.withValues(alpha: 0.12),
+              color: SboxColors.isBoss ? SboxColors.iconBox : AdminHelpers.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.business, color: AdminHelpers.primary, size: 32),
+            child: const Icon(Icons.business, color: SboxColors.isBoss ? SboxColors.iconOnBox : AdminHelpers.primary, size: 32),
           ),
           const SizedBox(width: 14),
           Expanded(

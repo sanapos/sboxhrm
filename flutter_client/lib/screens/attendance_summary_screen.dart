@@ -452,7 +452,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
               DepartmentFilterHelper.showDepartmentFilter(
                   _branchFilter.departments))
             Container(
-              color: Colors.white,
+              color: SboxColors.bar,
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               child: ReportOrgFilterRow(
                 dense: true,

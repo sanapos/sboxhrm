@@ -197,7 +197,7 @@ class _TaskAssignmentTabState extends State<TaskAssignmentTab> {
       _metricCard(
         'Đang làm',
         d.myActiveCount,
-        const Color(0xFF6366F1),
+        (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF6366F1)),
         onTap: () => widget.onFilterList?.call(
           status: WorkTaskStatus.inProgress,
         ),

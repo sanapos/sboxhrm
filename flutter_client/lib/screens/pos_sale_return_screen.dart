@@ -445,14 +445,14 @@ class _PosSaleReturnScreenState extends State<PosSaleReturnScreen> {
         elevation: 0.5,
         foregroundColor: SboxColors.appBarFg(SboxColors.text),
         // Chưa chọn HĐ: giữa màn đã có nút «Chọn hóa đơn» — không lặp «Đổi HĐ» trên thanh tiêu đề.
-        actions: [
+        actions: sboxBarActions([
           if (_order != null)
           TextButton.icon(
             onPressed: _pickOrder,
-            icon: const Icon(Icons.receipt_long, color: SboxColors.primary, size: 18),
-            label: Text(tr('Đổi HĐ'), style: TextStyle(color: SboxColors.primary)),
+            icon: const Icon(Icons.receipt_long, color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.primary, size: 18),
+            label: Text(tr('Đổi HĐ'), style: TextStyle(color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.primary)),
           ),
-        ],
+        ]),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: _kiotBlue))

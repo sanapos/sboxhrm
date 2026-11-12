@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Hộp thoại + API xác nhận mật khẩu chủ cửa hàng / quản lý.
 /// Dùng cho thao tác nhạy cảm (trả bàn trống…).
@@ -280,7 +281,7 @@ class _RemoteApprovalWaitDialogState extends State<_RemoteApprovalWaitDialog> {
     final mm = (_left ~/ 60).toString();
     final ss = (_left % 60).toString().padLeft(2, '0');
     return AlertDialog(
-      icon: const Icon(Icons.phone_iphone_rounded, size: 32, color: Color(0xFF0E7490)),
+      icon: const Icon(Icons.phone_iphone_rounded, size: 32, color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0E7490))),
       title: Text(tr('Đang chờ chủ duyệt')),
       content: Column(mainAxisSize: MainAxisSize.min, children: [
         Text(

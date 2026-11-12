@@ -158,7 +158,7 @@ class ZKTecoApp extends StatelessWidget {
                           ctx,
                           ColoredBox(
                             // SBOX POS: nền trang, đổi màn không nháy dải cobalt / đen.
-                            color: SboxColors.posApp ? SboxColors.page : const Color(0xFF000000),
+                            color: SboxColors.posApp ? SboxColors.page : SboxColors.isBoss ? SboxColors.bar : const Color(0xFF000000),
                             child: PosTouchImeHost(
                               child: PosKeyboardLift(
                                 child: DefaultTextStyle(

@@ -57,8 +57,8 @@ class _SboxActionFabState extends State<SboxActionFab> {
             // Nhiều Scaffold lồng nhau (tab Máy in) — heroTag mặc định trùng nhau sẽ lỗi.
             heroTag: null,
             onPressed: () => setState(() => _open = !_open),
-            backgroundColor: _open ? SboxColors.slate700 : SboxColors.primary,
-            foregroundColor: Colors.white,
+            backgroundColor: _open ? SboxColors.slate700 : SboxColors.action,
+            foregroundColor: _open ? Colors.white : SboxColors.onAction,
             icon: Icon(_open ? Icons.close : Icons.more_horiz),
             label: Text(tr(_open ? 'Đóng' : widget.label)),
           ),

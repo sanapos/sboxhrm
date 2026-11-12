@@ -223,7 +223,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
   int _pageSize = 50;
   final List<int> _pageSizeOptions = [20, 50, 100, 200];
 
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = hrmOverviewDefaultOpen;
   DeviceUsersOverviewFilter _overviewFilter = DeviceUsersOverviewFilter.all;
 
   @override
@@ -482,7 +482,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                Icon(Icons.upload, color: SboxColors.okSwatch),
+                Icon(Icons.upload, color: (SboxColors.isBoss ? SboxColors.brandSwatch : SboxColors.okSwatch)),
                 SizedBox(width: 8),
                 Expanded(child: Text(tr('Tải hồ sơ nhân sự xuống máy'))),
               ],
@@ -2514,7 +2514,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
         ),
         ListTile(
           leading: const CircleAvatar(
-            backgroundColor: Colors.indigo,
+            backgroundColor: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo),
             child: Icon(Icons.copy_all, color: Colors.white, size: 20),
           ),
           title: Text(tr('Copy sinh trắc sang máy khác')),
@@ -3593,7 +3593,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
           return ScrollableAlertDialog(
             title: Row(
               children: [
-                const Icon(Icons.face, color: SboxColors.okSwatch),
+                const Icon(Icons.face, color: (SboxColors.isBoss ? SboxColors.brandSwatch : SboxColors.okSwatch)),
                 const SizedBox(width: 8),
                 Expanded(child: Text(tr('Khuôn mặt - ${user.name}'))),
               ],
@@ -3690,7 +3690,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                           return Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: (canRemoteFace ? SboxColors.okSwatch : Colors.orange)
+                              color: (canRemoteFace ? (SboxColors.isBoss ? SboxColors.brandSwatch : SboxColors.okSwatch) : Colors.orange)
                                   .withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
@@ -3767,7 +3767,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                               label: Text(tr('Đã đăng ký trên máy — Đồng bộ'),
                                   style: TextStyle(fontSize: 14)),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: SboxColors.okSwatch,
+                                foregroundColor: (SboxColors.isBoss ? SboxColors.brandSwatch : SboxColors.okSwatch),
                                 side: const BorderSide(color: SboxColors.okSwatch),
                                 padding:
                                     const EdgeInsets.symmetric(vertical: 14),
@@ -3905,7 +3905,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
       builder: (ctx) => ScrollableAlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.info_outline, color: SboxColors.okSwatch),
+            const Icon(Icons.info_outline, color: (SboxColors.isBoss ? SboxColors.brandSwatch : SboxColors.okSwatch)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -4374,7 +4374,7 @@ class _DeviceUsersScreenState extends State<DeviceUsersScreen> {
                       child: Row(
                         children: [
                           const Icon(Icons.copy_all,
-                              size: 20, color: Colors.indigo),
+                              size: 20, color: (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo)),
                           const SizedBox(width: 12),
                           Text(tr('Copy sinh trắc')),
                         ],

@@ -2473,9 +2473,9 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
         bottom: sboxBarTabs(TabBar(
           controller: _tabs,
           isScrollable: _tabLabels.length > 4,
-          labelColor: SboxColors.primary,
-          unselectedLabelColor: SboxColors.textMuted,
-          indicatorColor: SboxColors.primary,
+          labelColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.primary,
+          unselectedLabelColor: SboxColors.isBoss ? SboxColors.textSecondary : SboxColors.textMuted,
+          indicatorColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.primary,
           tabs: _tabLabels.map((t) => Tab(text: tr(t))).toList(),
         )),
       ),
@@ -2795,7 +2795,7 @@ class _PosProductEditorPageState extends State<PosProductEditorPage>
   Widget _buildTypeUsageNote() {
     final (color, icon, text) = switch (_type) {
       PosProductType.service => (
-          const Color(0xFF0369A1),
+          (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1)),
           Icons.handyman_outlined,
           'Dịch vụ không quản lý tồn thành phẩm — bán không trừ kho. Khai định lượng NVL nếu muốn trừ nguyên liệu khi bán.',
         ),

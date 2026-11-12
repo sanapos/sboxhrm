@@ -42,6 +42,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_table.dart';
+import 'package:zkteco_flutter_client/widgets/scanner_error_view.dart';
 import '../widgets/sbox/sbox_basics.dart' show SboxTone;
 import '../widgets/sbox/sbox_report.dart' show SboxKpi, SboxKpiStrip;
 class EmployeesScreen extends StatefulWidget {
@@ -75,7 +76,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   final bool _groupByBranch = true;
 
   // Tổng quan + bộ lọc (ẩn/hiện cùng nhau)
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = hrmOverviewDefaultOpen;
   List<String> _departments = ['Tất cả'];
   List<String> _positions = [];
   List<Department> _departmentList = [];
@@ -1969,8 +1970,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
   Widget _buildEmployeeAvatar(Employee employee, {double radius = 18}) {
     return CircleAvatar(
       radius: radius,
-      backgroundColor:
-          Theme.of(context).primaryColor.withValues(alpha: 0.15),
+      backgroundColor: SboxColors.isBoss
+          ? SboxColors.iconBox
+          : Theme.of(context).primaryColor.withValues(alpha: 0.15),
       backgroundImage: employee.avatarUrl != null
           ? _apiService.storeImageProvider(employee.avatarUrl!)
           : null,
@@ -1981,7 +1983,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       employee.gender?.toLowerCase() == 'nữ'
                   ? Icons.woman_rounded
                   : Icons.man_rounded,
-              color: Theme.of(context).primaryColor,
+              color: SboxColors.isBoss ? SboxColors.iconOnBox : Theme.of(context).primaryColor,
               size: radius,
             )
           : null,
@@ -2216,7 +2218,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     children: [
                       Icon(Icons.visibility, size: 20),
                       SizedBox(width: 12),
-                      Text(tr('View Details')),
+                      Text(tr('Xem chi tiết')),
                     ],
                   ),
                 ),
@@ -2227,7 +2229,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       children: [
                         Icon(Icons.edit, size: 20),
                         SizedBox(width: 12),
-                        Text(tr('Edit')),
+                        Text(tr('Sửa')),
                       ],
                     ),
                   ),
@@ -2248,7 +2250,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                     children: [
                       Icon(Icons.payments, size: 20, color: SboxColors.brand500),
                       SizedBox(width: 12),
-                      Text(tr('Salary Settings'),
+                      Text(tr('Thiết lập lương'),
                           style: TextStyle(color: SboxColors.brand500)),
                     ],
                   ),
@@ -4252,8 +4254,8 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                           child: Text(tr('Quá trình CT'), maxLines: 1),
                         ),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF0369A1),
-                          side: const BorderSide(color: Color(0xFF0369A1)),
+                          foregroundColor: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1)),
+                          side: const BorderSide(color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1))),
                           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
                         ),
                       ),
@@ -4299,9 +4301,9 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
         ),
       TextButton.icon(
         onPressed: openCareer,
-        icon: const Icon(Icons.work_history_outlined, color: Color(0xFF0369A1)),
+        icon: const Icon(Icons.work_history_outlined, color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1))),
         label: Text(tr('Quá trình CT'),
-            style: TextStyle(color: Color(0xFF0369A1))),
+            style: TextStyle(color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1)))),
       ),
       TextButton(onPressed: closeDetails, child: Text(tr('Đóng'))),
       if (canEdit)
@@ -4550,13 +4552,8 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                         if (_scannerController != null)
                           ClipRRect(
                             child: MobileScanner(
+                              errorBuilder: scannerErrorView,
                               controller: _scannerController!,
-                              errorBuilder: (context, error) {
-                                return _buildCameraError(
-                                  error.errorDetails?.message ??
-                                      'Không thể truy cập camera',
-                                );
-                              },
                               onDetect: (capture) {
                                 if (_hasScanned) return;
                                 final barcodes = capture.barcodes;
@@ -4586,7 +4583,9 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                               _cameraError ?? 'Camera không khả dụng'),
                         // Scan overlay
                         if (_cameraError == null && _scannerController != null)
-                          Center(
+                          ScannerOverlayGate(
+                            controller: _scannerController!,
+                            child: Center(
                             child: Container(
                               width: 220,
                               height: 220,
@@ -4607,6 +4606,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                                   : null,
                             ),
                           ),
+                          ),
                         // Torch toggle
                         if (_cameraError == null &&
                             _scannerController != null &&
@@ -4614,7 +4614,9 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                           Positioned(
                             bottom: 12,
                             right: 12,
-                            child: IconButton(
+                            child: ScannerOverlayGate(
+                              controller: _scannerController!,
+                              child: IconButton(
                               style: IconButton.styleFrom(
                                 backgroundColor: SboxColors.textSecondary,
                                 padding: const EdgeInsets.all(10),
@@ -4628,6 +4630,7 @@ class _CccdQrScannerDialogState extends State<_CccdQrScannerDialog> {
                                 _scannerController?.toggleTorch();
                                 setState(() => _torchOn = !_torchOn);
                               },
+                            ),
                             ),
                           ),
                       ],

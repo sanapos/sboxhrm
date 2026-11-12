@@ -398,7 +398,7 @@ class _NotificationCardState extends State<_NotificationCard>
     if (item.relatedEntityType == 'Attendance' ||
         item.type == NotificationType.attendanceCorrection ||
         item.title.toLowerCase().contains('chấm công')) {
-      return const Color(0xFF2D5F8B); // Cyan
+      return (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF2D5F8B)); // Cyan
     }
 
     switch (item.type) {
@@ -462,7 +462,7 @@ class _NotificationCardState extends State<_NotificationCard>
           child: Material(
             elevation: 8,
             borderRadius: BorderRadius.circular(14),
-            color: SboxColors.slate900,
+            color: SboxColors.isBoss ? SboxColors.brand700 : SboxColors.slate900,
             child: InkWell(
               onTap: () {
                 widget.item.onTap?.call();
@@ -496,11 +496,12 @@ class _NotificationCardState extends State<_NotificationCard>
                     Center(
                       child: Container(
                         padding: const EdgeInsets.all(8),
+                        // BOSS: icon vàng trên nền xanh đen như logo; màu loại tin vẫn ở thanh bên trái.
                         decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.1),
+                          color: SboxColors.isBoss ? SboxColors.brand500 : color.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
-                        child: Icon(_getIcon(), color: color, size: 20),
+                        child: Icon(_getIcon(), color: SboxColors.isBoss ? SboxColors.gold : color, size: 20),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -577,12 +578,12 @@ class _CompactToast extends StatelessWidget {
       NotificationType.success => (SboxColors.success, Icons.check_circle_rounded),
       NotificationType.warning => (SboxColors.warning, Icons.info_rounded),
       NotificationType.error => (SboxColors.danger, Icons.error_rounded),
-      _ => (const Color(0xFF7CC4F8), Icons.sync_rounded),
+      _ => ((SboxColors.isBoss ? SboxColors.brand200 : const Color(0xFF7CC4F8)), Icons.sync_rounded),
     };
     final title = tr(item.title);
     final msg = tr(item.message).trim();
     return Material(
-      color: SboxColors.slate900,
+      color: SboxColors.isBoss ? SboxColors.brand700 : SboxColors.slate900,
       elevation: 6,
       borderRadius: BorderRadius.circular(24),
       child: InkWell(

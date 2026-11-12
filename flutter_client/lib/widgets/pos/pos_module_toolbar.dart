@@ -36,18 +36,18 @@ class PosModuleToolbar extends StatelessWidget {
       return const SizedBox.shrink();
     }
     return Material(
-      color: Colors.white,
+      color: SboxColors.bar,
       child: Container(
-        height: 56,
+        height: SboxColors.barHeight,
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: SboxColors.border)),
+        decoration: BoxDecoration(
+          border: SboxColors.isBoss ? null : const Border(bottom: BorderSide(color: SboxColors.border)),
         ),
         child: Row(
           children: [
             IconButton(
               tooltip: tr('Quay lại'),
-              icon: const Icon(Icons.arrow_back, color: SboxColors.text),
+              icon: const Icon(Icons.arrow_back, color: SboxColors.onBar),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
             const SizedBox(width: 8),
@@ -57,9 +57,9 @@ class PosModuleToolbar extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 20,
+                  fontSize: SboxColors.isBoss ? 16 : 20,
                   fontWeight: FontWeight.w600,
-                  color: SboxColors.text,
+                  color: SboxColors.onBar,
                 ),
               ),
             ),

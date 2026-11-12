@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
 import '../../theme/sbox_tokens.dart';
 import 'sbox_basics.dart';
+import '../../config/sbox_app_variant.dart';
 
 /// SBOX Design — khung Tổng quan / Báo cáo:
 ///   Bộ lọc kỳ  →  Dải KPI (so với kỳ trước)  →  Biểu đồ  →  Bảng tổng hợp.
@@ -223,6 +224,8 @@ class SboxKpiStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(builder: (context, cons) {
       final w = cons.maxWidth;
+      // SBOX BOSS trên điện thoại: một hàng vuốt ngang, để danh sách hiện ngay trong màn đầu.
+      if (SboxAppVariant.bossApp && w < SboxBreakpoints.mobile && items.length > 1) return _KpiScrollRow(items: items);
       // Điện thoại: chia cột sao cho không có thẻ lẻ rớt xuống hàng (3 số → 3 cột, 6 số → 2×3…).
       final n = items.length;
       var cols = w < SboxBreakpoints.mobile
@@ -259,6 +262,48 @@ class SboxKpiStrip extends StatelessWidget {
   }
 }
 
+class _KpiScrollRow extends StatelessWidget {
+  const _KpiScrollRow({required this.items});
+  final List<SboxKpi> items;
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: IntrinsicHeight(
+          child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(width: SboxSpace.sm),
+              Material(
+                color: SboxColors.surface,
+                shape: RoundedRectangleBorder(borderRadius: SboxRadius.mdAll, side: const BorderSide(color: SboxColors.border)),
+                child: InkWell(
+                  customBorder: RoundedRectangleBorder(borderRadius: SboxRadius.mdAll),
+                  onTap: items[i].onTap,
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 112, maxWidth: 190),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                        Text(tr(items[i].label),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 11, height: 1.2, color: SboxColors.textMuted)),
+                        const SizedBox(height: 2),
+                        Text(items[i].value,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: items[i].tone.solid)),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ]),
+        ),
+      );
+}
+
 class _KpiTile extends StatelessWidget {
   const _KpiTile({required this.k, required this.compact, this.twoLine = false, this.showIcon = true});
   final SboxKpi k;
@@ -288,8 +333,10 @@ class _KpiTile extends StatelessWidget {
             Container(
               width: compact ? 26 : 30,
               height: compact ? 26 : 30,
-              decoration: BoxDecoration(color: k.tone.bg, borderRadius: SboxRadius.smAll),
-              child: Icon(k.icon, size: compact ? 15 : 17, color: k.tone.solid),
+              decoration: BoxDecoration(
+                  color: SboxColors.isBoss ? SboxColors.iconBox : k.tone.bg, borderRadius: SboxRadius.smAll),
+              child: Icon(k.icon,
+                  size: compact ? 15 : 17, color: SboxColors.isBoss ? SboxColors.iconOnBox : k.tone.solid),
             ),
             const SizedBox(width: SboxSpace.sm),
           ],
@@ -583,8 +630,8 @@ class SboxTodoList extends StatelessWidget {
               Container(
                 width: 30,
                 height: 30,
-                decoration: BoxDecoration(color: shown[i].tone.bg, borderRadius: SboxRadius.smAll),
-                child: Icon(shown[i].icon ?? Icons.pending_actions_rounded, size: 17, color: shown[i].tone.solid),
+                decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : shown[i].tone.bg, borderRadius: SboxRadius.smAll),
+                child: Icon(shown[i].icon ?? Icons.pending_actions_rounded, size: 17, color: SboxColors.isBoss ? SboxColors.iconOnBox : shown[i].tone.solid),
               ),
               const SizedBox(width: SboxSpace.md),
               Expanded(child: Text(tr(shown[i].label), style: SboxType.smallStyle(SboxColors.text))),

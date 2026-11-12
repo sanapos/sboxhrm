@@ -23,7 +23,7 @@ class AppFatalErrorScreen extends StatelessWidget {
     };
     final iconColor = switch (info.kind) {
       AppErrorKind.network => SboxColors.warning,
-      AppErrorKind.timeout => const Color(0xFF6366F1),
+      AppErrorKind.timeout => (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF6366F1)),
       AppErrorKind.server => SboxColors.danger,
       AppErrorKind.unknown => SboxColors.danger,
     };

@@ -652,9 +652,9 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
           title: c.name,
           subtitle: info,
           leading: CircleAvatar(
-            backgroundColor: SboxColors.brand50,
+            backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
             child: Text(c.name.isNotEmpty ? c.name[0].toUpperCase() : 'K',
-                style: const TextStyle(color: SboxColors.brand700, fontWeight: FontWeight.w800)),
+                style: const TextStyle(color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700, fontWeight: FontWeight.w800)),
           ),
           actions: [
             if (canEdit) SboxButton.secondary(label: 'Sửa', icon: Icons.edit_outlined, onPressed: _edit),

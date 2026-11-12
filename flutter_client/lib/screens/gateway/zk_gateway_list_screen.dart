@@ -304,10 +304,10 @@ class _ZkGatewayListScreenState extends State<ZkGatewayListScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: HrmPageChrome.primaryNavy.withValues(alpha: 0.10),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(Icons.router, color: HrmPageChrome.primaryNavy),
+                child: const Icon(Icons.router, color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.primaryNavy),
               ),
               const SizedBox(width: 13),
               Expanded(

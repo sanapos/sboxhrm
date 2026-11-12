@@ -8,12 +8,12 @@ class ShiftUi {
   ShiftUi._();
 
   static const _palette = [
-    Color(0xFF158DC0),
+    (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF158DC0)),
     Color(0xFFF59E0B),
     Color(0xFF7C3AED),
     (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF10B981)),
     Color(0xFFEF4444),
-    Color(0xFF0EA5E9),
+    (SboxColors.isBoss ? SboxColors.brand300 : const Color(0xFF0EA5E9)),
     Color(0xFFEC4899),
     Color(0xFF64748B),
   ];
@@ -175,8 +175,8 @@ class ShiftUi {
           child: Row(children: [
             Container(
               padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, color: color, size: 18),
+              decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 18),
             ),
             const SizedBox(width: 10),
             Expanded(

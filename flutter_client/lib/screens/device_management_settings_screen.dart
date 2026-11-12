@@ -19,6 +19,7 @@ import '../widgets/device_sync_progress_overlay.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../theme/sbox_tokens.dart';
+import 'package:zkteco_flutter_client/widgets/scanner_error_view.dart';
 class DeviceManagementSettingsScreen extends StatefulWidget {
   const DeviceManagementSettingsScreen({super.key});
 
@@ -1445,12 +1446,8 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                           children: [
                             ClipRRect(
                               child: MobileScanner(
+                                errorBuilder: scannerErrorView,
                                 controller: _scannerController!,
-                                errorBuilder: (context, error) {
-                                  return _buildCameraError(
-                                    error.errorDetails?.message ?? 'Không thể truy cập camera',
-                                  );
-                                },
                                 onDetect: (capture) {
                                   if (_hasScanned) return;
                                   final barcodes = capture.barcodes;
@@ -1463,7 +1460,9 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                               ),
                             ),
                             // Scan guide overlay
-                            Center(
+                            ScannerOverlayGate(
+                              controller: _scannerController!,
+                              child: Center(
                               child: Container(
                                 width: 260,
                                 height: 100,
@@ -1475,12 +1474,15 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                                   borderRadius: BorderRadius.circular(14),
                                 ),
                               ),
+                              ),
                             ),
                             // Torch toggle
                             Positioned(
                               bottom: 12,
                               right: 12,
-                              child: IconButton(
+                              child: ScannerOverlayGate(
+                                controller: _scannerController!,
+                                child: IconButton(
                                 style: IconButton.styleFrom(
                                   backgroundColor: SboxColors.textSecondary,
                                   padding: const EdgeInsets.all(10),
@@ -1494,6 +1496,7 @@ class _BarcodeScannerDialogState extends State<_BarcodeScannerDialog> {
                                   _scannerController?.toggleTorch();
                                   setState(() => _torchOn = !_torchOn);
                                 },
+                              ),
                               ),
                             ),
                           ],
@@ -1695,7 +1698,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
       SnackBar(
         content: Text(tr(outcome.message)),
         backgroundColor: outcome.success
-            ? (outcome.isSync ? const Color(0xFF0284C7) : SboxColors.success)
+            ? (outcome.isSync ? (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7)) : SboxColors.success)
             : SboxColors.danger,
         behavior: SnackBarBehavior.floating,
         duration: Duration(seconds: outcome.isSync ? 4 : 3),
@@ -1768,7 +1771,7 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
     final IconData icon;
     if (feedback.isSync) {
       bg = const Color(0xFFE0F2FE);
-      fg = const Color(0xFF0369A1);
+      fg = (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1));
       icon = Icons.cloud_download_outlined;
     } else if (feedback.success) {
       bg = SboxColors.successSoft;
@@ -2100,9 +2103,9 @@ class _DeviceDetailDialogState extends State<_DeviceDetailDialog> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10)),
-              child: Icon(icon, size: 16, color: color),
+              child: Icon(icon, size: 16, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
             ),
             const SizedBox(width: 8),
             Text(tr(title),

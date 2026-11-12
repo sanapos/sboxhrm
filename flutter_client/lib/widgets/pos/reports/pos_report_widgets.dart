@@ -23,9 +23,9 @@ const _kiotBlue = PosTheme.kiotBlue;
 const _ink = Color(0xFF2B3437);
 const _muted = SboxColors.slate600;
 const _hint = Color(0xFF8A9199);
-const _pageBg = (SboxColors.posApp ? SboxColors.page : Color(0xFFF1F4F6));
+const _pageBg = (SboxColors.posApp ? SboxColors.page : SboxColors.isBoss ? SboxColors.page : Color(0xFFF1F4F6));
 const _rose = Color(0xFFB42318);
-const _teal = (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E));
+const _teal = (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0F766E));
 const _cogs = Color(0xFFCA8A04);
 
 final _dotFmt = NumberFormat('#,##0', 'vi_VN');
@@ -228,7 +228,7 @@ class PosReportMobileScaffold extends StatelessWidget {
     final timeChip = PosTimeRangeChip(state: time, onChanged: onTimeChanged);
     Widget action(String tip, IconData icon, VoidCallback? onTap) => IconButton(
           tooltip: tr(tip),
-          icon: Icon(icon, color: _muted, size: 22),
+          icon: Icon(icon, color: SboxColors.isBoss ? SboxColors.onBar : _muted, size: 22),
           onPressed: onTap,
         );
     // Xuất: icon tệp Excel / PNG (màn hẹp chỉ icon, màn rộng kèm chữ ngắn).
@@ -240,16 +240,18 @@ class PosReportMobileScaffold extends StatelessWidget {
           );
     // Một hàng (desktop): ← Tiêu đề · Thời gian ▾ · PNG · Excel · Lọc — thay khối chọn kỳ 3 dòng cũ.
     final header = Material(
-      color: Colors.white,
+      color: SboxColors.bar,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(
-            height: 56,
+          ColoredBox(
+            color: SboxColors.bar,
+            child: SizedBox(
+            height: SboxColors.barHeight,
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, color: _ink),
+                  icon: const Icon(Icons.arrow_back, color: SboxColors.isBoss ? SboxColors.onBar : _ink),
                   onPressed: () => Navigator.maybePop(context),
                 ),
                 Expanded(
@@ -260,7 +262,7 @@ class PosReportMobileScaffold extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
-                      color: _ink,
+                      color: SboxColors.isBoss ? SboxColors.onBar : _ink,
                       letterSpacing: -0.3,
                     ),
                   ),
@@ -273,7 +275,8 @@ class PosReportMobileScaffold extends StatelessWidget {
               ],
             ),
           ),
-          if (showTimeFilter && narrow)
+          ),
+                    if (showTimeFilter && narrow)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
               child: Align(alignment: Alignment.centerLeft, child: timeChip),
@@ -283,7 +286,7 @@ class PosReportMobileScaffold extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
               child: filterBar,
             ),
-          const Divider(height: 1, color: SboxColors.slate200),
+          if (!SboxColors.isBoss) const Divider(height: 1, color: SboxColors.slate200),
         ],
       ),
     );

@@ -462,12 +462,12 @@ class _PosPriceListsScreenState extends State<PosPriceListsScreen> {
                               child: Row(
                                 children: [
                                   CircleAvatar(
-                                    backgroundColor: PosTheme.kiotBlueLight,
+                                    backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : PosTheme.kiotBlueLight,
                                     child: Icon(
                                       pl.isDefault
                                           ? Icons.star
                                           : Icons.sell_outlined,
-                                      color: PosTheme.kiotBlue,
+                                      color: SboxColors.isBoss ? SboxColors.iconOnBox : PosTheme.kiotBlue,
                                     ),
                                   ),
                                   const SizedBox(width: 12),

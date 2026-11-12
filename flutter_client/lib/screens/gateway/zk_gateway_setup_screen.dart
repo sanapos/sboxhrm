@@ -613,7 +613,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
             width: 22,
             height: 22,
             decoration: BoxDecoration(
-              color: HrmPageChrome.primaryNavy.withValues(alpha: 0.10),
+              color: SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.10),
               shape: BoxShape.circle,
             ),
             child: Center(
@@ -622,7 +622,7 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
-                  color: HrmPageChrome.primaryNavy,
+                  color: SboxColors.isBoss ? SboxColors.gold : HrmPageChrome.primaryNavy,
                 ),
               ),
             ),
@@ -1131,10 +1131,10 @@ class _ZkGatewaySetupScreenState extends State<ZkGatewaySetupScreen> {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: SboxColors.success.withValues(alpha: 0.12),
+                    color: SboxColors.isBoss ? SboxColors.success : SboxColors.success.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.check, color: SboxColors.success),
+                  child: const Icon(Icons.check, color: SboxColors.isBoss ? Colors.white : SboxColors.success),
                 ),
                 const SizedBox(width: 13),
                 Expanded(

@@ -75,8 +75,8 @@ Color tripStatusColor(dynamic status) {
       return SboxColors.danger;
     case 2:
     case 3:
-      return const Color(0xFF0EA5E9);
+      return (SboxColors.isBoss ? SboxColors.brand300 : const Color(0xFF0EA5E9));
     default:
-      return const Color(0xFF0EA5E9);
+      return (SboxColors.isBoss ? SboxColors.brand300 : const Color(0xFF0EA5E9));
   }
 }

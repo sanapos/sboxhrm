@@ -138,8 +138,8 @@ abstract final class WhMobileTheme {
 
   static ButtonStyle primaryButton({bool compact = false}) =>
       FilledButton.styleFrom(
-        backgroundColor: primary,
-        foregroundColor: Colors.white,
+        backgroundColor: SboxColors.isBoss ? SboxColors.action : primary,
+        foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
         elevation: 0,
         shadowColor: Colors.transparent,
         padding: EdgeInsets.symmetric(

@@ -205,8 +205,8 @@ class _BusinessTripCategoriesScreenState
       backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         title: Text(tr('Loại chi phí công tác')),
-        backgroundColor: _theme,
-        foregroundColor: Colors.white,
+        backgroundColor: SboxColors.isBoss ? SboxColors.bar : _theme,
+        foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
         actions: [
           IconButton(
             tooltip: tr('Khởi tạo mẫu còn thiếu'),

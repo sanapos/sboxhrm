@@ -362,9 +362,9 @@ class _ClientsTabState extends State<_ClientsTab> with AutomaticKeepAliveClientM
             Row(children: [
               CircleAvatar(
                 radius: 18,
-                backgroundColor: SboxColors.brand50,
+                backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
                 child: Text(name.isEmpty ? '?' : name.trim().split(' ').last[0].toUpperCase(),
-                    style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.brand700)),
+                    style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700)),
               ),
               const SizedBox(width: 10),
               Expanded(

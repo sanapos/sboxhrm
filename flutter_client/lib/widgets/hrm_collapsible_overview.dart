@@ -1,9 +1,22 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:flutter/material.dart';
 
+import '../config/sbox_app_variant.dart';
 import '../l10n/app_tr.dart';
 import 'pos/pos_theme.dart';
 
 import '../theme/sbox_tokens.dart';
+/// Trạng thái mở sẵn của khung «Tổng quan & bộ lọc». SBOX BOSS trên điện thoại thu gọn:
+/// mở sẵn thì các ô số chiếm gần hai màn, chủ phải cuộn mãi mới thấy danh sách.
+bool get hrmOverviewDefaultOpen {
+  if (!SboxAppVariant.bossApp) return true;
+  final views = PlatformDispatcher.instance.views;
+  if (views.isEmpty) return true;
+  final v = views.first;
+  return v.physicalSize.shortestSide / v.devicePixelRatio >= 600;
+}
+
 /// Thanh «Tổng quan & bộ lọc» — bấm để ẩn/hiện. [subtitle] hiện khi đang thu.
 class HrmCollapsibleOverview extends StatelessWidget {
   const HrmCollapsibleOverview({
@@ -34,7 +47,8 @@ class HrmCollapsibleOverview extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Material(
-          color: accent.withValues(alpha: 0.08),
+          // BOSS: thẻ trắng trên nền ngà, không thành dải xám.
+          color: SboxColors.isBoss ? SboxColors.white : accent.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(10),
           child: InkWell(
             onTap: onToggle,

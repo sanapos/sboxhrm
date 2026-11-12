@@ -25,13 +25,14 @@ class GeoError {
   String toString() => 'GeoError($code): $message';
 }
 
-/// Ensure location permission is granted. Call once at startup.
-Future<bool> ensureLocationPermission() async {
+/// Kiểm tra quyền vị trí. [ask] = false: chỉ đọc trạng thái, không bật hộp xin quyền (việc chạy nền).
+Future<bool> ensureLocationPermission({bool ask = true}) async {
   bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
   if (!serviceEnabled) return false;
 
   LocationPermission permission = await Geolocator.checkPermission();
   if (permission == LocationPermission.denied) {
+    if (!ask) return false;
     permission = await Geolocator.requestPermission();
     if (permission == LocationPermission.denied) return false;
   }
@@ -63,18 +64,18 @@ Future<GeoPosition> getCurrentPosition({
 }) async {
   bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
   if (!serviceEnabled) {
-    throw GeoError(2, 'Location services are disabled');
+    throw GeoError(2, 'Dịch vụ vị trí của máy đang tắt');
   }
 
   LocationPermission permission = await Geolocator.checkPermission();
   if (permission == LocationPermission.denied) {
     permission = await Geolocator.requestPermission();
     if (permission == LocationPermission.denied) {
-      throw GeoError(1, 'Permission denied');
+      throw GeoError(1, 'Chưa được cấp quyền vị trí');
     }
   }
   if (permission == LocationPermission.deniedForever) {
-    throw GeoError(1, 'Permission denied forever');
+    throw GeoError(1, 'Quyền vị trí đã bị chặn, mở Cài đặt của máy để cấp lại');
   }
 
   final position = await Geolocator.getCurrentPosition(

@@ -150,7 +150,7 @@ class ReportKpiGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
     return ColoredBox(
-      color: Colors.white,
+      color: SboxColors.bar,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         child: SboxKpiStrip(items: [for (final k in items) k.toSbox()]),
@@ -270,8 +270,8 @@ class ReportScreenShell extends StatelessWidget {
                       fontSize: 11, fontWeight: FontWeight.normal))),
           ],
         ),
-        backgroundColor: accentColor,
-        foregroundColor: Colors.white,
+        backgroundColor: SboxColors.isBoss ? SboxColors.bar : accentColor,
+        foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
         elevation: 0,
         flexibleSpace: Container(
           decoration: BoxDecoration(
@@ -320,7 +320,7 @@ class ReportViewModeTabs extends StatelessWidget {
         ];
     const brand = HrmPageChrome.primaryNavy;
     return Container(
-      color: Colors.white,
+      color: SboxColors.bar,
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: SegmentedButton<int>(
         segments: [
@@ -400,10 +400,10 @@ class ReportTimelineCard extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: accentColor.withValues(alpha: 0.1),
+              color: SboxColors.isBoss ? SboxColors.iconBox : accentColor.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(9),
             ),
-            child: Icon(icon, color: accentColor, size: 18),
+            child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : accentColor, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -829,9 +829,9 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
 
     if (widget.embedded) {
       return Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(bottom: BorderSide(color: SboxColors.slate200)),
+        decoration: BoxDecoration(
+          color: SboxColors.bar,
+          border: SboxColors.isBoss ? null : const Border(bottom: BorderSide(color: SboxColors.slate200)),
         ),
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
         child: Column(
@@ -842,9 +842,9 @@ class _ReportFilterSectionState extends State<ReportFilterSection> {
     }
 
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: SboxColors.slate200)),
+      decoration: BoxDecoration(
+        color: SboxColors.bar,
+        border: SboxColors.isBoss ? null : const Border(bottom: BorderSide(color: SboxColors.slate200)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/page_max_width.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_tr.dart';
@@ -275,8 +276,8 @@ class _AccountsV2ScreenState extends State<AccountsV2Screen> {
     final title = Row(children: [
       Container(
         padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(color: SboxColors.dangerSoft, borderRadius: BorderRadius.circular(12)),
-        child: const Icon(Icons.manage_accounts_rounded, color: SboxColors.dangerText),
+        decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.dangerSoft, borderRadius: BorderRadius.circular(12)),
+        child: const Icon(Icons.manage_accounts_rounded, color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.dangerText),
       ),
       const SizedBox(width: 12),
       Expanded(

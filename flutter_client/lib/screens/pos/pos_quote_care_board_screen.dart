@@ -454,7 +454,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
                         _tag(tr('${i.contactCount} lần liên hệ'),
                             Colors.blueGrey),
                         if (i.otherQuotes > 0)
-                          _tag(tr('Khách còn ${i.otherQuotes} báo giá khác'), (SboxColors.posApp ? SboxColors.brand600 : Colors.indigo)),
+                          _tag(tr('Khách còn ${i.otherQuotes} báo giá khác'), (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo)),
                         if (i.history.length > 1) _sparkline(i.history),
                       ],
                     ),

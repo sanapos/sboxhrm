@@ -96,7 +96,7 @@ class AbsenceDayActions {
                   onTap: () => Navigator.pop(ctx, 'addWork'),
                 ),
               ListTile(
-                leading: const Icon(Icons.beach_access, color: Color(0xFF0891B2)),
+                leading: const Icon(Icons.beach_access, color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0891B2))),
                 title: Text(tr('Tạo phiếu nghỉ phép')),
                 subtitle: Text(tr('Bổ sung đơn nghỉ cho ngày này')),
                 onTap: () => Navigator.pop(ctx, 'leave'),

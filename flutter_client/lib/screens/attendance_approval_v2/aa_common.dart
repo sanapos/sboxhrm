@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
@@ -158,8 +159,8 @@ class AaAvatar extends StatelessWidget {
       width: size,
       height: size,
       alignment: Alignment.center,
-      decoration: const BoxDecoration(color: SboxColors.brand50, shape: BoxShape.circle),
-      child: Text(ini, style: TextStyle(fontSize: size * 0.36, fontWeight: FontWeight.w700, color: SboxColors.brand700)),
+      decoration: const BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50, shape: BoxShape.circle),
+      child: Text(ini, style: TextStyle(fontSize: size * 0.36, fontWeight: FontWeight.w700, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700)),
     );
     if (photo == null || photo!.isEmpty) return fallback;
     // Giải mã ảnh theo kích thước hiển thị (x2 để BoxFit.cover vẫn nét với ảnh ngang tới 2:1)

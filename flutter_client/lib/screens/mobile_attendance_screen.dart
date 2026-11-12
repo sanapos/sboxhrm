@@ -2396,7 +2396,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               child: _buildTravelPunchButton(
                 label: 'Đến điểm làm',
                 icon: Icons.place_rounded,
-                color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF14B8A6)),
+                color: (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand300 : Color(0xFF14B8A6)),
                 enabled: arriveEnabled,
                 onTap: () => _autoSubmitAttendance(
                   punchType: mobilePunchTravelArrive,
@@ -2786,7 +2786,7 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
     if (isTravel) {
       color = record.punchType == mobilePunchTravelStart
           ? HrmPageChrome.chipLight
-          : (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF14B8A6));
+          : (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand300 : Color(0xFF14B8A6));
       icon = record.punchType == mobilePunchTravelStart
           ? Icons.directions_car_rounded
           : Icons.place_rounded;

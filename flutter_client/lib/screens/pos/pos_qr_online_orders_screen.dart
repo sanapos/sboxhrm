@@ -1479,7 +1479,7 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
   Widget build(BuildContext context) {
     final pushed = PosHubScope.pushedSubPageOf(context);
     return Scaffold(
-      backgroundColor: SboxColors.slate100,
+      backgroundColor: SboxColors.isBoss ? SboxColors.page : SboxColors.slate100,
       // Trong khung chính thanh trên đã ghi «Đơn online» — chỉ vẽ thanh riêng khi mở thành trang con.
       appBar: HrmPageChrome.hideInPageTitle(context)
           ? null
@@ -1494,8 +1494,8 @@ class _PosQrOnlineOrdersScreenState extends State<PosQrOnlineOrdersScreen> {
       body: Column(
         children: [
           Material(
-            color: Colors.white,
-            elevation: 1,
+            color: SboxColors.isBoss ? SboxColors.bar : Colors.white,
+            elevation: SboxColors.isBoss ? 0 : 1,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 6, 10, 4),
               child: Column(

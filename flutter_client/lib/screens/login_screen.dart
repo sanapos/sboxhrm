@@ -86,7 +86,7 @@ class _LoginScreenState extends State<LoginScreen>
   Color get _brand =>
       SboxColors.posApp ? SboxColors.brand700 : _isPos ? SboxColors.successText : SboxColors.brand600;
   Color get _brandDim =>
-      SboxColors.posApp ? SboxColors.brand800 : _isPos ? (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF1B5E20)) : (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF004ABA));
+      SboxColors.posApp ? SboxColors.brand800 : _isPos ? (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF1B5E20)) : (SboxColors.posApp ? SboxColors.brand800 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF004ABA));
   Timer? _agentLookupDebounce;
   String _appVersionLabel = '';
 
@@ -405,8 +405,8 @@ class _LoginScreenState extends State<LoginScreen>
           for (final m in _recentLogins)
             InputChip(
               avatar: CircleAvatar(
-                backgroundColor: _brand.withValues(alpha: 0.12),
-                child: Icon(Icons.storefront_rounded, size: 14, color: _brand),
+                backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : _brand.withValues(alpha: 0.12),
+                child: Icon(Icons.storefront_rounded, size: 14, color: SboxColors.isBoss ? SboxColors.iconOnBox : _brand),
               ),
               label: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text(
@@ -647,7 +647,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     return Scaffold(
       backgroundColor:
-          isDesktop ? null : (SboxColors.posApp ? SboxColors.page : Color(0xFFF8F9FA)),
+          isDesktop ? null : (SboxColors.posApp ? SboxColors.page : SboxColors.isBoss ? SboxColors.page : Color(0xFFF8F9FA)),
       body: isDesktop ? _buildDesktopLayout(size) : _buildMobileLayout(size),
     );
   }
@@ -807,11 +807,11 @@ class _LoginScreenState extends State<LoginScreen>
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: SboxColors.brand600.withValues(alpha: 0.1),
+                          color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand600.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.trending_up_rounded,
-                            color: SboxColors.brand600, size: 20),
+                            color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.brand600, size: 20),
                       ),
                       const SizedBox(width: 16),
                       Flexible(
@@ -1114,12 +1114,12 @@ class _LoginScreenState extends State<LoginScreen>
                               gradient: LinearGradient(
                                 begin: Alignment.topLeft,
                                 end: Alignment.bottomRight,
-                                colors: [_brand, _brandDim],
+                                colors: SboxColors.isBoss ? const [SboxColors.gold, SboxColors.goldMain] : [_brand, _brandDim],
                               ),
                               borderRadius: BorderRadius.circular(14),
                               boxShadow: [
                                 BoxShadow(
-                                  color: _brand.withValues(alpha: 0.28),
+                                  color: (SboxColors.isBoss ? SboxColors.goldDeep : _brand).withValues(alpha: 0.28),
                                   blurRadius: 16,
                                   offset: const Offset(0, 6),
                                 ),
@@ -1134,7 +1134,7 @@ class _LoginScreenState extends State<LoginScreen>
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.transparent,
                                 shadowColor: Colors.transparent,
-                                foregroundColor: Colors.white,
+                                foregroundColor: SboxColors.onAction,
                                 shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(14)),
                               ),
@@ -1543,7 +1543,7 @@ class _LoginScreenState extends State<LoginScreen>
                 color: (SboxColors.posApp ? SboxColors.brand50 : Color(0xFFF0F9FF)),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                    color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0891B2)).withValues(alpha: 0.35)),
+                    color: (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand400 : Color(0xFF0891B2)).withValues(alpha: 0.35)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1552,7 +1552,7 @@ class _LoginScreenState extends State<LoginScreen>
                     style: TextStyle(
                       fontWeight: FontWeight.w700,
                       fontSize: 13,
-                      color: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
+                      color: (SboxColors.posApp ? SboxColors.brand800 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0C4A6E)),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -1565,7 +1565,7 @@ class _LoginScreenState extends State<LoginScreen>
                         icon: const Icon(Icons.phone_rounded, size: 16),
                         label: Text(tr('Gọi $_supportPhoneDisplay')),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
+                          foregroundColor: (SboxColors.posApp ? SboxColors.brand800 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0C4A6E)),
                           visualDensity: VisualDensity.compact,
                         ),
                       ),
@@ -1577,7 +1577,7 @@ class _LoginScreenState extends State<LoginScreen>
                                 ? 'Zalo đại lý'
                                 : 'Zalo $_phoneNumber')),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
+                          foregroundColor: (SboxColors.posApp ? SboxColors.brand800 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0C4A6E)),
                           visualDensity: VisualDensity.compact,
                         ),
                       ),

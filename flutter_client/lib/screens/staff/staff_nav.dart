@@ -109,7 +109,7 @@ class StaffIconBox extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(size * 0.27),
       ),
-      child: Icon(icon, size: iconSize, color: SboxColors.white),
+      child: Icon(icon, size: iconSize, color: SboxColors.iconOnTile),
     );
   }
 }

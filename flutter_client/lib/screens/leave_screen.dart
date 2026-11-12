@@ -75,7 +75,7 @@ class _LeaveScreenState extends State<LeaveScreen>
   final List<int> _pageSizeOptions = [25, 50, 100, 200];
 
   // Tổng quan + bộ lọc (ẩn/hiện cùng nhau)
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = hrmOverviewDefaultOpen;
   double? _myAnnualLeaveBalance;
   String? _effectiveHighlightId;
   bool _navExtrasApplied = false;

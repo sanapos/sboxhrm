@@ -243,7 +243,7 @@ class MobileAttendanceVerticalTable extends StatelessWidget {
     }
     final shiftEnd = maxShifts;
     if (textIndex >= 0 && textIndex < shiftEnd) {
-      return (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E));
+      return (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand400 : Color(0xFF0F766E));
     }
     if (textIndex == shiftEnd) {
       return total ? SboxColors.payHover : SboxColors.success;
@@ -601,7 +601,7 @@ class MobileAttendanceShiftVerticalTable extends StatelessWidget {
     }
     final n = shiftHourLabels.length;
     if (textIndex >= 0 && textIndex < n) {
-      return (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E));
+      return (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand400 : Color(0xFF0F766E));
     }
     var idx = n;
     if (textIndex == idx) {

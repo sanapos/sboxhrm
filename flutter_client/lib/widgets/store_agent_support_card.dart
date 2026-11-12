@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Thẻ hiển thị thông tin liên hệ đại lý hỗ trợ (Zalo / SĐT / email).
 class StoreAgentSupportCard extends StatelessWidget {
@@ -133,7 +134,7 @@ class StoreAgentSupportCard extends StatelessWidget {
                     label: Text(
                         tr(compact ? 'Chat Zalo' : 'Zalo hỗ trợ: ${phone ?? ''}')),
                     style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF0068FF),
+                      backgroundColor: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0068FF)),
                       foregroundColor: Colors.white,
                       visualDensity: VisualDensity.compact,
                     ),
