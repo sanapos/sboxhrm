@@ -4171,11 +4171,11 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
         children: [
           CircleAvatar(
             radius: _isExpanded ? 20 : 18,
-            backgroundColor: onDark ? SboxColors.white : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+            backgroundColor: onDark ? SboxColors.white : SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
             child: Text(
               tr((user?.fullName ?? 'U')[0].toUpperCase()),
               style: TextStyle(
-                color: onDark ? SboxColors.brand700 : HrmPageChrome.primaryNavy,
+                color: onDark ? SboxColors.brand700 : SboxColors.isBoss ? SboxColors.gold : HrmPageChrome.primaryNavy,
                 fontWeight: FontWeight.w700,
                 fontSize: _isExpanded ? 16 : 14,
               ),
@@ -5784,7 +5784,7 @@ class _HomeIconBox extends StatelessWidget {
         shape: circle ? BoxShape.circle : BoxShape.rectangle,
         borderRadius: shapeRadius,
       ),
-      child: Icon(icon, size: iconSize, color: SboxColors.white),
+      child: Icon(icon, size: iconSize, color: SboxColors.iconOnTile),
     );
   }
 }
@@ -6227,14 +6227,14 @@ class _AttendanceNotificationPopupState
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: accentColor.withValues(alpha: 0.1),
+                              color: SboxColors.isBoss ? SboxColors.iconBox : accentColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
                               widget.isCheckIn
                                   ? Icons.login_rounded
                                   : Icons.logout_rounded,
-                              color: accentColor,
+                              color: SboxColors.isBoss ? SboxColors.iconOnBox : accentColor,
                               size: 22,
                             ),
                           ),
@@ -6546,12 +6546,12 @@ class _DeviceStatusPopupState extends State<_DeviceStatusPopup>
                             width: 40,
                             height: 40,
                             decoration: BoxDecoration(
-                              color: _statusColor.withValues(alpha: 0.1),
+                              color: SboxColors.isBoss ? SboxColors.iconBox : _statusColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(
                               _statusIcon,
-                              color: _statusColor,
+                              color: SboxColors.isBoss ? SboxColors.iconOnBox : _statusColor,
                               size: 22,
                             ),
                           ),

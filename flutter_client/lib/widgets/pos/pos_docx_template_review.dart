@@ -247,7 +247,7 @@ class _DocxReviewPageState extends State<_DocxReviewPage> {
                 dense: true,
                 selected: e.key == current,
                 leading: Icon(isLine ? Icons.table_rows_outlined : Icons.label_outline,
-                    size: 18, color: isLine ? const Color(0xFF0284C7) : SboxColors.warning),
+                    size: 18, color: isLine ? (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7)) : SboxColors.warning),
                 title: Text(e.value),
                 subtitle: Text('{${e.key}}', style: const TextStyle(fontSize: 11, fontFamily: 'monospace')),
                 onTap: () => Navigator.pop(ctx, e.key),

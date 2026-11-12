@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 import 'package:provider/provider.dart';
 
 import '../../l10n/app_tr.dart';
@@ -396,8 +397,8 @@ class _ShiftTemplatesV2ScreenState extends State<ShiftTemplatesV2Screen> {
           Container(
             width: 40,
             height: 40,
-            decoration: BoxDecoration(color: s.type.tone.bg, borderRadius: BorderRadius.circular(12)),
-            child: Icon(s.type.icon, color: s.type.tone.fg, size: 20),
+            decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : s.type.tone.bg, borderRadius: BorderRadius.circular(12)),
+            child: Icon(s.type.icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : s.type.tone.fg, size: 20),
           ),
           const SizedBox(width: 12),
           Expanded(

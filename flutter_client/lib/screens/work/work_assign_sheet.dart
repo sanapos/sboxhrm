@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../l10n/app_tr.dart';
@@ -325,8 +326,8 @@ class _AssignSheetState extends State<_AssignSheet> {
               Container(
                 width: 36,
                 height: 36,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: SboxRadius.smAll),
-                child: Icon(icon, size: 20, color: color),
+                decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1), borderRadius: SboxRadius.smAll),
+                child: Icon(icon, size: 20, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
               ),
               const SizedBox(width: 12),
               Expanded(

@@ -59,8 +59,10 @@ abstract final class SboxColors {
   static const brand900 = _bossApp ? Color(0xFF141D33) : _staffApp ? Color(0xFF0A423A) : _posOnly ? Color(0xFF0A3F41) : Color(0xFF084B67);
 
   /// Ô icon (truy cập nhanh, nhóm chức năng): nền chuyển màu thương hiệu của app, biểu tượng trắng.
-  static const iconTileLight = brand400;
-  static const iconTileDark = brand600;
+  /// SBOX BOSS theo logo: nền xanh đen, biểu tượng vàng gold.
+  static const iconTileLight = _bossApp ? brand500 : brand400;
+  static const iconTileDark = _bossApp ? brand700 : brand600;
+  static const iconOnTile = _bossApp ? gold : white;
 
   static const primary = brand600;
 
@@ -172,6 +174,39 @@ abstract final class SboxColors {
   static const darkText = Color(0xFFE5EAF1);
   static const darkTextSecondary = Color(0xFF9AA8BD);
 }
+
+/// Nút và icon trên thanh tiêu đề tự vẽ của SBOX BOSS: cùng màu chữ tiêu đề. App khác giữ nguyên.
+Widget sboxBarScope(Widget child) => !SboxColors.isBoss
+    ? child
+    : Builder(
+        builder: (c) => Theme(
+          data: Theme.of(c).copyWith(
+            iconTheme: const IconThemeData(color: SboxColors.onBar),
+            iconButtonTheme: IconButtonThemeData(style: IconButton.styleFrom(foregroundColor: SboxColors.onBar)),
+          ),
+          child: IconTheme(data: const IconThemeData(color: SboxColors.onBar), child: child),
+        ),
+      );
+
+/// Hàng tab trong thanh tiêu đề của SBOX BOSS: nằm trên nền chung, không kẻ vạch ngăn.
+PreferredSizeWidget sboxBarBottom(PreferredSizeWidget bottom) => !SboxColors.isBoss
+    ? bottom
+    : PreferredSize(
+        preferredSize: bottom.preferredSize,
+        child: Builder(
+          builder: (c) => Theme(
+            data: Theme.of(c).copyWith(
+              tabBarTheme: Theme.of(c).tabBarTheme.copyWith(
+                    labelColor: SboxColors.brand700,
+                    unselectedLabelColor: SboxColors.textSecondary,
+                    indicatorColor: SboxColors.goldDeep,
+                    dividerColor: Colors.transparent,
+                  ),
+            ),
+            child: bottom,
+          ),
+        ),
+      );
 
 /// Cỡ chữ: chỉ 7 cỡ. Đậm nhạt: chỉ 4 mức.
 abstract final class SboxType {
@@ -326,6 +361,9 @@ Widget sboxOnChromeScope(Widget child) => SboxOnChrome(
 /// Nút chữ trong AppBar POS: màu chính trùng nền cobalt nên đổi sang màu sáng.
 /// Widget Stateless (HrmTopBarAction…) giữ nguyên kiểu vì khung chính lọc theo kiểu và nó tự đổi màu.
 List<Widget> sboxBarActions(List<Widget> actions) {
+  // SBOX BOSS: nút trên thanh cùng màu chữ tiêu đề (xem [sboxBarScope]).
+  // Widget Stateless giữ nguyên kiểu như nhánh dưới (khung chính lọc theo kiểu).
+  if (SboxColors.isBoss) return [for (final a in actions) a is StatelessWidget ? a : sboxBarScope(a)];
   if (!SboxColors.darkChrome) return actions;
   return [
     for (final a in actions)
@@ -361,6 +399,7 @@ List<Widget> sboxBarActions(List<Widget> actions) {
 
 /// TabBar trong AppBar POS: đặt trên dải trắng để chữ màu chính vẫn đọc được dưới thanh cobalt.
 PreferredSizeWidget sboxBarTabs(PreferredSizeWidget tabs) {
+  if (SboxColors.isBoss) return sboxBarBottom(tabs);
   if (!SboxColors.posApp) return tabs;
   return PreferredSize(
     preferredSize: tabs.preferredSize,

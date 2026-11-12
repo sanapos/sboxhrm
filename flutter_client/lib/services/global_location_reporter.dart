@@ -120,7 +120,8 @@ class GlobalLocationReporter {
       // Báo định kỳ không tự xin quyền (vừa đăng nhập đã bị hỏi); quyền được hỏi khi mở Chấm công, cấp xong thì nhịp kế tiếp tự gửi.
       if (!kIsWeb && !await Permission.locationWhenInUse.isGranted) return true;
       if (!kIsWeb) {
-        final ok = await ensureLocationPermission();
+        // Chạy nền: không tự bật hộp xin quyền, quyền được hỏi khi người dùng vào chấm công.
+        final ok = await ensureLocationPermission(ask: false);
         if (!ok) {
           _noPermissionUntil = DateTime.now().add(_noPermissionBackoff);
           debugPrint('📍 GlobalLocationReporter: no location permission — thử lại sau '

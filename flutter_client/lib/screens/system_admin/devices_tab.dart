@@ -591,8 +591,8 @@ class DevicesTabState extends State<DevicesTab> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: isOnline ? AdminHelpers.success.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: Icon(Icons.router, color: isOnline ? AdminHelpers.success : Colors.red.shade400, size: 18),
+            decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : isOnline ? AdminHelpers.success.withValues(alpha: 0.1) : Colors.red.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Icon(Icons.router, color: SboxColors.isBoss ? SboxColors.iconOnBox : isOnline ? AdminHelpers.success : Colors.red.shade400, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(

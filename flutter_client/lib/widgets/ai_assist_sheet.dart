@@ -191,11 +191,11 @@ class _AiAssistSheetState extends State<_AiAssistSheet> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: SboxColors.violet.withValues(alpha: 0.1),
+                        color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.violet.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.auto_awesome,
-                          color: SboxColors.violet, size: 20),
+                          color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.violet, size: 20),
                     ),
                     const SizedBox(width: 10),
                     Expanded(

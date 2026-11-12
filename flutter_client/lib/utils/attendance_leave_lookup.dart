@@ -185,7 +185,7 @@ class AttendanceLeaveLookup {
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF0891B2),
+              color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0891B2)),
             ),
           ),
         );

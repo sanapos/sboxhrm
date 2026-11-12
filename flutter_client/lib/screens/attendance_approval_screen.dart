@@ -55,7 +55,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
   List<Map<String, dynamic>> _employees = [];
   int _totalCount = 0;
   bool _isLoading = true;
-  bool _showOverviewPanel = true;
+  bool _showOverviewPanel = hrmOverviewDefaultOpen;
 
   // Filters (-1 = all, 0 = pending, 1 = approved, 2 = rejected)
   int _statusFilter = -1;
@@ -968,9 +968,9 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                 children: [
                   CircleAvatar(
                     backgroundColor:
-                        _getStatusColor(req['status']).withValues(alpha: 0.15),
+                        SboxColors.isBoss ? SboxColors.iconBox : _getStatusColor(req['status']).withValues(alpha: 0.15),
                     child: Icon(Icons.description,
-                        color: _getStatusColor(req['status'])),
+                        color: SboxColors.isBoss ? SboxColors.iconOnBox : _getStatusColor(req['status'])),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -1058,7 +1058,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                         icon: const Icon(Icons.check, size: 18),
                         label: Text(tr('Duyệt')),
                         style: FilledButton.styleFrom(
-                          backgroundColor: SboxColors.okSwatch,
+                          backgroundColor: SboxColors.isBoss ? SboxColors.action : SboxColors.okSwatch,
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
@@ -1110,12 +1110,12 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
             width: 20,
             height: 20,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.15),
+              color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.15),
               shape: BoxShape.circle,
               border: Border.all(color: color, width: 2),
             ),
             child: Icon(_getApprovalStatusIcon(stepStatusInt),
-                size: 12, color: color),
+                size: 12, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2177,7 +2177,7 @@ class _AttendanceApprovalScreenState extends State<AttendanceApprovalScreen>
                         label:
                             Text(tr('Duyệt'), style: TextStyle(fontSize: 12)),
                         style: FilledButton.styleFrom(
-                          backgroundColor: SboxColors.okSwatch,
+                          backgroundColor: SboxColors.isBoss ? SboxColors.action : SboxColors.okSwatch,
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           visualDensity: VisualDensity.compact,
                         ),

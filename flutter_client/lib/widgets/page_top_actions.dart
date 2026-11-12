@@ -368,8 +368,8 @@ class PageTopActionsFab extends StatelessWidget {
             ],
             FloatingActionButton.extended(
               heroTag: 'page_top_actions_fab',
-              backgroundColor: PosTheme.kiotBlue,
-              foregroundColor: Colors.white,
+              backgroundColor: SboxColors.isBoss ? SboxColors.action : PosTheme.kiotBlue,
+              foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
               onPressed: primary.onPressed,
               icon: Icon(primary.icon),
               label: Text(tr(primary.label)),
@@ -383,8 +383,8 @@ class PageTopActionsFab extends StatelessWidget {
           return FloatingActionButton(
             heroTag: 'page_top_actions_fab',
             tooltip: tr(only.label),
-            backgroundColor: PosTheme.kiotBlue,
-            foregroundColor: Colors.white,
+            backgroundColor: SboxColors.isBoss ? SboxColors.action : PosTheme.kiotBlue,
+            foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
             onPressed: only.onPressed,
             child: only.leadingIcon(size: 26),
           );
@@ -393,8 +393,8 @@ class PageTopActionsFab extends StatelessWidget {
         return FloatingActionButton(
           heroTag: 'page_top_actions_fab',
           tooltip: tr('Thao tác'),
-          backgroundColor: PosTheme.kiotBlue,
-          foregroundColor: Colors.white,
+          backgroundColor: SboxColors.isBoss ? SboxColors.action : PosTheme.kiotBlue,
+          foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
           onPressed: () => showPageTopActionsSheet(context, hrm),
           child: const Icon(Icons.apps_rounded, size: 26),
         );

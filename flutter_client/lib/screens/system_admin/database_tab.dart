@@ -80,10 +80,10 @@ class DatabaseTabState extends State<DatabaseTab> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: AdminHelpers.primary.withValues(alpha: 0.1),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : AdminHelpers.primary.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10)),
               child: const Icon(Icons.storage,
-                  color: AdminHelpers.primary, size: 20),
+                  color: SboxColors.isBoss ? SboxColors.iconOnBox : AdminHelpers.primary, size: 20),
             ),
             const SizedBox(width: 12),
             Text(tr('Thông tin Database'),
@@ -203,10 +203,10 @@ class DatabaseTabState extends State<DatabaseTab> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: AdminHelpers.success.withValues(alpha: 0.1),
+                  color: SboxColors.isBoss ? AdminHelpers.success : AdminHelpers.success.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10)),
               child: const Icon(Icons.backup,
-                  color: AdminHelpers.success, size: 20),
+                  color: SboxColors.isBoss ? Colors.white : AdminHelpers.success, size: 20),
             ),
             const SizedBox(width: 12),
             Text(tr('Sao lưu dữ liệu'),
@@ -355,10 +355,10 @@ class DatabaseTabState extends State<DatabaseTab> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
+                  color: SboxColors.isBoss ? Colors.red : Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10)),
               child: const Icon(Icons.warning_amber,
-                  color: Colors.red, size: 20),
+                  color: SboxColors.isBoss ? Colors.white : Colors.red, size: 20),
             ),
             const SizedBox(width: 12),
             Text(tr('Vùng nguy hiểm'),

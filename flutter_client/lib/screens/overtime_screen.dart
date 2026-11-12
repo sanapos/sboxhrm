@@ -229,7 +229,7 @@ class _OvertimeScreenState extends State<OvertimeScreen>
                   onPressed: _showCreateDialog,
                   icon: const Icon(Icons.add),
                   label: Text(tr('Đăng ký tăng ca')),
-                  backgroundColor: HrmPageChrome.primaryNavy,
+                  backgroundColor: SboxColors.isBoss ? SboxColors.action : HrmPageChrome.primaryNavy,
                 )
               : null,
     );
@@ -564,8 +564,8 @@ class _OvertimeScreenState extends State<OvertimeScreen>
           children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: statusColor.withValues(alpha: 0.1),
-              child: Icon(Icons.person, color: statusColor, size: 18),
+              backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : statusColor.withValues(alpha: 0.1),
+              child: Icon(Icons.person, color: SboxColors.isBoss ? SboxColors.iconOnBox : statusColor, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(

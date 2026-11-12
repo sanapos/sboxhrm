@@ -5,6 +5,7 @@ using ZKTecoADMS.Api.Authorization;
 using ZKTecoADMS.Application.Constants;
 using ZKTecoADMS.Application.Models;
 using ZKTecoADMS.Domain.Enums;
+using ZKTecoADMS.Infrastructure.Services;
 
 namespace ZKTecoADMS.Api.Controllers;
 
@@ -23,6 +24,9 @@ public partial class PosReportsController
         // Xem theo chi nhánh: công nợ = phần còn nợ của các phiếu nhập thuộc chi nhánh đó.
         var bctx = HttpContext.BranchContext();
         var branchScoped = bctx is { StoreUsesBranches: true } && (bctx.FilterBranchId != null || bctx.AllowedBranchIds != null);
+        // Cửa hàng chỉ có một chi nhánh: nợ của chi nhánh chính là nợ NCC. Cộng theo phiếu nhập thì bỏ sót khoản trả hàng,
+        // trả nợ chung, nên lệch với số ở màn Nhà cung cấp.
+        if (branchScoped && (await BranchStockService.GetStoreBranchesAsync(dbContext, storeId)).Count <= 1) branchScoped = false;
         var q = dbContext.PosSuppliers.AsNoTracking()
             .Where(s => s.StoreId == storeId && s.Deleted == null && s.IsActive);
         if (branchScoped)

@@ -424,9 +424,9 @@ class _MealReportViewState extends State<MealReportView> {
           Row(children: [
             CircleAvatar(
               radius: 18,
-              backgroundColor: SboxColors.brand50,
+              backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
               child: Text('${MealUi.n(r['meals']).toInt()}',
-                  style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.brand700)),
+                  style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700)),
             ),
             const SizedBox(width: 10),
             Expanded(

@@ -549,8 +549,8 @@ class LicensesTabState extends State<LicensesTab> {
         child: Row(children: [
           Container(
             width: 36, height: 36,
-            decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-            child: Icon(Icons.vpn_key, color: statusColor, size: 18),
+            decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : statusColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+            child: Icon(Icons.vpn_key, color: SboxColors.isBoss ? SboxColors.iconOnBox : statusColor, size: 18),
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -645,9 +645,9 @@ class LicensesTabState extends State<LicensesTab> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.1),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : statusColor.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10)),
-              child: Icon(Icons.vpn_key, color: statusColor, size: 18),
+              child: Icon(Icons.vpn_key, color: SboxColors.isBoss ? SboxColors.iconOnBox : statusColor, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(

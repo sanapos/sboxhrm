@@ -210,12 +210,12 @@ class _MobileQuickActionsConfigSheetState
                   child: ListTile(
                     leading: CircleAvatar(
                       backgroundColor:
-                          HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
+                          SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.1),
                       child: Text(
                         tr('${index + 1}'),
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
-                          color: HrmPageChrome.primaryNavy,
+                          color: SboxColors.isBoss ? SboxColors.gold : HrmPageChrome.primaryNavy,
                         ),
                       ),
                     ),

@@ -47,7 +47,7 @@ Future<Uint8List?> _memberQrCard(String url, String name) async {
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
     canvas.drawRect(const Rect.fromLTWH(0, 0, w, h), Paint()..color = const Color(0xFFFFFFFF));
-    canvas.drawRect(const Rect.fromLTWH(0, 0, w, 124), Paint()..color = const Color(0xFF0E7490));
+    canvas.drawRect(const Rect.fromLTWH(0, 0, w, 124), Paint()..color = (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0E7490)));
     void text(String s, double y, double size, Color color, {FontWeight weight = FontWeight.w400}) {
       final b = ui.ParagraphBuilder(ui.ParagraphStyle(textAlign: TextAlign.center, maxLines: 2, ellipsis: '…'))
         ..pushStyle(ui.TextStyle(color: color, fontSize: size, fontWeight: weight))

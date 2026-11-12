@@ -761,8 +761,8 @@ class _BusinessTripCreateScreenState extends State<_BusinessTripCreateScreen> {
       backgroundColor: SboxColors.slate50,
       appBar: AppBar(
         title: Text(tr('Hồ sơ công tác mới')),
-        backgroundColor: _theme,
-        foregroundColor: Colors.white,
+        backgroundColor: SboxColors.isBoss ? SboxColors.bar : _theme,
+        foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
       ),
       body: Column(
         children: [

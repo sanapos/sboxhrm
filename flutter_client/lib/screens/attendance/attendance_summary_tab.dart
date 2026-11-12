@@ -4991,7 +4991,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
                 icon: Icons.schedule,
                 iconColor: [
                   SboxColors.okSwatch,
-                  Colors.indigo,
+                  (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo),
                   Colors.purple,
                   Colors.orange,
                   Colors.brown
@@ -5256,10 +5256,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               width: 28,
               height: 28,
               decoration: BoxDecoration(
-                color: (iconColor ?? SboxColors.slate500).withValues(alpha: 0.1),
+                color: SboxColors.isBoss ? SboxColors.iconBox : (iconColor ?? SboxColors.slate500).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Icon(icon, size: 15, color: iconColor),
+              child: Icon(icon, size: 15, color: SboxColors.isBoss ? SboxColors.iconOnBox : iconColor),
             ),
             const SizedBox(width: 10),
           ],
@@ -5290,7 +5290,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
   ) {
     final shiftColors = [
       SboxColors.okSwatch,
-      Colors.indigo,
+      (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo),
       Colors.purple,
       Colors.orange,
       Colors.brown
@@ -6665,10 +6665,10 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(icon, color: color, size: 18),
+                child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 18),
               ),
               const SizedBox(width: 8),
               Column(

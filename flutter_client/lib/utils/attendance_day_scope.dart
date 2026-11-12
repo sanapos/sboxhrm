@@ -103,7 +103,7 @@ enum AttendanceFillDayKind {
 
   Color get color => switch (this) {
         AttendanceFillDayKind.absent => const Color(0xFFDC2626),
-        AttendanceFillDayKind.approvedLeave => const Color(0xFF1D4ED8),
+        AttendanceFillDayKind.approvedLeave => (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF1D4ED8)),
         AttendanceFillDayKind.pendingLeave => const Color(0xFFC2410C),
         AttendanceFillDayKind.holiday => const Color(0xFF7C3AED),
         AttendanceFillDayKind.weeklyOff => (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF15803D)),

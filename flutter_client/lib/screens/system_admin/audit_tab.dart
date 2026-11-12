@@ -641,8 +641,8 @@ class AuditTabState extends State<AuditTab> {
             Container(
               width: 30,
               height: 30,
-              decoration: BoxDecoration(color: color.withValues(alpha: .12), shape: BoxShape.circle),
-              child: Icon(icon, size: 16, color: color),
+              decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: .12), shape: BoxShape.circle),
+              child: Icon(icon, size: 16, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
             ),
             const SizedBox(width: 10),
             Expanded(

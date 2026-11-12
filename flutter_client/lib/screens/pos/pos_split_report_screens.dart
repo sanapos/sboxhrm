@@ -437,7 +437,7 @@ class _PosReportHubCard extends StatelessWidget {
 
 const _payColors = <Color>[
   PosTheme.kiotBlue,
-  (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
+  (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0F766E)),
   SboxColors.violet,
   SboxColors.warningText,
   Color(0xFFBE123C),
@@ -1283,7 +1283,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                           (
                             label: 'DT gồm VAT',
                             value: revenueInclVat > 0 ? revenueInclVat : revenue + vat,
-                            color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
+                            color: (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0F766E)),
                           ),
                         ],
                       ),
@@ -4539,7 +4539,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                           (
                             label: 'LN gộp',
                             value: _n(_data?['grossProfit']),
-                            color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
+                            color: (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0F766E)),
                           ),
                           (
                             label: 'Chi phí',

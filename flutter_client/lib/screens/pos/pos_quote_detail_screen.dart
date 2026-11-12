@@ -375,7 +375,7 @@ class _PosQuoteDetailScreenState extends State<PosQuoteDetailScreen> {
                   child: Text(q.quoteNo,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: SboxColors.slate800)),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: SboxColors.isBoss ? SboxColors.onBar : SboxColors.slate800)),
                 ),
           automaticallyImplyLeading: widget.onClose == null,
           // Cột chi tiết khi chia đôi: thanh tiêu đề thấp hơn, nhường chỗ cho nội dung.

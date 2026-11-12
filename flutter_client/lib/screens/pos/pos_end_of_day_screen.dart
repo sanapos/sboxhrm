@@ -478,7 +478,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
     );
     final mobile = posUseMobileList(context);
     return Material(
-      color: Colors.white,
+      color: SboxColors.bar,
       child: Container(
         padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         decoration: const BoxDecoration(
@@ -594,7 +594,7 @@ class _PosEndOfDayScreenState extends State<PosEndOfDayScreen> {
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
-                  color: (SboxColors.posApp ? SboxColors.brand800 : Color(0xFF0C4A6E)),
+                  color: (SboxColors.posApp ? SboxColors.brand800 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0C4A6E)),
                 ),
               ),
               const SizedBox(height: 4),

@@ -1007,15 +1007,15 @@ class _ProductSalarySettingsScreenState
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(ctx),
                   ),
-                  backgroundColor: HrmPageChrome.primaryNavy,
-                  foregroundColor: Colors.white,
-                  actions: [
+                  backgroundColor: SboxColors.isBoss ? SboxColors.bar : HrmPageChrome.primaryNavy,
+                  foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white,
+                  actions: sboxBarActions([
                     TextButton(
                       onPressed: onSave,
-                      style: TextButton.styleFrom(foregroundColor: Colors.white),
+                      style: TextButton.styleFrom(foregroundColor: SboxColors.isBoss ? SboxColors.onBar : Colors.white),
                       child: Text(tr(isEdit ? 'Lưu' : 'Thêm')),
                     ),
-                  ],
+                  ]),
                 ),
                 body: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),

@@ -73,8 +73,8 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
             ),
             ListTile(
               leading: const CircleAvatar(
-                backgroundColor: SboxColors.brand50,
-                child: Icon(Icons.camera_alt, color: SboxColors.brand500),
+                backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
+                child: Icon(Icons.camera_alt, color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.brand500),
               ),
               title: Text(tr('Chụp ảnh')),
               subtitle: Text(tr('Sử dụng camera để chụp')),
@@ -82,8 +82,8 @@ Future<List<PickedImageResult>?> pickImagesWithCamera(
             ),
             ListTile(
               leading: const CircleAvatar(
-                backgroundColor: SboxColors.successSoft,
-                child: Icon(Icons.photo_library, color: SboxColors.okSwatch),
+                backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.successSoft,
+                child: Icon(Icons.photo_library, color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.okSwatch),
               ),
               title: Text(tr('Chọn từ thư viện')),
               subtitle: Text(tr('Chọn ảnh có sẵn trong máy')),

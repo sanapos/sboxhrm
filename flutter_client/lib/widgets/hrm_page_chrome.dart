@@ -68,12 +68,12 @@ class HrmPageChrome {
   static const Color textMuted = PosTheme.textSecondary;
 
   /// Chip / badge brand — cùng xanh, độ đậm nhạt khác (không dùng hồng/cam/tím).
-  static const Color chipDark = (SboxColors.posApp ? SboxColors.brand700 : Color(0xFF003B80));
+  static const Color chipDark = (SboxColors.posApp ? SboxColors.brand700 : SboxColors.isBoss ? SboxColors.brand800 : Color(0xFF003B80));
   static const Color chip = primaryNavy; // #0056B3
-  static const Color chipMid = (SboxColors.posApp ? SboxColors.brand500 : Color(0xFF1A6FD4));
+  static const Color chipMid = (SboxColors.posApp ? SboxColors.brand500 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF1A6FD4));
   static const Color chipLight = SboxColors.brand400;
-  static const Color chipSoft = (SboxColors.posApp ? SboxColors.brand400 : Color(0xFF6BA3E8));
-  static const Color chipMuted = (SboxColors.posApp ? SboxColors.brand300 : Color(0xFF8BB4E8));
+  static const Color chipSoft = (SboxColors.posApp ? SboxColors.brand400 : SboxColors.isBoss ? SboxColors.brand300 : Color(0xFF6BA3E8));
+  static const Color chipMuted = (SboxColors.posApp ? SboxColors.brand300 : SboxColors.isBoss ? SboxColors.brand200 : Color(0xFF8BB4E8));
   static const Color chipBg = PosTheme.kiotBlueLight;
 
   static const List<Color> chipShades = [
@@ -83,8 +83,8 @@ class HrmPageChrome {
     chipLight,
     chipSoft,
     chipMuted,
-    (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF004A9F)),
-    (SboxColors.posApp ? SboxColors.brand500 : Color(0xFF2B7DE9)),
+    (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF004A9F)),
+    (SboxColors.posApp ? SboxColors.brand500 : SboxColors.isBoss ? SboxColors.brand400 : Color(0xFF2B7DE9)),
   ];
 
   static Color chipShade(int index) =>

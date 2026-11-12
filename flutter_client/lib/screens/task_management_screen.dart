@@ -1696,10 +1696,10 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                    color: _taskTypeColor(t.taskType).withValues(alpha: 0.1),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : _taskTypeColor(t.taskType).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10)),
                 child: Icon(_taskTypeIcon(t.taskType),
-                    color: _taskTypeColor(t.taskType), size: 20),
+                    color: SboxColors.isBoss ? SboxColors.iconOnBox : _taskTypeColor(t.taskType), size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -2599,9 +2599,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-              color: c.withValues(alpha: 0.1),
+              color: SboxColors.isBoss ? SboxColors.iconBox : c.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10)),
-          child: Icon(icon, color: c, size: 16),
+          child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : c, size: 16),
         ),
         const SizedBox(height: 4),
         Text(tr('$value'),
@@ -4917,9 +4917,9 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     return Container(
       padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
-          color: _priorityColor(p).withValues(alpha: 0.1),
+          color: SboxColors.isBoss ? SboxColors.iconBox : _priorityColor(p).withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(4)),
-      child: Icon(Icons.flag, size: 14, color: _priorityColor(p)),
+      child: Icon(Icons.flag, size: 14, color: SboxColors.isBoss ? SboxColors.iconOnBox : _priorityColor(p)),
     );
   }
 

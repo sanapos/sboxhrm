@@ -8,8 +8,8 @@ import '../../services/api_service.dart';
 import '../../services/work_api.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'work_common.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 import 'work_task_editor.dart' show WorkPerson, pickWorkPeople;
-import '../../theme/sbox_tokens.dart';
 
 // ─── Chọn ngành lần đầu ──────────────────────────────────────────
 

@@ -180,8 +180,8 @@ class _MealMenuQuickEditorState extends State<_MealMenuQuickEditor> {
               Row(children: [
                 Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: SboxColors.brand50, borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.restaurant_menu_rounded, color: SboxColors.brand600),
+                  decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50, borderRadius: BorderRadius.circular(12)),
+                  child: const Icon(Icons.restaurant_menu_rounded, color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.brand600),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

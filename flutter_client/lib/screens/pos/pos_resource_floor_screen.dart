@@ -4646,7 +4646,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
 
   Color _tileBorder(PosServiceResourceDto r) {
     if (r.billRequested || r.isBillRequested) return const Color(0xFFEA580C);
-    if (r.showReservedOnFloor) return const Color(0xFF0284C7);
+    if (r.showReservedOnFloor) return (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7));
     if (r.isPaused) return SboxColors.warning;
     if (r.isActivelyOpen && r.isLockedByOtherDevice(_deviceId)) {
       return SboxColors.danger;
@@ -4665,7 +4665,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
   Color _tileAccent(PosServiceResourceDto r) {
     if (r.isLockedByOtherDevice(_deviceId)) return SboxColors.dangerText;
     if (r.billRequested || r.isBillRequested) return const Color(0xFFEA580C);
-    if (r.showReservedOnFloor) return const Color(0xFF0284C7);
+    if (r.showReservedOnFloor) return (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7));
     if (r.isPaused) return SboxColors.warning;
     if (_isWaitingTable(r)) return _waitingTileAccent;
     if (_tableInUse(r)) return PosTheme.edgeBlue;
@@ -4976,7 +4976,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
       decoration: BoxDecoration(
         color: _reservationIsUpcoming(r)
             ? const Color(0xFFEA580C)
-            : const Color(0xFF0284C7),
+            : (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7)),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -5394,7 +5394,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                               SizedBox(width: 10),
                               _LegendDot(color: SboxColors.slate400, label: 'Chưa gọi'),
                               SizedBox(width: 10),
-                              _LegendDot(color: Color(0xFF0284C7), label: 'Đã đặt'),
+                              _LegendDot(color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7)), label: 'Đã đặt'),
                             ]),
                           ),
                         ),
@@ -5423,7 +5423,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                       child: Row(
                         children: [
                           const _LegendDot(
-                              color: Color(0xFF0284C7), label: 'Đã đặt'),
+                              color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7)), label: 'Đã đặt'),
                           const SizedBox(width: 8),
                           const _LegendDot(
                               color: Color(0xFFEA580C),
@@ -5434,7 +5434,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                             style: const TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
-                              color: Color(0xFF0284C7),
+                              color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7)),
                             ),
                           ),
                         ],
@@ -5508,7 +5508,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
                           style: const TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
-                            color: PosTheme.kiotBlue,
+                            color: SboxColors.isBoss ? SboxColors.onBar : PosTheme.kiotBlue,
                           ),
                         )
                       : const SizedBox.shrink(),
@@ -5912,7 +5912,7 @@ class PosResourceFloorScreenState extends State<PosResourceFloorScreen> {
               decoration: BoxDecoration(
                 color: _reservationIsUpcoming(r)
                     ? const Color(0xFFEA580C)
-                    : const Color(0xFF0284C7),
+                    : (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7)),
                 borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(10),
                 ),

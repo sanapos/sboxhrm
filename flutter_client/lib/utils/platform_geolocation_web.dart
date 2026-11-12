@@ -28,7 +28,7 @@ class GeoError {
 }
 
 /// On web, location permission is handled by the browser.
-Future<bool> ensureLocationPermission() async {
+Future<bool> ensureLocationPermission({bool ask = true}) async {
   return true;
 }
 
@@ -55,7 +55,7 @@ Future<GeoPosition> getCurrentPosition({
       String msg;
       switch (error.code) {
         case 1:
-          msg = 'Permission denied';
+          msg = 'Chưa được cấp quyền vị trí';
           break;
         case 2:
           msg = 'Position unavailable';

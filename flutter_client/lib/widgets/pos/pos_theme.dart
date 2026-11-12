@@ -25,21 +25,21 @@ abstract final class PosTheme {
   static const Color goodsColor = SboxColors.brand600;
   static const Color serviceColor = SboxColors.violet;
   static const Color comboColor = SboxColors.posApp ? SboxColors.brand600 : Color(0xFFEA580C);
-  static const Color materialColor = SboxColors.posApp ? SboxColors.brand600 : (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E));
+  static const Color materialColor = SboxColors.posApp ? SboxColors.brand600 : (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0F766E));
   static const Color toppingColor = SboxColors.posApp ? SboxColors.brand600 : Color(0xFFDB2777);
 
   // Nút «Lưu» / «Chỉnh sửa» trên thanh tiêu đề — màu nút chính của app; xanh lá dành cho thanh toán.
   static ButtonStyle filledButtonStyle = FilledButton.styleFrom(
-    backgroundColor: kiotBlue,
-    foregroundColor: Colors.white,
+    backgroundColor: SboxColors.action,
+    foregroundColor: SboxColors.onAction,
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(SboxRadius.md)),
   );
 
   /// Nút chính mobile/tablet POS — xanh dương chrome.
   static ButtonStyle mobilePrimaryButton = FilledButton.styleFrom(
-    backgroundColor: kiotBlue,
-    foregroundColor: Colors.white,
+    backgroundColor: SboxColors.action,
+    foregroundColor: SboxColors.onAction,
     minimumSize: const Size(0, 56),
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
   );

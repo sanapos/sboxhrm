@@ -72,9 +72,9 @@ class _PosTransferConfirmScreenState extends State<PosTransferConfirmScreen>
         foregroundColor: SboxColors.appBarFg(SboxColors.text),
         bottom: sboxBarTabs(TabBar(
           controller: _tabs,
-          indicatorColor: SboxColors.primary,
-          labelColor: SboxColors.primary,
-          unselectedLabelColor: SboxColors.textMuted,
+          indicatorColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.primary,
+          labelColor: SboxColors.isBoss ? SboxColors.onBar : SboxColors.primary,
+          unselectedLabelColor: SboxColors.isBoss ? SboxColors.textSecondary : SboxColors.textMuted,
           tabs: [
             Tab(text: tr('Chờ CK (${_waiting.length})')),
             Tab(text: tr('Đã xác nhận (${_confirmed.length})')),

@@ -2339,14 +2339,14 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
               children: m.guides.map((g) {
                 return ActionChip(
                   avatar: const Icon(Icons.menu_book_rounded,
-                      size: 16, color: Color(0xFF0369A1)),
+                      size: 16, color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1))),
                   label: Text(tr(_guideLabel(g)),
                       style: const TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF0369A1),
+                          color: (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1)),
                           fontWeight: FontWeight.w600)),
                   backgroundColor: const Color(0xFFE0F2FE),
-                  side: const BorderSide(color: Color(0xFF7DD3FC)),
+                  side: const BorderSide(color: (SboxColors.isBoss ? SboxColors.brand200 : const Color(0xFF7DD3FC))),
                   onPressed: () => _handleGuide(g),
                 );
               }).toList(),
@@ -2362,8 +2362,8 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
   }
 
   static const _chartColors = [
-    Color(0xFF7C3AED), (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF2563EB)), (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF059669)), Color(0xFFD97706),
-    Color(0xFFDB2777), (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0891B2)), Color(0xFF65A30D), Color(0xFFDC2626),
+    Color(0xFF7C3AED), (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand400 : Color(0xFF2563EB)), (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF059669)), Color(0xFFD97706),
+    Color(0xFFDB2777), (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand400 : Color(0xFF0891B2)), Color(0xFF65A30D), Color(0xFFDC2626),
   ];
 
   /// 1250000 → 1.250.000 (đầy đủ, trong chú thích chạm).
@@ -2805,12 +2805,12 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       'penalty' || 'update_penalty' => (SboxColors.danger, Icons.gavel_rounded),
       'reward' || 'update_reward' => (SboxColors.success, Icons.emoji_events_outlined),
       'advance' => (const Color(0xFFB45309), Icons.payments_outlined),
-      'cash' || 'update_cash' => (const Color(0xFF0369A1), Icons.account_balance_wallet_outlined),
+      'cash' || 'update_cash' => ((SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1)), Icons.account_balance_wallet_outlined),
       'sale' => (PosTheme.kiotBlue, Icons.receipt_long_outlined),
       'overtime' => (SboxColors.violet, Icons.more_time_rounded),
       'product' => (PosTheme.kiotBlue, Icons.inventory_2_outlined),
-      'purchase_receipt' => ((SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)), Icons.move_to_inbox_outlined),
-      'stock_count' => (const Color(0xFF0369A1), Icons.fact_check_outlined),
+      'purchase_receipt' => ((SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0F766E)), Icons.move_to_inbox_outlined),
+      'stock_count' => ((SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1)), Icons.fact_check_outlined),
       'damage_issue' => (SboxColors.danger, Icons.delete_sweep_outlined),
       'internal_use' => (const Color(0xFFB45309), Icons.outbox_outlined),
       'customer_return' || 'purchase_return' => (const Color(0xFFC2410C), Icons.assignment_return_outlined),
@@ -2820,17 +2820,17 @@ class _AiAssistantSheetState extends State<AiAssistantSheet> {
       'review_reject' => (const Color(0xFFB45309), Icons.block_rounded),
       'update_product' || 'update_customer' || 'update_supplier' => (PosTheme.kiotBlue, Icons.edit_note_rounded),
       'deactivate_customer' || 'deactivate_supplier' => (SboxColors.slate500, Icons.person_off_outlined),
-      'assign_shift' => (const Color(0xFF0369A1), Icons.calendar_month_outlined),
-      'shift_swap_request' || 'shift_swap' => (const Color(0xFF0369A1), Icons.swap_horiz_rounded),
-      'stock_transfer' => ((SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)), Icons.local_shipping_outlined),
+      'assign_shift' => ((SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1)), Icons.calendar_month_outlined),
+      'shift_swap_request' || 'shift_swap' => ((SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1)), Icons.swap_horiz_rounded),
+      'stock_transfer' => ((SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0F766E)), Icons.local_shipping_outlined),
       'collect_debt' => (SboxColors.success, Icons.request_quote_outlined),
       'announcement' => (SboxColors.violet, Icons.campaign_outlined),
       'task' => (PosTheme.kiotBlue, Icons.assignment_turned_in_outlined),
       'close_cashier_shift' => (const Color(0xFFB45309), Icons.point_of_sale_outlined),
       'penalty_batch' => (SboxColors.danger, Icons.gavel_rounded),
-      'leave' => (const Color(0xFF0369A1), Icons.beach_access_outlined),
+      'leave' => ((SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0369A1)), Icons.beach_access_outlined),
       'quote' => (PosTheme.kiotBlue, Icons.request_page_outlined),
-      'reservation' => ((SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)), Icons.event_seat_outlined),
+      'reservation' => ((SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0F766E)), Icons.event_seat_outlined),
       'employee' => (SboxColors.violet, Icons.person_add_alt_1_outlined),
       _ => (SboxColors.violet, Icons.fact_check_outlined),
     };

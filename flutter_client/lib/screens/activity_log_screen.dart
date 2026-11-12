@@ -473,8 +473,8 @@ class _ActivityLogScreenState extends State<ActivityLogScreen> {
               Container(
                 width: 34,
                 height: 34,
-                decoration: BoxDecoration(color: color.withOpacity(.12), shape: BoxShape.circle),
-                child: Icon(icon, size: 18, color: color),
+                decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withOpacity(.12), shape: BoxShape.circle),
+                child: Icon(icon, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
               ),
               const SizedBox(width: 10),
               Expanded(

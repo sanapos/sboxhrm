@@ -24,6 +24,6 @@ class SboxIconTile extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(radius ?? size * 0.3),
         ),
-        child: Icon(icon, size: iconSize ?? size * 0.54, color: SboxColors.white),
+        child: Icon(icon, size: iconSize ?? size * 0.54, color: SboxColors.iconOnTile),
       );
 }

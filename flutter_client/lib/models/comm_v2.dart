@@ -43,7 +43,7 @@ List<Map<String, dynamic>> _maps(dynamic v) =>
     v is List ? v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : const [];
 List<String> _strs(dynamic v) => v is List ? v.map((e) => '$e').toList() : const [];
 
-Color commColor(String? hex, [Color fallback = const Color(0xFF158DC0)]) {
+Color commColor(String? hex, [Color fallback = (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF158DC0))]) {
   final h = (hex ?? '').replaceFirst('#', '');
   final v = h.length == 6 ? int.tryParse(h, radix: 16) : null;
   return v == null ? fallback : Color(0xFF000000 | v);
@@ -143,7 +143,7 @@ class CommAttachment {
 
   Color get color => switch (kind) {
         'pdf' => const Color(0xFFDC2626),
-        'word' => const Color(0xFF2563EB),
+        'word' => (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF2563EB)),
         'excel' => (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF16A34A)),
         'powerpoint' => const Color(0xFFEA580C),
         _ => const Color(0xFF64748B),

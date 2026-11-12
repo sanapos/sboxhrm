@@ -677,7 +677,7 @@ class _SyncJobCard extends StatelessWidget {
     final mgr = DeviceSyncProgressManager.instance;
     final accent = job.kind == DeviceSyncKind.deviceUsers
         ? PosTheme.kiotBlue
-        : const Color(0xFF0284C7);
+        : (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7));
     final isMobile = MediaQuery.sizeOf(context).width < 600;
     final cardWidth = math.min(isMobile ? double.infinity : 340.0,
         MediaQuery.sizeOf(context).width - 24);

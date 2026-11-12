@@ -77,14 +77,14 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
       ),
       child: Row(children: [
         Icon(full ? Icons.warning_amber_rounded : Icons.info_outline,
-            size: 18, color: full ? const Color(0xFFC2410C) : const Color(0xFF1D4ED8)),
+            size: 18, color: full ? const Color(0xFFC2410C) : (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF1D4ED8))),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             tr(full
                 ? 'Đã dùng hết $used/$max chi nhánh $source. Liên hệ quản trị / nâng gói để thêm chi nhánh.'
                 : 'Đang dùng $used/$max chi nhánh $source.'),
-            style: TextStyle(fontSize: 12.5, color: full ? const Color(0xFF9A3412) : const Color(0xFF1E40AF)),
+            style: TextStyle(fontSize: 12.5, color: full ? const Color(0xFF9A3412) : (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF1E40AF))),
           ),
         ),
       ]),
@@ -263,12 +263,12 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(children: [
-        const Icon(Icons.info_outline, size: 18, color: Color(0xFF1E40AF)),
+        const Icon(Icons.info_outline, size: 18, color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF1E40AF))),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             tr('Cửa hàng đang có 1 chi nhánh. Thêm chi nhánh để dùng báo cáo chi nhánh, chuyển kho & tồn theo chi nhánh.'),
-            style: const TextStyle(fontSize: 12.5, color: Color(0xFF1E40AF)),
+            style: const TextStyle(fontSize: 12.5, color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF1E40AF))),
           ),
         ),
       ]),
@@ -451,10 +451,10 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(10)),
               child: Icon(branch.isHeadquarter ? Icons.domain : Icons.business,
-                  color: color, size: 18),
+                  color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 18),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -749,12 +749,12 @@ class _BranchManagementScreenState extends State<BranchManagementScreen>
                       width: 40,
                       height: 40,
                       decoration: BoxDecoration(
-                        color: color.withValues(alpha: 0.1),
+                        color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
                         node.isHeadquarter ? Icons.domain : Icons.business,
-                        color: color,
+                        color: SboxColors.isBoss ? SboxColors.iconOnBox : color,
                         size: 20,
                       ),
                     ),

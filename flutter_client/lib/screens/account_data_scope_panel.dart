@@ -534,7 +534,7 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
                         ),
                         child: Text(tr('Trưởng'),
                             style: const TextStyle(
-                                fontSize: 10, color: Color(0xFF4338CA))),
+                                fontSize: 10, color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF4338CA)))),
                       ),
                   ],
                 ),

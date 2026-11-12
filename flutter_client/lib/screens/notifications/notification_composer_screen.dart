@@ -966,7 +966,7 @@ class _NotificationComposerScreenState extends State<NotificationComposerScreen>
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF1E293B), Color(0xFF334155)],
+              colors: [(SboxColors.isBoss ? SboxColors.brand600 : const Color(0xFF1E293B)), (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF334155))],
             ),
             borderRadius: BorderRadius.circular(18),
           ),

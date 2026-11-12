@@ -2850,10 +2850,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
           Container(
             padding: const EdgeInsets.all(6),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.10),
+              color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.10),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, size: 16, color: color),
+            child: Icon(icon, size: 16, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -3051,7 +3051,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                           width: 28,
                           height: 28,
                           decoration: BoxDecoration(
-                            color: SboxColors.brand500.withValues(alpha: 0.1),
+                            color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand500.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Icon(
@@ -3059,7 +3059,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
                                 ? Icons.login
                                 : Icons.logout,
                             size: 15,
-                            color: SboxColors.brand500,
+                            color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.brand500,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -3101,7 +3101,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
               Row(children: [
                 Expanded(
                     child: _detailSummaryCard('Giờ (thập phân)',
-                        record.decimalHours.toStringAsFixed(2), SboxColors.okSwatch)),
+                        record.decimalHours.toStringAsFixed(2), (SboxColors.isBoss ? SboxColors.brandSwatch : SboxColors.okSwatch))),
                 const SizedBox(width: 8),
                 Expanded(
                     child: _detailSummaryCard(
@@ -7398,7 +7398,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
     } else if (lower.contains('chiều') || lower.contains('chieu')) {
       color = Colors.purple;
     } else if (lower.contains('tối') || lower.contains('toi')) {
-      color = Colors.indigo;
+      color = (SboxColors.isBoss ? SboxColors.brandSwatch : Colors.indigo);
     } else if (lower.contains('đêm') ||
         lower.contains('dem') ||
         lower.contains('qua đêm')) {

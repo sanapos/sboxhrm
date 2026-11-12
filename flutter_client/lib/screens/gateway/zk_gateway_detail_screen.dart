@@ -1439,10 +1439,10 @@ class _ZkGatewayDetailScreenState extends State<ZkGatewayDetailScreen> {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.10),
+                    color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.10),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(icon, size: 18, color: color),
+                  child: Icon(icon, size: 18, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
                 ),
                 const SizedBox(width: 12),
                 Expanded(

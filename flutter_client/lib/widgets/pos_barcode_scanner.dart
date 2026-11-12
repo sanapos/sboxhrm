@@ -6,6 +6,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import '../utils/pos_scan_beep.dart';
+import 'package:zkteco_flutter_client/widgets/scanner_error_view.dart';
 /// Nút quét mã vạch / QR bằng camera — dùng làm suffix ô nhập hoặc IconButton riêng.
 class PosBarcodeScanIcon extends StatelessWidget {
   const PosBarcodeScanIcon({
@@ -283,10 +284,14 @@ class _BarcodeScannerSheetState extends State<_BarcodeScannerSheet> {
                         ),
                       ),
                     ),
-                    IgnorePointer(
-                      child: CustomPaint(
-                        painter: _ScanReticlePainter(),
-                        child: const SizedBox.expand(),
+                    // Camera lỗi / chưa có quyền thì bỏ khung ngắm, kẻo chấm giữa đè lên chữ báo lỗi.
+                    ScannerOverlayGate(
+                      controller: _controller,
+                      child: IgnorePointer(
+                        child: CustomPaint(
+                          painter: _ScanReticlePainter(),
+                          child: const SizedBox.expand(),
+                        ),
                       ),
                     ),
                   ],
@@ -338,8 +343,10 @@ class _ScanReticlePainter extends CustomPainter {
       stroke,
     );
 
+    // Góc + chấm giữa: BOSS dùng vàng, xanh đen chìm hẳn trên nền camera tối.
+    final accent = SboxColors.isBoss ? SboxColors.gold : SboxColors.brand600;
     final corner = Paint()
-      ..color = SboxColors.brand600
+      ..color = accent
       ..strokeWidth = 4
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -353,7 +360,7 @@ class _ScanReticlePainter extends CustomPainter {
     canvas.drawLine(rect.bottomRight, rect.bottomRight + const Offset(-len, 0), corner);
     canvas.drawLine(rect.bottomRight, rect.bottomRight + const Offset(0, -len), corner);
 
-    canvas.drawCircle(center, 4, Paint()..color = SboxColors.brand600);
+    canvas.drawCircle(center, 4, Paint()..color = accent);
   }
 
   @override

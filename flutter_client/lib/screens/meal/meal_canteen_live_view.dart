@@ -360,9 +360,9 @@ class _MealCanteenLiveViewState extends State<MealCanteenLiveView> {
               dense: true,
               contentPadding: EdgeInsets.zero,
               leading: CircleAvatar(
-                backgroundColor: SboxColors.brand50,
+                backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.brand50,
                 child: Text('${x['ticketNo']}',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: SboxColors.brand700)),
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: SboxColors.isBoss ? SboxColors.gold : SboxColors.brand700)),
               ),
               title: Text(x['name']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.w600)),
               subtitle: Text([

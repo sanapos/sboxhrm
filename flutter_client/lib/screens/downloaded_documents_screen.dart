@@ -774,10 +774,10 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: _iconColor(doc).withValues(alpha: 0.12),
+                  color: SboxColors.isBoss ? SboxColors.iconBox : _iconColor(doc).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(_iconFor(doc), color: _iconColor(doc)),
+                child: Icon(_iconFor(doc), color: SboxColors.isBoss ? SboxColors.iconOnBox : _iconColor(doc)),
               ),
               const SizedBox(width: 12),
               Expanded(

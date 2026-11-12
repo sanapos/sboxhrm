@@ -416,7 +416,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
               DepartmentFilterHelper.showDepartmentFilter(
                   _branchFilter.departments))
             Container(
-              color: Colors.white,
+              color: SboxColors.bar,
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               child: ReportOrgFilterRow(
                 dense: true,

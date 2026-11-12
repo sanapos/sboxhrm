@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import 'task.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 double _d(dynamic v) => v is num ? v.toDouble() : double.tryParse('${v ?? ''}') ?? 0;
 int _i(dynamic v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0;
@@ -20,7 +21,7 @@ List<Map<String, dynamic>> _maps(dynamic v) =>
     v is List ? v.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : const [];
 
 /// Màu từ chuỗi #RRGGBB (mặc định xanh SBOX).
-Color hexColor(String? hex, [Color fallback = const Color(0xFF158DC0)]) {
+Color hexColor(String? hex, [Color fallback = (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF158DC0))]) {
   final h = (hex ?? '').replaceFirst('#', '');
   if (h.length != 6) return fallback;
   final v = int.tryParse(h, radix: 16);

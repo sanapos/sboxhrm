@@ -10,7 +10,7 @@ import 'work_task_editor.dart';
 import '../../theme/sbox_tokens.dart';
 
 const _stagePalette = <Color>[
-  Color(0xFF64748B), Color(0xFF7C3AED), Color(0xFF0891B2), Color(0xFF158DC0),
+  Color(0xFF64748B), Color(0xFF7C3AED), (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0891B2)), (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF158DC0)),
   Color(0xFFD97706), Color(0xFFDB2777), (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF16A34A)), Color(0xFF94A3B8),
 ];
 
@@ -40,7 +40,7 @@ class _WorkProjectEditorPageState extends State<WorkProjectEditorPage> {
   DateTime? _start;
   DateTime? _due;
   TaskProjectStatus _status = TaskProjectStatus.active;
-  Color _color = const Color(0xFF158DC0);
+  Color _color = (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF158DC0));
   List<TaskStageV2> _stages = [];
   bool _createTasks = true;
   bool _saving = false;
@@ -512,8 +512,8 @@ class _WorkPacksPageState extends State<WorkPacksPage> with SingleTickerProvider
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: BoxDecoration(color: hexColor(p.color).withValues(alpha: 0.12), borderRadius: SboxRadius.mdAll),
-                    child: Icon(p.iconData, color: hexColor(p.color)),
+                    decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : hexColor(p.color).withValues(alpha: 0.12), borderRadius: SboxRadius.mdAll),
+                    child: Icon(p.iconData, color: SboxColors.isBoss ? SboxColors.iconOnBox : hexColor(p.color)),
                   ),
                   const SizedBox(width: SboxSpace.md),
                   Expanded(child: Text(tr(p.name), style: SboxType.titleSmStyle())),

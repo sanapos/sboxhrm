@@ -122,13 +122,13 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
 
   static const List<Color> _kShiftPalette = [
     SboxColors.brand600,
-    (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0D9488)),
+    (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand400 : Color(0xFF0D9488)),
     SboxColors.violet,
     Color(0xFFEA580C),
     Color(0xFFDB2777),
-    Color(0xFF0284C7),
+    (SboxColors.isBoss ? SboxColors.brand400 : const Color(0xFF0284C7)),
     Color(0xFF65A30D),
-    Color(0xFF4F46E5),
+    (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF4F46E5)),
   ];
 
   @override
@@ -626,8 +626,8 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       tooltip: tr(pendingCount > 0
           ? 'Menu · $pendingCount chờ gửi'
           : 'Menu'),
-      backgroundColor: HrmPageChrome.primaryNavy,
-      foregroundColor: Colors.white,
+      backgroundColor: SboxColors.isBoss ? SboxColors.action : HrmPageChrome.primaryNavy,
+      foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
       onPressed: () {
         final acts = _scheduleFabActions();
         if (acts.isEmpty) return;
@@ -935,10 +935,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                      color: SboxColors.slate100,
+                      color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.slate100,
                       borderRadius: BorderRadius.circular(10)),
                   child: const Icon(Icons.chevron_left,
-                      size: 20, color: SboxColors.slate500),
+                      size: 20, color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.slate500),
                 ),
               ),
               const SizedBox(width: 8),
@@ -961,10 +961,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 child: Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                      color: SboxColors.slate100,
+                      color: SboxColors.isBoss ? SboxColors.iconBox : SboxColors.slate100,
                       borderRadius: BorderRadius.circular(10)),
                   child: const Icon(Icons.chevron_right,
-                      size: 20, color: SboxColors.slate500),
+                      size: 20, color: SboxColors.isBoss ? SboxColors.iconOnBox : SboxColors.slate500),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1583,9 +1583,9 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.1),
+            color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(10)),
-        child: Icon(icon, color: color, size: 20),
+        child: Icon(icon, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 20),
       ),
       title: Text(tr(title),
           style: TextStyle(
@@ -2034,10 +2034,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                            color: SboxColors.dangerSoft,
+                            color: SboxColors.isBoss ? SboxColors.danger : SboxColors.dangerSoft,
                             borderRadius: BorderRadius.circular(6)),
                         child: const Icon(Icons.delete_outline,
-                            size: 14, color: SboxColors.danger),
+                            size: 14, color: SboxColors.isBoss ? Colors.white : SboxColors.danger),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -2051,10 +2051,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                            color: SboxColors.dangerSoft,
+                            color: SboxColors.isBoss ? SboxColors.danger : SboxColors.dangerSoft,
                             borderRadius: BorderRadius.circular(6)),
                         child: const Icon(Icons.delete_outline,
-                            size: 14, color: SboxColors.danger),
+                            size: 14, color: SboxColors.isBoss ? Colors.white : SboxColors.danger),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -2068,10 +2068,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
                             color:
-                                HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
+                                SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.primaryNavy.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(6)),
                         child: const Icon(Icons.swap_horiz,
-                            size: 14, color: HrmPageChrome.primaryNavy),
+                            size: 14, color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.primaryNavy),
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -5833,10 +5833,10 @@ class _WorkScheduleScreenState extends State<WorkScheduleScreen>
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                      color: HrmPageChrome.chipLight.withValues(alpha: 0.1),
+                      color: SboxColors.isBoss ? SboxColors.iconBox : HrmPageChrome.chipLight.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10)),
                   child: const Icon(Icons.person_add,
-                      color: HrmPageChrome.chipLight, size: 18),
+                      color: SboxColors.isBoss ? SboxColors.iconOnBox : HrmPageChrome.chipLight, size: 18),
                 ),
                 const SizedBox(width: 8),
                 Expanded(

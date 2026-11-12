@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../widgets/hrm_page_chrome.dart';
+import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 
 /// Nhóm hiển thị theo pháp luật VN.
 enum LeaveLegalCategory {
@@ -198,7 +199,7 @@ class LeaveCatalog {
       legalHint:
           'Cần giấy nghỉ hợp lệ. Không đồng thời nhận lương DN cho cùng ngày nghỉ.',
       icon: Icons.local_hospital_rounded,
-      color: Color(0xFF003B80),
+      color: (SboxColors.isBoss ? SboxColors.brand500 : const Color(0xFF003B80)),
       requiresBhxhNote: true,
     ),
     LeaveCatalogEntry(

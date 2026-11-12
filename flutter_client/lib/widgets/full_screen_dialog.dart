@@ -30,7 +30,7 @@ AppBar buildPickerCloseAppBar(
     backgroundColor: SboxColors.appBarBg(Colors.white),
     foregroundColor: SboxColors.appBarFg(SboxColors.slate900),
     elevation: 0,
-    surfaceTintColor: Colors.white,
+    surfaceTintColor: Colors.transparent,
     leading: IconButton(
       icon: const Icon(Icons.close),
       tooltip: tr('Đóng'),
