@@ -56,8 +56,9 @@ public class PosAiMenuController(
             images.Add(new AiFilePart(mime, bytes));
         }
 
-        return await RunScanAsync(() => menuService.ScanAsync(RequiredStoreId, images, ct),
-            "Không đọc được món nào — chụp rõ, thẳng và đủ sáng rồi thử lại.", ct);
+        // Menu nhiều món AI đọc > 60 giây — giữ kết nối để nginx không cắt (504).
+        return KeepAliveJsonResult.For(() => RunScanAsync(() => menuService.ScanAsync(RequiredStoreId, images, ct),
+            "Không đọc được món nào — chụp rõ, thẳng và đủ sáng rồi thử lại.", ct));
     }
 
     /// <summary>
@@ -92,8 +93,8 @@ public class PosAiMenuController(
             return Ok(AppResponse<MenuScanResultDto>.Fail(ex.Message));
         }
 
-        return await RunScanAsync(() => menuService.ScanSheetAsync(RequiredStoreId, sheet, ct),
-            "Không đọc được món nào trong file — kiểm tra file có cột tên món và giá.", ct);
+        return KeepAliveJsonResult.For(() => RunScanAsync(() => menuService.ScanSheetAsync(RequiredStoreId, sheet, ct),
+            "Không đọc được món nào trong file — kiểm tra file có cột tên món và giá.", ct));
     }
 
     async Task<ActionResult<AppResponse<MenuScanResultDto>>> RunScanAsync(

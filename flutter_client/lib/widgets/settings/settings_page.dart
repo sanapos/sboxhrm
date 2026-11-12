@@ -330,7 +330,9 @@ class SettingsTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final narrow = MediaQuery.of(context).size.width < 640 && !(inline ?? isCompact(control));
+    // Hàng nút chọn (Wrap) luôn xuống dòng dưới nhãn: đặt cùng hàng thì Wrap đòi đủ bề ngang cho mọi nút,
+    // nhãn còn ~0 điểm → mỗi dòng một chữ cái (vỡ chữ «Người nhận» ở Trợ lý AI → Bản tin sáng).
+    final narrow = control is Wrap || (MediaQuery.of(context).size.width < 640 && !(inline ?? isCompact(control)));
     final text = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Text(tr(label), style: const TextStyle(fontWeight: FontWeight.w700, color: SboxColors.slate800)),
       if (help != null)

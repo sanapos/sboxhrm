@@ -199,22 +199,13 @@ QUAN TRỌNG: Trả lời ĐÚNG theo format JSON sau (không markdown, không c
         using var doc = JsonDocument.Parse(responseBody);
         var root = doc.RootElement;
 
-        // For thinking models (gemini-2.5-*), get the last non-thought part
         var parts = root
             .GetProperty("candidates")[0]
             .GetProperty("content")
             .GetProperty("parts");
 
-        var text = "{}";
-        for (int i = parts.GetArrayLength() - 1; i >= 0; i--)
-        {
-            var part = parts[i];
-            // Skip "thought" parts (used by thinking models like gemini-2.5-flash)
-            if (part.TryGetProperty("thought", out var thought) && thought.GetBoolean())
-                continue;
-            text = part.GetProperty("text").GetString() ?? "{}";
-            break;
-        }
+        var text = AnswerText(parts);
+        if (string.IsNullOrWhiteSpace(text)) text = "{}";
 
         _logger.LogInformation("Gemini raw response text: {Text}", text.Length > 200 ? text[..200] + "..." : text);
 
@@ -331,15 +322,7 @@ QUAN TRỌNG: Trả lời ĐÚNG theo format JSON sau (không markdown, không c
         var finish = candidate.TryGetProperty("finishReason", out var fr) ? fr.GetString() : null;
         var text = "";
         if (candidate.TryGetProperty("content", out var content) && content.TryGetProperty("parts", out var outParts))
-        {
-            for (var i = outParts.GetArrayLength() - 1; i >= 0; i--)
-            {
-                var part = outParts[i];
-                if (part.TryGetProperty("thought", out var thought) && thought.ValueKind == JsonValueKind.True)
-                    continue;
-                if (part.TryGetProperty("text", out var t)) { text = t.GetString() ?? ""; break; }
-            }
-        }
+            text = AnswerText(outParts);
         if (string.IsNullOrWhiteSpace(text))
         {
             throw new AiApiException(finish == "MAX_TOKENS"
@@ -359,6 +342,24 @@ QUAN TRỌNG: Trả lời ĐÚNG theo format JSON sau (không markdown, không c
                 "Nội dung quá dài cho một lần đọc — AI mới trả được một phần. Chia nhỏ ảnh / file (ít món hơn mỗi lần) rồi thử lại.",
                 text);
         return text;
+    }
+
+    /// <summary>
+    /// Câu trả lời = nối mọi phần «text» không phải suy nghĩ (thought), theo thứ tự.
+    /// Model mới (Gemini 3 / *-latest) có thể chia câu trả lời thành nhiều phần (phần cuối có khi chỉ mang
+    /// thoughtSignature, text rỗng) — trước đây chỉ lấy phần cuối nên JSON menu / hóa đơn bị cụt → «AI trả kết quả không đọc được».
+    /// </summary>
+    internal static string AnswerText(JsonElement parts)
+    {
+        if (parts.ValueKind != JsonValueKind.Array) return "";
+        var sb = new StringBuilder();
+        foreach (var part in parts.EnumerateArray())
+        {
+            if (part.ValueKind != JsonValueKind.Object) continue;
+            if (part.TryGetProperty("thought", out var thought) && thought.ValueKind == JsonValueKind.True) continue;
+            if (part.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String) sb.Append(t.GetString());
+        }
+        return sb.ToString();
     }
 
     static bool IsCompleteJson(string text)
@@ -454,15 +455,7 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
 
         using var doc = JsonDocument.Parse(responseBody);
         var parts = doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts");
-        var text = "";
-        for (int i = parts.GetArrayLength() - 1; i >= 0; i--)
-        {
-            var part = parts[i];
-            if (part.TryGetProperty("thought", out var thought) && thought.GetBoolean()) continue;
-            text = part.GetProperty("text").GetString() ?? "";
-            break;
-        }
-        return text.Trim();
+        return AnswerText(parts).Trim();
     }
 
     public async Task<string> GenerateAssistantChatAsync(
@@ -527,14 +520,7 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
 
         using var doc = JsonDocument.Parse(responseBody);
         var parts = doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts");
-        for (int i = parts.GetArrayLength() - 1; i >= 0; i--)
-        {
-            var part = parts[i];
-            if (part.TryGetProperty("thought", out var thought) && thought.GetBoolean()) continue;
-            return (part.GetProperty("text").GetString() ?? "").Trim();
-        }
-
-        return string.Empty;
+        return AnswerText(parts).Trim();
     }
 
     public async Task<JsonElement> GenerateContentRawAsync(object requestBody, CancellationToken cancellationToken = default, string? model = null)

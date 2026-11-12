@@ -103,80 +103,86 @@ public class PosDocxTemplatesController(
         if (paragraphs.Count == 0)
             return BadRequest(AppResponse<MappingDto>.Fail("File Word không có nội dung chữ."));
 
-        // Lưu file + mẫu NHÁP (chưa dùng để in) TRƯỚC khi gọi AI: client hết giờ chờ rồi gửi lại cũng không sinh
-        // mẫu đang dùng trùng lặp; báo giá / hóa đơn chỉ tự chọn mẫu đang bật → không in nhầm file gốc của khách cũ.
-        var template = new PosPrintTemplate
-        {
-            Id = Guid.NewGuid(),
-            StoreId = RequiredStoreId,
-            Name = string.IsNullOrWhiteSpace(name) ? Path.GetFileNameWithoutExtension(file.FileName) : name.Trim(),
-            DocumentType = documentType,
-            PaperSize = DocxTemplateEngine.DetectPaperSize(original) ?? PosPrintPaperSize.A4,
-            IsActive = false,
-            CreatedBy = CurrentUserEmail,
-        };
-        template.DocxFilePath = RelativePath(template.StoreId, template.Id);
-        await System.IO.File.WriteAllBytesAsync(OrigPath(template), original, ct);
+        // AI đọc mẫu dài > 60 giây — giữ kết nối để nginx không cắt (504).
+        return KeepAliveJsonResult.For(ImportCoreAsync);
 
-        // Quy tắc (nhãn + chỗ trống «……») bổ sung chỗ AI chưa gắn — và vẫn chạy khi AI lỗi / hết lượt.
-        var rules = PosDocxTemplateAiService.AdaptToDocumentType(DocxRuleDetector.Detect(paragraphs), documentType);
-        var applied = await ApplyAndSaveAsync(template, original, rules, [], ct);
-        db.PosPrintTemplates.Add(template);
-        await db.SaveChangesAsync(ct);
-
-        var analysis = new DocxTemplateAnalysis([], [], []);
-        var aiUsed = false;
-        if (useAi)
+        async Task<ActionResult<AppResponse<MappingDto>>> ImportCoreAsync()
         {
-            using var aiCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            aiCts.CancelAfter(AiTimeout);
-            try
+            // Lưu file + mẫu NHÁP (chưa dùng để in) TRƯỚC khi gọi AI: client hết giờ chờ rồi gửi lại cũng không sinh
+            // mẫu đang dùng trùng lặp; báo giá / hóa đơn chỉ tự chọn mẫu đang bật → không in nhầm file gốc của khách cũ.
+            var template = new PosPrintTemplate
             {
-                var title = PosDocxTemplateAiService.IsCommercial(documentType)
-                    ? PosQuoteDocumentHtml.TitleOf(KindOf(documentType))
-                    : PosPrintTemplateDefaults.DocumentTitle(documentType);
-                analysis = await ai.AnalyzeAsync(paragraphs, title, documentType, aiCts.Token);
-                aiUsed = true;
-            }
-            catch (Exception ex) when (ex is AiApiException or InvalidOperationException or JsonException)
-            {
-                // Vẫn lưu mẫu (chưa gắn trường) để người dùng tự gắn / thử lại AI.
-                logger.LogWarning("AI docx analysis failed: {Message}", ex.Message);
-                analysis = new DocxTemplateAnalysis([], [], [ex is JsonException ? "AI trả kết quả không đọc được — gắn trường thủ công hoặc thử lại." : ex.Message]);
-            }
-            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
-            {
-                // Hết thời gian chờ AI (không phải người dùng hủy): mẫu đã lưu dạng nháp → gắn tay / thử lại.
-                logger.LogWarning("AI docx analysis timed out after {Seconds}s", AiTimeout.TotalSeconds);
-                analysis = new DocxTemplateAnalysis([], [], [
-                    $"AI đọc mẫu quá lâu (quá {AiTimeout.TotalSeconds:0} giây) nên đã dừng — mẫu đã lưu dạng nháp, gắn trường thủ công "
-                    + "hoặc xóa mẫu rồi tải lại để thử AI lần nữa."]);
-            }
-            catch (HttpRequestException ex)
-            {
-                logger.LogWarning("AI docx analysis network error: {Message}", ex.Message);
-                analysis = new DocxTemplateAnalysis([], [], [
-                    "Không kết nối được dịch vụ AI — mẫu đã lưu dạng nháp, gắn trường thủ công hoặc thử lại sau."]);
-            }
-        }
+                Id = Guid.NewGuid(),
+                StoreId = RequiredStoreId,
+                Name = string.IsNullOrWhiteSpace(name) ? Path.GetFileNameWithoutExtension(file.FileName) : name.Trim(),
+                DocumentType = documentType,
+                PaperSize = DocxTemplateEngine.DetectPaperSize(original) ?? PosPrintPaperSize.A4,
+                IsActive = false,
+                CreatedBy = CurrentUserEmail,
+            };
+            template.DocxFilePath = RelativePath(template.StoreId, template.Id);
+            await System.IO.File.WriteAllBytesAsync(OrigPath(template), original, ct);
 
-        var warnings = analysis.Warnings.ToList();
-        var removeRows = new List<string>();
-        if (aiUsed)
-        {
-            var replacements = DocxRuleDetector.Merge(paragraphs, analysis.Replacements, rules);
-            var ruleAdded = replacements.Count - analysis.Replacements.Count;
-            if (ruleAdded > 0)
-                warnings.Add($"Nhận thêm {ruleAdded} chỗ trống theo nhãn (Họ tên, MST, Địa chỉ…) — kiểm tra lại.");
-            removeRows = analysis.RemoveRowParagraphIds;
-            applied = await ApplyAndSaveAsync(template, original, replacements, removeRows, ct);
+            // Quy tắc (nhãn + chỗ trống «……») bổ sung chỗ AI chưa gắn — và vẫn chạy khi AI lỗi / hết lượt.
+            var rules = PosDocxTemplateAiService.AdaptToDocumentType(DocxRuleDetector.Detect(paragraphs), documentType);
+            var applied = await ApplyAndSaveAsync(template, original, rules, [], ct);
+            db.PosPrintTemplates.Add(template);
             await db.SaveChangesAsync(ct);
+
+            var analysis = new DocxTemplateAnalysis([], [], []);
+            var aiUsed = false;
+            if (useAi)
+            {
+                using var aiCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                aiCts.CancelAfter(AiTimeout);
+                try
+                {
+                    var title = PosDocxTemplateAiService.IsCommercial(documentType)
+                        ? PosQuoteDocumentHtml.TitleOf(KindOf(documentType))
+                        : PosPrintTemplateDefaults.DocumentTitle(documentType);
+                    analysis = await ai.AnalyzeAsync(paragraphs, title, documentType, aiCts.Token);
+                    aiUsed = true;
+                }
+                catch (Exception ex) when (ex is AiApiException or InvalidOperationException or JsonException)
+                {
+                    // Vẫn lưu mẫu (chưa gắn trường) để người dùng tự gắn / thử lại AI.
+                    logger.LogWarning("AI docx analysis failed: {Message}", ex.Message);
+                    analysis = new DocxTemplateAnalysis([], [], [ex is JsonException ? "AI trả kết quả không đọc được — gắn trường thủ công hoặc thử lại." : ex.Message]);
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    // Hết thời gian chờ AI (không phải người dùng hủy): mẫu đã lưu dạng nháp → gắn tay / thử lại.
+                    logger.LogWarning("AI docx analysis timed out after {Seconds}s", AiTimeout.TotalSeconds);
+                    analysis = new DocxTemplateAnalysis([], [], [
+                        $"AI đọc mẫu quá lâu (quá {AiTimeout.TotalSeconds:0} giây) nên đã dừng — mẫu đã lưu dạng nháp, gắn trường thủ công "
+                        + "hoặc xóa mẫu rồi tải lại để thử AI lần nữa."]);
+                }
+                catch (HttpRequestException ex)
+                {
+                    logger.LogWarning("AI docx analysis network error: {Message}", ex.Message);
+                    analysis = new DocxTemplateAnalysis([], [], [
+                        "Không kết nối được dịch vụ AI — mẫu đã lưu dạng nháp, gắn trường thủ công hoặc thử lại sau."]);
+                }
+            }
+
+            var warnings = analysis.Warnings.ToList();
+            var removeRows = new List<string>();
+            if (aiUsed)
+            {
+                var replacements = DocxRuleDetector.Merge(paragraphs, analysis.Replacements, rules);
+                var ruleAdded = replacements.Count - analysis.Replacements.Count;
+                if (ruleAdded > 0)
+                    warnings.Add($"Nhận thêm {ruleAdded} chỗ trống theo nhãn (Họ tên, MST, Địa chỉ…) — kiểm tra lại.");
+                removeRows = analysis.RemoveRowParagraphIds;
+                applied = await ApplyAndSaveAsync(template, original, replacements, removeRows, ct);
+                await db.SaveChangesAsync(ct);
+            }
+            else if (applied.Count > 0)
+                warnings.Add($"Nhận {applied.Count} chỗ trống theo nhãn (Họ tên, MST, Địa chỉ…) — kiểm tra lại.");
+            // Luôn soát sau khi gộp (kể cả AI lỗi): số tiền / tên còn chữ cứng, bảng hàng / tổng cộng chưa gắn.
+            warnings.AddRange(PosDocxTemplateAiService.ReviewWarnings(applied, paragraphs, documentType));
+            return Ok(AppResponse<MappingDto>.Success(ToDto(template, applied, removeRows, paragraphs, warnings, aiUsed)));
         }
-        else if (applied.Count > 0)
-            warnings.Add($"Nhận {applied.Count} chỗ trống theo nhãn (Họ tên, MST, Địa chỉ…) — kiểm tra lại.");
-        // Luôn soát sau khi gộp (kể cả AI lỗi): số tiền / tên còn chữ cứng, bảng hàng / tổng cộng chưa gắn.
-        warnings.AddRange(PosDocxTemplateAiService.ReviewWarnings(applied, paragraphs, documentType));
-        return Ok(AppResponse<MappingDto>.Success(ToDto(template, applied, removeRows, paragraphs, warnings, aiUsed)));
     }
 
     [HttpGet("{id:guid}/mapping")]

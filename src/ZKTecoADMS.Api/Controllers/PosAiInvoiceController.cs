@@ -51,6 +51,12 @@ public class PosAiInvoiceController(
             images.Add(new AiFilePart(mime, bytes));
         }
 
+        // Hóa đơn nhiều dòng AI đọc > 60 giây — giữ kết nối để nginx không cắt (504).
+        return KeepAliveJsonResult.For(() => ScanCoreAsync(images, ct));
+    }
+
+    async Task<ActionResult<AppResponse<InvoiceScanResultDto>>> ScanCoreAsync(List<AiFilePart> images, CancellationToken ct)
+    {
         try
         {
             var result = await invoiceService.ScanAsync(RequiredStoreId, images, ct);
