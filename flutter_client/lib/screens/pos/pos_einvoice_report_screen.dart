@@ -12,6 +12,7 @@ import '../../utils/pos_report_open.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import 'pos_einvoice_provider_list_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -488,6 +489,168 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
     );
   }
 
+  // ───────── Chip số liệu → danh sách hóa đơn tạo ra số đó ─────────
+  // Dùng lại GET /api/pos/einvoice/invoices với đúng trạng thái: cùng cửa hàng, chi nhánh, khoảng ngày
+  // và điều kiện như /summary (đơn Hoàn tất; «attention» = đơn hủy / trả hàng còn HĐ hiệu lực).
+
+  static const _drillPageSize = 200;
+  static const _drillMaxPages = 3;
+
+  /// Tải tối đa 600 hóa đơn mỗi trạng thái; trả kèm tổng số thật để ghi chân sheet khi bị cắt.
+  Future<({List<(PosEInvoiceRow, Map<String, dynamic>)> items, int total})> _fetchStatus(
+      String status) async {
+    final out = <(PosEInvoiceRow, Map<String, dynamic>)>[];
+    var total = 0;
+    for (var p = 1; p <= _drillMaxPages; p++) {
+      final res = await _api.getPosEInvoiceInvoices(
+        from: _time.from,
+        to: _time.to,
+        status: status,
+        page: p,
+        pageSize: _drillPageSize,
+      );
+      if (res['isSuccess'] != true || res['data'] is! Map) {
+        throw Exception(res['message']?.toString() ?? 'Không tải được danh sách hóa đơn');
+      }
+      final data = Map<String, dynamic>.from(res['data'] as Map);
+      total = (data['total'] as num?)?.toInt() ?? 0;
+      final raw = data['items'] ?? data['Items'];
+      final list = raw is List ? raw.whereType<Map>().toList() : const <Map>[];
+      for (final e in list) {
+        final m = Map<String, dynamic>.from(e);
+        out.add((PosEInvoiceRow.fromJson(m), m));
+      }
+      if (list.length < _drillPageSize || out.length >= total) break;
+    }
+    return (items: out, total: total);
+  }
+
+  /// [amount]: 'grand' = tiền hàng + VAT + phụ thu + phí giao (như /summary);
+  /// 'net' = tiền hàng + VAT (như /report); 'vat' = chỉ thuế GTGT; null = không hiện tiền.
+  Future<void> _drillInvoices({
+    required String title,
+    required List<String> statuses,
+    String? amount,
+    String? note,
+    String? chipTotal,
+    bool Function(PosEInvoiceRow row)? where,
+  }) {
+    return showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: 'Kỳ ${_time.displayLabel}',
+      note: note,
+      total: chipTotal,
+      emptyText: 'Không có hóa đơn',
+      load: () async {
+        final all = <(PosEInvoiceRow, Map<String, dynamic>)>[];
+        var cut = 0;
+        for (final s in statuses) {
+          final r = await _fetchStatus(s);
+          all.addAll(r.items);
+          cut += r.total - r.items.length;
+        }
+        final picked = where == null ? all : all.where((e) => where(e.$1)).toList();
+        double value((PosEInvoiceRow, Map<String, dynamic>) e) {
+          final m = e.$2;
+          switch (amount) {
+            case 'net':
+              return _num(m['total'] ?? m['Total']) + _num(m['vatAmount'] ?? m['VatAmount']);
+            case 'vat':
+              return _num(m['vatAmount'] ?? m['VatAmount']);
+            default:
+              return e.$1.grandTotal;
+          }
+        }
+
+        return [
+          for (final e in picked)
+            ReportDrillRow(
+              title: e.$1.orderNo,
+              subtitle: [
+                if ((e.$1.invoiceNo ?? '').isNotEmpty) 'HĐ ${e.$1.invoiceNo}',
+                e.$1.customerName ?? e.$1.buyerName ?? 'Khách lẻ',
+                if ((e.$1.saleDate ?? e.$1.issuedAt) != null)
+                  _dateFmt.format((e.$1.saleDate ?? e.$1.issuedAt)!.toLocal()),
+                posEInvoiceStatusLabel(e.$1.status),
+                if ((e.$1.error ?? '').isNotEmpty) e.$1.error!,
+              ].join(' · '),
+              trailing: amount == null
+                  ? _moneyFmt.format(e.$1.grandTotal)
+                  : _moneyFmt.format(value(e)),
+              trailingColor: amount == null ? SboxColors.slate600 : null,
+              icon: Icons.receipt_long_outlined,
+              onTap: () => _openActions(e.$1),
+            ),
+          // Quá 600 HĐ / trạng thái: dòng cuối mở danh sách đầy đủ bên dưới, đã lọc sẵn.
+          if (cut > 0)
+            ReportDrillRow(
+              title: 'Còn $cut hóa đơn cũ hơn chưa hiện',
+              subtitle: 'Bấm để lọc danh sách hóa đơn theo trạng thái này',
+              icon: Icons.more_horiz,
+              onTap: () {
+                setState(() => _status = statuses.first);
+                _load();
+              },
+            ),
+        ];
+      },
+    );
+  }
+
+  void _drillCoverage() {
+    final r = _report;
+    if (r == null) return;
+    final revenue = _num(r['revenue']);
+    final issuedAmt = _num(r['issuedAmount']);
+    showReportDrillSheet(
+      context,
+      title: 'Tỷ lệ xuất HĐĐT trên doanh thu',
+      subtitle: 'Kỳ ${_time.displayLabel}',
+      showCount: false,
+      note: 'Tỷ lệ = Đã xuất HĐĐT ÷ Doanh thu = ${_moneyFmt.format(issuedAmt)} ÷ '
+          '${_moneyFmt.format(revenue)} = ${SboxFmt.pct(_num(r['coveragePct']))}.\n'
+          'Doanh thu và giá trị đã xuất tính tiền hàng + VAT của đơn hoàn tất trong kỳ '
+          '(không gồm phụ thu, phí giao). Bấm từng dòng để xem hóa đơn.',
+      rows: [
+        ReportDrillRow(
+          title: 'Doanh thu (đơn hoàn tất)',
+          trailing: _moneyFmt.format(revenue),
+          icon: Icons.point_of_sale_outlined,
+          onTap: () => _drillInvoices(
+              title: 'Doanh thu', statuses: const ['all'], amount: 'net',
+              chipTotal: 'Tổng ${_moneyFmt.format(revenue)}'),
+        ),
+        ReportDrillRow(
+          title: 'Đã xuất HĐĐT',
+          trailing: _moneyFmt.format(issuedAmt),
+          trailingColor: SboxColors.successText,
+          icon: Icons.verified_outlined,
+          onTap: () => _drillInvoices(
+              title: 'Đã xuất HĐĐT', statuses: const ['Issued'], amount: 'net',
+              chipTotal: 'Tổng ${_moneyFmt.format(issuedAmt)}'),
+        ),
+        ReportDrillRow(
+          title: 'Hóa đơn thay thế',
+          trailing: '${_num(r['replacementCount']).toInt()} HĐ',
+          icon: Icons.find_replace,
+          onTap: () => _drillInvoices(title: 'Hóa đơn thay thế', statuses: const ['replacement']),
+        ),
+        ReportDrillRow(
+          title: 'Chưa xuất',
+          subtitle: 'Tiền hàng + VAT + phụ thu + phí giao',
+          trailing: _moneyFmt.format(_num(_summary?['noneAmount'])),
+          icon: Icons.hourglass_empty_rounded,
+          onTap: () => _drillInvoices(
+              title: 'Chưa xuất HĐĐT', statuses: const ['all'], amount: 'grand',
+              where: (row) => row.status.trim().isEmpty || row.status == 'None',
+              chipTotal: 'Tổng ${_moneyFmt.format(_num(_summary?['noneAmount']))}',
+              note: 'Đơn hoàn tất chưa xuất hóa đơn điện tử (kể cả đơn chưa có trạng thái).'),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final issued = _num(_summary?['issuedCount']);
@@ -614,19 +777,38 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                 SboxInsightPanel(
                   kpis: [
                     SboxKpi(label: 'Đã xuất', value: SboxFmt.number(issued), icon: Icons.verified_outlined, tone: SboxTone.success,
-                        note: SboxFmt.money(_num(_summary?['issuedAmount']))),
-                    SboxKpi(label: 'Chờ xuất / nháp', value: SboxFmt.number(pending + draft), icon: Icons.hourglass_empty_rounded, tone: SboxTone.warning),
+                        note: SboxFmt.money(_num(_summary?['issuedAmount'])),
+                        onTap: () => _drillInvoices(title: 'Đã xuất HĐĐT', statuses: const ['Issued'], amount: 'grand',
+                            chipTotal: 'Tổng ${_moneyFmt.format(_num(_summary?['issuedAmount']))}')),
+                    SboxKpi(label: 'Chờ xuất / nháp', value: SboxFmt.number(pending + draft), icon: Icons.hourglass_empty_rounded, tone: SboxTone.warning,
+                        onTap: () => _drillInvoices(title: 'Chờ ký / nháp', statuses: const ['Pending', 'Draft'],
+                            note: 'Chờ ký ${SboxFmt.number(pending)} + nháp ${SboxFmt.number(draft)}')),
                     SboxKpi(label: 'Lỗi', value: SboxFmt.number(failed), icon: Icons.error_outline, tone: SboxTone.danger,
-                        note: failed > 0 ? 'Cần xuất lại' : null),
+                        note: failed > 0 ? 'Cần xuất lại' : null,
+                        onTap: () => _drillInvoices(title: 'Hóa đơn lỗi', statuses: const ['Failed'], amount: 'grand',
+                            chipTotal: 'Tổng ${_moneyFmt.format(_num(_summary?['failedAmount']))}')),
                     if (_num(_summary?['attentionCancelledCount']) + _num(_summary?['attentionReturnedCount']) > 0)
                       SboxKpi(
                           label: 'Cần hủy / điều chỉnh',
                           value: SboxFmt.number(_num(_summary?['attentionCancelledCount']) + _num(_summary?['attentionReturnedCount'])),
                           icon: Icons.warning_amber_rounded,
                           tone: SboxTone.warning,
-                          note: 'Đơn đã hủy ${SboxFmt.number(_num(_summary?['attentionCancelledCount']))} · đã trả hàng ${SboxFmt.number(_num(_summary?['attentionReturnedCount']))}'),
+                          note: 'Đơn đã hủy ${SboxFmt.number(_num(_summary?['attentionCancelledCount']))} · đã trả hàng ${SboxFmt.number(_num(_summary?['attentionReturnedCount']))}',
+                          onTap: () => _drillInvoices(
+                              title: 'Cần hủy / điều chỉnh HĐĐT',
+                              statuses: const ['attention'],
+                              note: 'Hóa đơn điện tử còn hiệu lực nhưng đơn bán đã hủy '
+                                  '(${SboxFmt.number(_num(_summary?['attentionCancelledCount']))}) hoặc đã có trả hàng '
+                                  '(${SboxFmt.number(_num(_summary?['attentionReturnedCount']))}).')),
                     SboxKpi(label: 'Đã gửi email', value: SboxFmt.number(emailed), icon: Icons.mark_email_read_outlined, tone: SboxTone.violet,
-                        note: issued > 0 ? 'Tỷ lệ ${SboxFmt.pct(emailed / issued * 100)}' : null),
+                        note: issued > 0 ? 'Tỷ lệ ${SboxFmt.pct(emailed / issued * 100)}' : null,
+                        onTap: () => _drillInvoices(
+                            title: 'Đã gửi email',
+                            statuses: const ['email'],
+                            note: issued > 0
+                                ? 'Tỷ lệ = đã gửi email ÷ đã xuất = ${SboxFmt.number(emailed)} ÷ '
+                                    '${SboxFmt.number(issued)} = ${SboxFmt.pct(emailed / issued * 100)}'
+                                : null)),
                   ],
                   charts: [
                     SboxChartCard(
@@ -649,6 +831,9 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                   child: Column(
                     children: [
                       PosReportMetricTiles(
+                        onTileTap: (i) => i == 0
+                            ? _drillInvoices(title: 'Đã xuất HĐĐT', statuses: const ['Issued'])
+                            : _drillInvoices(title: 'Đã gửi email', statuses: const ['email']),
                         tiles: [
                           (
                             label: posEInvoiceStatusLabel('Issued'),
@@ -664,6 +849,11 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                       ),
                       const SizedBox(height: 8),
                       PosReportMetricTiles(
+                        onTileTap: (i) => switch (i) {
+                          0 => _drillInvoices(title: 'Nháp / chờ ký', statuses: const ['Draft', 'Pending']),
+                          1 => _drillInvoices(title: 'Hóa đơn lỗi', statuses: const ['Failed']),
+                          _ => _drillInvoices(title: 'Hóa đơn đã hủy', statuses: const ['Cancelled']),
+                        },
                         tiles: [
                           (
                             label: 'Nháp / chờ ký',
@@ -689,6 +879,17 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
                   title: 'Doanh thu đã xuất',
                   child: PosReportMetricTiles(
                     moneyFmt: _moneyFmt,
+                    onTileTap: (i) => i == 0
+                        ? _drillInvoices(
+                            title: 'Doanh thu đã xuất HĐĐT',
+                            statuses: const ['Issued'],
+                            amount: 'grand',
+                            chipTotal: 'Tổng ${_moneyFmt.format(_num(_summary?['issuedAmount']))}')
+                        : _drillInvoices(
+                            title: 'Giá trị hóa đơn lỗi',
+                            statuses: const ['Failed'],
+                            amount: 'grand',
+                            chipTotal: 'Tổng ${_moneyFmt.format(_num(_summary?['failedAmount']))}'),
                     tiles: [
                       (
                         label: 'Đã xuất',
@@ -751,6 +952,25 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
           children: [
             PosReportMetricTiles(
               moneyFmt: _moneyFmt,
+              onTileTap: (i) => switch (i) {
+                0 => _drillInvoices(
+                    title: 'Doanh thu',
+                    statuses: const ['all'],
+                    amount: 'net',
+                    note: 'Đơn hoàn tất trong kỳ; tiền hàng + VAT (không gồm phụ thu, phí giao).',
+                    chipTotal: 'Tổng ${_moneyFmt.format(_num(r['revenue']))}'),
+                1 => _drillInvoices(
+                    title: 'Đã xuất HĐĐT',
+                    statuses: const ['Issued'],
+                    amount: 'net',
+                    note: 'Tiền hàng + VAT của hóa đơn đã xuất (không gồm phụ thu, phí giao).',
+                    chipTotal: 'Tổng ${_moneyFmt.format(_num(r['issuedAmount']))}'),
+                _ => _drillInvoices(
+                    title: 'Thuế GTGT đã xuất',
+                    statuses: const ['Issued'],
+                    amount: 'vat',
+                    chipTotal: 'Tổng ${_moneyFmt.format(_num(_summary?['issuedVatAmount']))}'),
+              },
               tiles: [
                 (
                   label: 'Doanh thu',
@@ -778,18 +998,33 @@ class _PosEInvoiceReportScreenState extends State<PosEInvoiceReportScreen> {
               backgroundColor: SboxColors.slate200,
             ),
             const SizedBox(height: 6),
-            Text(
-              tr('${SboxFmt.pct(_num(r['coveragePct']))} doanh thu đã có HĐĐT · '
-                  '${_num(r['replacementCount']).toInt()} HĐ thay thế · '
-                  'chưa xuất ${_moneyFmt.format(_num(_summary?['noneAmount']))}'),
-              style: TextStyle(fontSize: 12, color: SboxColors.slate700),
+            InkWell(
+              onTap: _drillCoverage,
+              child: Text(
+                tr('${SboxFmt.pct(_num(r['coveragePct']))} doanh thu đã có HĐĐT · '
+                    '${_num(r['replacementCount']).toInt()} HĐ thay thế · '
+                    'chưa xuất ${_moneyFmt.format(_num(_summary?['noneAmount']))}'),
+                style: TextStyle(fontSize: 12, color: SboxColors.slate700),
+              ),
             ),
             if (byProvider.length > 1) ...[
               const SizedBox(height: 8),
               for (final p in byProvider)
-                Text(
-                  '${p['providerName']}: ${_num(p['count']).toInt()} HĐ · ${_moneyFmt.format(_num(p['amount']))}',
-                  style: const TextStyle(fontSize: 12),
+                InkWell(
+                  onTap: () => _drillInvoices(
+                    title: 'HĐĐT ${p['providerName']}',
+                    statuses: const ['Issued'],
+                    amount: 'net',
+                    chipTotal: 'Tổng ${_moneyFmt.format(_num(p['amount']))}',
+                    where: (row) => posEInvoiceProviderName(row.provider) == '${p['providerName']}',
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      '${p['providerName']}: ${_num(p['count']).toInt()} HĐ · ${_moneyFmt.format(_num(p['amount']))}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
                 ),
             ],
           ],

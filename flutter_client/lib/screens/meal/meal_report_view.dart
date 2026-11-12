@@ -13,6 +13,7 @@ import '../../theme/sbox_tokens.dart';
 import '../../utils/excel_report_builder.dart';
 import '../../utils/file_saver.dart' as file_saver;
 import '../../widgets/sbox/sbox_charts.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import 'meal_ui.dart';
 
 /// Báo cáo suất ăn: mỗi người ăn bao nhiêu suất (theo từng buổi), thành tiền, đã trả, còn phải thu;
@@ -120,6 +121,39 @@ class _MealReportViewState extends State<MealReportView> {
       MealUi.sameDay(_from, _to) ? MealUi.dateLong(_from) : '${_d(_from)} – ${_d(_to)}';
   String _d(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
+  Widget _tap(Widget child, VoidCallback onTap) => Material(
+        color: Colors.transparent,
+        child: InkWell(borderRadius: BorderRadius.circular(16), onTap: onTap, child: child),
+      );
+
+  /// Ô số liệu → từng nhân viên trong bảng (cùng tập `rows` máy chủ dùng để cộng totals).
+  void _drill(String title, List<Map<String, dynamic>> rows, num Function(Map<String, dynamic> r) value,
+      {bool money = false, String? total, String? note, bool Function(Map<String, dynamic> r)? where, Color? color}) {
+    final list = rows.where((r) => where == null || where(r)).toList()
+      ..sort((a, b) => value(b).compareTo(value(a)));
+    String f(num v) => money ? MealUi.money(v) : '${v.toInt()} suất';
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: _rangeLabel(),
+      note: note,
+      total: total,
+      rows: [
+        for (final r in list)
+          ReportDrillRow(
+            title: r['name']?.toString() ?? '',
+            subtitle: [
+              r['code'],
+              r['department'],
+              '${MealUi.n(r['meals']).toInt()} suất · ${MealUi.n(r['days']).toInt()} ngày',
+            ].where((x) => (x?.toString() ?? '').isNotEmpty).join(' · '),
+            trailing: f(value(r)),
+            trailingColor: color,
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = _data?['totals'] as Map<String, dynamic>? ?? const {};
@@ -141,25 +175,52 @@ class _MealReportViewState extends State<MealReportView> {
               MealUi.card(child: Text(tr(_error!), style: const TextStyle(color: SboxColors.danger)))
             else ...[
               MealUi.statGrid([
-                MealUi.stat('Người ăn', '${MealUi.n(t['employees']).toInt()}', icon: Icons.people_alt_rounded),
-                MealUi.stat('Tổng suất', '${MealUi.n(t['meals']).toInt()}',
-                    icon: Icons.restaurant_rounded, color: SboxColors.violet),
-                MealUi.stat('Thành tiền', MealUi.money(t['amount']),
-                    icon: Icons.payments_rounded, color: SboxColors.warning),
-                MealUi.stat('Đã thu', MealUi.money(t['paid']),
-                    icon: Icons.task_alt_rounded, color: SboxColors.success),
-                MealUi.stat('Còn phải thu', MealUi.money(t['balance']),
-                    icon: Icons.receipt_long_rounded,
-                    color: MealUi.n(t['balance']) > 0 ? SboxColors.danger : SboxColors.success),
+                _tap(MealUi.stat('Người ăn', '${MealUi.n(t['employees']).toInt()}', icon: Icons.people_alt_rounded),
+                    () => _drill('Người ăn', rows, (r) => MealUi.n(r['meals']))),
+                _tap(
+                    MealUi.stat('Tổng suất', '${MealUi.n(t['meals']).toInt()}',
+                        icon: Icons.restaurant_rounded, color: SboxColors.violet),
+                    () => _drill('Số suất theo nhân viên', rows, (r) => MealUi.n(r['meals']),
+                        total: 'Tổng ${MealUi.n(t['meals']).toInt()} suất')),
+                _tap(
+                    MealUi.stat('Thành tiền', MealUi.money(t['amount']),
+                        icon: Icons.payments_rounded, color: SboxColors.warning),
+                    () => _drill('Thành tiền theo nhân viên', rows, (r) => MealUi.n(r['amount']),
+                        money: true, total: 'Tổng ${MealUi.money(t['amount'])}',
+                        note: 'Mỗi suất tính theo giá của buổi ăn.')),
+                _tap(
+                    MealUi.stat('Đã thu', MealUi.money(t['paid']),
+                        icon: Icons.task_alt_rounded, color: SboxColors.success),
+                    () => _drill('Đã thu theo nhân viên', rows, (r) => MealUi.n(r['paid']),
+                        money: true,
+                        where: (r) => MealUi.n(r['paid']) != 0,
+                        total: 'Tổng ${MealUi.money(t['paid'])}',
+                        note: 'Tiền đã thu trong các tháng giao với khoảng báo cáo.')),
+                _tap(
+                    MealUi.stat('Còn phải thu', MealUi.money(t['balance']),
+                        icon: Icons.receipt_long_rounded,
+                        color: MealUi.n(t['balance']) > 0 ? SboxColors.danger : SboxColors.success),
+                    () => _drill('Còn phải thu', rows, (r) => MealUi.n(r['balance']),
+                        money: true,
+                        where: (r) => MealUi.n(r['balance']) != 0,
+                        color: SboxColors.danger,
+                        total: 'Tổng ${MealUi.money(t['balance'])}',
+                        note: 'Còn phải thu = thành tiền − đã thu của từng người (số âm = trả dư).')),
               ], minWidth: 170),
               if (sessions.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Wrap(spacing: 8, runSpacing: 8, children: [
                   for (final s in sessions)
-                    Chip(
+                    ActionChip(
                       avatar: Icon(MealUi.sessionIcon(s['name'].toString()), size: 16),
                       label: Text(
                           '${s['name']}: ${MealUi.n((t['bySession'] as Map?)?[s['id']]).toInt()} suất'),
+                      onPressed: () {
+                        num bySes(Map<String, dynamic> r) => MealUi.n((r['bySession'] as Map?)?['${s['id']}']);
+                        _drill('Suất ${s['name']}', rows, bySes,
+                            where: (r) => bySes(r) > 0,
+                            total: 'Tổng ${MealUi.n((t['bySession'] as Map?)?[s['id']]).toInt()} suất');
+                      },
                     ),
                 ]),
               ],

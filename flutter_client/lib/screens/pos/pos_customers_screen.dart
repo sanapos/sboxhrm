@@ -18,6 +18,8 @@ import '../../widgets/pos/pos_debt_adjust_dialog.dart';
 import '../../widgets/pos/pos_customer_form_dialog.dart';
 import '../../widgets/pos/pos_customer_quote_care_section.dart';
 import '../../widgets/pos/pos_debt_statement.dart';
+import '../../widgets/pos/pos_party_debt_detail_page.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import '../../widgets/pos/pos_master_detail_layout.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/sbox/sbox_ui.dart';
@@ -194,16 +196,26 @@ class _PosCustomersScreenState extends State<PosCustomersScreen> {
     final canCreate = perm.canCreate('PosCustomers') || perm.canCreate('PosProducts');
     _md = posUseMobileList(context) && MediaQuery.sizeOf(context).width >= 1000;
     final kpis = <SboxKpi>[
-      SboxKpi(label: 'Khách hàng', value: SboxFmt.number(_total), icon: Icons.groups_outlined),
-      SboxKpi(label: 'Tổng mua', value: SboxFmt.money(_sumPurchase), icon: Icons.shopping_bag_outlined, tone: SboxTone.success),
+      // Số khách = đúng danh sách ngay bên dưới (cùng bộ lọc) → bấm về trang đầu, xếp theo tên.
+      SboxKpi(label: 'Khách hàng', value: SboxFmt.number(_total), icon: Icons.groups_outlined,
+          onTap: () => _setFilter(() => _sort = 'name')),
+      // Tổng mua / điểm: cộng cột tương ứng của danh sách → xếp danh sách theo cột đó.
+      SboxKpi(label: 'Tổng mua', value: SboxFmt.money(_sumPurchase), icon: Icons.shopping_bag_outlined, tone: SboxTone.success,
+          onTap: _sort == 'purchase' ? null : () => _setFilter(() => _sort = 'purchase')),
       SboxKpi(
         label: 'Tổng công nợ',
         value: SboxFmt.money(_sumDebt),
         icon: Icons.account_balance_wallet_outlined,
         tone: _sumDebt > 0 ? SboxTone.danger : SboxTone.neutral,
-        onTap: _debt == 'debt' ? null : () => _setFilter(() => _debt = 'debt'),
+        onTap: _debt == 'debt' && _sort == 'debt'
+            ? null
+            : () => _setFilter(() {
+                  _debt = 'debt';
+                  _sort = 'debt';
+                }),
       ),
-      SboxKpi(label: 'Điểm đang có', value: SboxFmt.number(_sumPoints), icon: Icons.stars_outlined, tone: SboxTone.violet),
+      SboxKpi(label: 'Điểm đang có', value: SboxFmt.number(_sumPoints), icon: Icons.stars_outlined, tone: SboxTone.violet,
+          onTap: _sort == 'points' ? null : () => _setFilter(() => _sort = 'points')),
       SboxKpi(
         label: 'Sinh nhật tháng này',
         value: SboxFmt.number(_birthdaysThisMonth),
@@ -619,6 +631,41 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
     _loadHistory();
   }
 
+  /// Điểm đang có = số dư sau giao dịch điểm mới nhất; liệt kê các giao dịch (tối đa 100 gần nhất).
+  void _drillPoints() {
+    final latest = _points.isEmpty ? null : _points.first;
+    showReportDrillSheet(
+      context,
+      title: 'Điểm tích lũy',
+      subtitle: _customer.name,
+      note: 'Điểm hiện có ${SboxFmt.number(_customer.pointBalance)} = số dư sau giao dịch mới nhất'
+          '${latest == null ? '' : ' (${_date(latest['createdAt'])})'}. Dưới đây là các lần cộng / trừ điểm.',
+      total: 'Số dư ${SboxFmt.number(_customer.pointBalance)} điểm',
+      footer: _points.length >= 100 ? 'Hiện 100 giao dịch gần nhất.' : null,
+      emptyText: 'Chưa có giao dịch điểm',
+      rows: [
+        for (final t in _points)
+          ReportDrillRow(
+            title: switch ('${t['type']}') {
+              'Earn' => 'Tích điểm',
+              'Redeem' => 'Dùng điểm',
+              'Adjust' => 'Điều chỉnh',
+              'Reverse' || 'Revoke' => 'Hoàn / thu hồi',
+              final s => s,
+            },
+            subtitle: [
+              _date(t['createdAt']),
+              'còn ${SboxFmt.number(_d(t['balanceAfter']))}',
+              if ('${t['note'] ?? ''}'.isNotEmpty) '${t['note']}',
+            ].join(' · '),
+            trailing: _d(t['points']) > 0 ? '+${SboxFmt.number(_d(t['points']))}' : SboxFmt.number(_d(t['points'])),
+            trailingColor: _d(t['points']) >= 0 ? SboxColors.successText : SboxColors.dangerText,
+            icon: Icons.stars_outlined,
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final perm = Provider.of<PermissionProvider>(context);
@@ -671,12 +718,18 @@ class _PosCustomerDetailScreenState extends State<_PosCustomerDetailScreen> {
           ],
         ),
         kpis: [
-          SboxKpi(label: 'Tổng mua', value: SboxFmt.money(c.totalPurchase), icon: Icons.shopping_bag_outlined, tone: SboxTone.success),
+          // Tổng mua → mọi hóa đơn của khách; công nợ → sổ công nợ từng đơn; điểm → lịch sử điểm; buổi → sổ buổi.
+          SboxKpi(label: 'Tổng mua', value: SboxFmt.money(c.totalPurchase), icon: Icons.shopping_bag_outlined, tone: SboxTone.success,
+              onTap: () => PosReportOpen.sales(context, customerId: c.id, customerName: c.name)),
           SboxKpi(label: 'Công nợ', value: SboxFmt.money(c.currentDebt), icon: Icons.account_balance_wallet_outlined,
-              tone: c.currentDebt > 0 ? SboxTone.danger : SboxTone.neutral),
-          SboxKpi(label: 'Điểm tích lũy', value: SboxFmt.number(c.pointBalance), icon: Icons.stars_outlined, tone: SboxTone.violet),
+              tone: c.currentDebt > 0 ? SboxTone.danger : SboxTone.neutral,
+              onTap: () => showPosPartyDebtDetail(context,
+                  isCustomer: true, id: c.id, name: c.name, phone: c.phone, debt: c.currentDebt)),
+          SboxKpi(label: 'Điểm tích lũy', value: SboxFmt.number(c.pointBalance), icon: Icons.stars_outlined, tone: SboxTone.violet,
+              onTap: _drillPoints),
           if (_showSessionPacks && !_loading)
-            SboxKpi(label: 'Buổi còn lại', value: _remainingSessionsLabel, icon: Icons.card_membership_outlined, tone: SboxTone.success),
+            SboxKpi(label: 'Buổi còn lại', value: _remainingSessionsLabel, icon: Icons.card_membership_outlined, tone: SboxTone.success,
+                onTap: _openSessions),
         ],
         maxKpiColumns: _showSessionPacks && !_loading ? 4 : 3,
         children: [

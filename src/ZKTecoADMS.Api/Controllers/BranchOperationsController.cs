@@ -23,7 +23,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/branch-ops")]
 [Authorize]
-public class BranchOperationsController(ZKTecoDbContext db, IBranchContext branchCtx) : AuthenticatedControllerBase
+public partial class BranchOperationsController(ZKTecoDbContext db, IBranchContext branchCtx) : AuthenticatedControllerBase
 {
     // ═══════════════════════ Ngữ cảnh ═══════════════════════
 

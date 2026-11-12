@@ -6,6 +6,7 @@ import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_basics.dart' show SboxTone;
 import '../../widgets/sbox/sbox_charts.dart';
 import '../../widgets/sbox/sbox_report.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 
 /// Tab «Báo cáo» KPI: tỷ lệ hoàn thành, phân bố mức đạt, theo phòng ban / tiêu chí,
 /// nhân viên xuất sắc / cần cải thiện, lương KPI và so sánh với kỳ trước.
@@ -69,6 +70,60 @@ class _KpiReportViewState extends State<KpiReportView> {
           ? SboxColors.warningText
           : SboxColors.dangerText;
 
+  String? get _periodName => _map('period')['name']?.toString();
+
+  ReportDrillRow _drillRow(Map<String, dynamic> r, {String? trailing, Color? color}) {
+    final pct = _n(r['completionPct']);
+    final dept = (r['department'] ?? '').toString();
+    final code = (r['employeeCode'] ?? '').toString();
+    return ReportDrillRow(
+      title: (r['employeeName'] ?? '').toString(),
+      subtitle: [
+        if (code.isNotEmpty) code,
+        if (dept.isNotEmpty) dept,
+        'Đạt ${SboxFmt.pct(pct)}',
+      ].join(' · '),
+      trailing: trailing ?? SboxFmt.pct(pct),
+      trailingColor: color ?? _pctColor(pct),
+    );
+  }
+
+  /// Chip → danh sách nhân viên (trường `rows` của /api/kpi/report, cùng tập đã tính chip).
+  void _drill(String title,
+      {bool Function(Map<String, dynamic> r)? where,
+      bool worstFirst = false,
+      String? note,
+      bool pay = false,
+      bool approval = false}) {
+    final rows = _list('rows').where((r) => where == null || where(r)).toList();
+    if (pay) {
+      rows.sort((a, b) => _n(b['pay']).compareTo(_n(a['pay'])));
+    } else if (approval) {
+      rows.sort((a, b) => (a['approved'] == true ? 1 : 0).compareTo(b['approved'] == true ? 1 : 0));
+    } else if (worstFirst) {
+      rows.sort((a, b) => _n(a['completionPct']).compareTo(_n(b['completionPct'])));
+    }
+    final approvedN = rows.where((r) => r['approved'] == true).length;
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: _periodName,
+      note: note,
+      countLabel: approval ? '$approvedN/${rows.length}' : null,
+      total: pay ? 'Tổng ${SboxFmt.money(rows.fold<double>(0, (s, r) => s + _n(r['pay'])))}' : null,
+      rows: [
+        for (final r in rows)
+          pay
+              ? _drillRow(r, trailing: SboxFmt.money(_n(r['pay'])), color: SboxColors.slate700)
+              : approval
+                  ? _drillRow(r,
+                      trailing: r['approved'] == true ? 'Đã duyệt' : 'Chưa duyệt',
+                      color: r['approved'] == true ? SboxColors.successText : SboxColors.warningText)
+                  : _drillRow(r),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -106,6 +161,10 @@ class _KpiReportViewState extends State<KpiReportView> {
                 current: _n(sum['avgCompletion']),
                 previous: hasPrev ? _n(prev['avgCompletion']) : null,
                 compareLabel: hasPrev ? prevName : null,
+                onTap: () => _drill('Hoàn thành theo nhân viên',
+                    worstFirst: true,
+                    note: 'Hoàn thành TB = trung bình % hoàn thành của ${employees.toInt()} nhân viên '
+                        '(mỗi người = TB các chỉ tiêu của người đó). Thấp nhất lên đầu.'),
               ),
               SboxKpi(
                 label: 'Đạt chỉ tiêu (≥100%)',
@@ -113,6 +172,9 @@ class _KpiReportViewState extends State<KpiReportView> {
                 icon: Icons.emoji_events_outlined,
                 tone: SboxTone.success,
                 note: employees > 0 ? 'Tỷ lệ ${SboxFmt.pct(achieved / employees * 100)}' : null,
+                onTap: () => _drill('Đạt chỉ tiêu (≥100%)',
+                    where: (r) => _n(r['completionPct']) >= 100,
+                    note: 'Tỷ lệ = ${achieved.toInt()} người đạt ÷ ${employees.toInt()} nhân viên có chỉ tiêu.'),
               ),
               SboxKpi(
                 label: 'Tổng lương KPI',
@@ -123,12 +185,16 @@ class _KpiReportViewState extends State<KpiReportView> {
                 previous: hasPrev ? _n(prev['totalPay']) : null,
                 compareLabel: hasPrev ? prevName : null,
                 higherIsBetter: false,
+                onTap: () => _drill('Lương KPI theo nhân viên',
+                    pay: true,
+                    note: 'Ưu tiên lương đã tính / đã duyệt; chưa tính thì ước tính từ chỉ tiêu.'),
               ),
               SboxKpi(
                 label: 'Lương đã duyệt',
                 value: '${_n(_data?['approvedCount']).toInt()}/${employees.toInt()}',
                 icon: Icons.verified_outlined,
                 tone: SboxTone.warning,
+                onTap: () => _drill('Duyệt lương KPI', approval: true),
               ),
             ],
             charts: [
@@ -227,6 +293,15 @@ class _KpiReportViewState extends State<KpiReportView> {
   Widget _deptRow(Map<String, dynamic> d) => ListTile(
         dense: true,
         contentPadding: EdgeInsets.zero,
+        onTap: () {
+          final dept = d['department'].toString();
+          _drill(dept,
+              worstFirst: true,
+              where: (r) {
+                final rd = (r['department'] ?? '').toString();
+                return (rd.trim().isEmpty ? 'Chưa có phòng ban' : rd) == dept;
+              });
+        },
         title: Text(tr(d['department'].toString()), style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(tr('${_n(d['achieved']).toInt()}/${_n(d['employees']).toInt()} NV đạt · '
             'lương KPI ${SboxFmt.money(_n(d['totalPay']))}')),

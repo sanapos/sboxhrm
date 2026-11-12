@@ -8,6 +8,7 @@ import '../../widgets/sbox/sbox_ui.dart';
 import 'aa_common.dart';
 import 'aa_detail.dart';
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 
 /// Duyệt chấm công v2 — một hộp duyệt cho chấm công Mobile ngoài vị trí và yêu cầu sửa/bổ sung công.
 class AttendanceApprovalHubScreen extends StatefulWidget {
@@ -170,6 +171,54 @@ class _AttendanceApprovalHubScreenState extends State<AttendanceApprovalHubScree
     _load();
   }
 
+  /// Chip số liệu → danh sách yêu cầu. Số trên chip đếm trên cả hộp duyệt (không theo bộ lọc / ô tìm),
+  /// nên tải lại hộp duyệt không lọc rồi lọc đúng điều kiện chip.
+  void _drill(String title, bool Function(AaItem i) where, {String? note}) {
+    showReportDrillSheet(
+      context,
+      title: title,
+      note: note,
+      load: () async {
+        final r = await _api.getAttendanceApprovalInbox();
+        final d = r['data'];
+        if (r['isSuccess'] != true || d is! Map) {
+          throw Exception(r['message'] ?? 'Không tải được hộp duyệt');
+        }
+        final all = (d['items'] as List? ?? [])
+            .whereType<Map>()
+            .map((e) => AaItem.fromJson(Map<String, dynamic>.from(e)))
+            .where(where)
+            .toList();
+        return [
+          for (final it in all)
+            ReportDrillRow(
+              title: it.employeeName,
+              subtitle: [
+                it.title,
+                if ((it.subtitle ?? '').isNotEmpty) it.subtitle!,
+                'gửi ${aaAgo(it.createdAt)}',
+              ].join(' · '),
+              trailing: it.isMobile ? (it.riskLevel == 'high' ? 'Rủi ro cao' : it.isTrusted ? 'Tin cậy' : 'Chấm Mobile') : 'Sửa công',
+              trailingColor: it.riskLevel == 'high'
+                  ? SboxColors.dangerText
+                  : it.isTrusted
+                      ? SboxColors.successText
+                      : null,
+              icon: it.isMobile ? Icons.phone_android_rounded : Icons.edit_calendar_outlined,
+              onTap: () => _open(it),
+            ),
+        ];
+      },
+    );
+  }
+
+  void _drillAll() => _drill('Chờ duyệt', (_) => true);
+  void _drillOutside() => _drill('Chấm ngoài vị trí', (i) => i.isMobile && i.isOutside);
+  void _drillTrusted() => _drill('Bản chấm tin cậy', (i) => i.isTrusted,
+      note: 'Gần vị trí khai báo, khuôn mặt khớp, GPS tốt; không gồm chấm đi đường.');
+  void _drillHigh() => _drill('Rủi ro cao', (i) => i.riskLevel == 'high');
+  void _drillOverdue() => _drill('Chờ quá 24 giờ', (i) => i.overdue, note: 'Gửi từ hơn 24 giờ trước, chưa duyệt.');
+
   // ─── Khung ────────────────────────────────────────────────────
 
   @override
@@ -224,22 +273,26 @@ class _AttendanceApprovalHubScreenState extends State<AttendanceApprovalHubScree
     final autoPct = decided == 0 ? null : ((_stats['auto_approved'] ?? 0) * 100 / decided).round();
     final kpis = phone
         ? SboxStatRow(items: [
-            SboxKpi(label: 'Chờ duyệt', value: '${_counts.c('all')}'),
-            SboxKpi(label: 'Ngoài vị trí', value: '${_counts.c('outside')}'),
-            SboxKpi(label: 'Rủi ro cao', value: '${_counts.c('high')}', tone: SboxTone.danger),
-            SboxKpi(label: 'Quá 24 giờ', value: '${_counts.c('overdue')}', tone: SboxTone.warning),
+            SboxKpi(label: 'Chờ duyệt', value: '${_counts.c('all')}', onTap: _drillAll),
+            SboxKpi(label: 'Ngoài vị trí', value: '${_counts.c('outside')}', onTap: _drillOutside),
+            SboxKpi(label: 'Rủi ro cao', value: '${_counts.c('high')}', tone: SboxTone.danger, onTap: _drillHigh),
+            SboxKpi(label: 'Quá 24 giờ', value: '${_counts.c('overdue')}', tone: SboxTone.warning, onTap: _drillOverdue),
           ])
         : SboxKpiStrip(maxColumns: 5, items: [
-      SboxKpi(label: 'Chờ duyệt', value: '${_counts.c('all')}', icon: Icons.inbox_outlined, note: '${_counts.c('correction')} yêu cầu sửa công'),
-      SboxKpi(label: 'Chấm ngoài vị trí', value: '${_counts.c('outside')}', icon: Icons.wrong_location_outlined, tone: SboxTone.brand),
-      SboxKpi(label: 'Tin cậy', value: '${_counts.c('trusted')}', icon: Icons.verified_outlined, tone: SboxTone.success, note: 'Có thể duyệt nhanh'),
-      SboxKpi(label: 'Rủi ro cao', value: '${_counts.c('high')}', icon: Icons.gpp_maybe_outlined, tone: SboxTone.danger),
+      SboxKpi(label: 'Chờ duyệt', value: '${_counts.c('all')}', icon: Icons.inbox_outlined, note: '${_counts.c('correction')} yêu cầu sửa công',
+          onTap: _drillAll),
+      SboxKpi(label: 'Chấm ngoài vị trí', value: '${_counts.c('outside')}', icon: Icons.wrong_location_outlined, tone: SboxTone.brand,
+          onTap: _drillOutside),
+      SboxKpi(label: 'Tin cậy', value: '${_counts.c('trusted')}', icon: Icons.verified_outlined, tone: SboxTone.success, note: 'Có thể duyệt nhanh',
+          onTap: _drillTrusted),
+      SboxKpi(label: 'Rủi ro cao', value: '${_counts.c('high')}', icon: Icons.gpp_maybe_outlined, tone: SboxTone.danger, onTap: _drillHigh),
       SboxKpi(
           label: 'Quá 24 giờ',
           value: '${_counts.c('overdue')}',
           icon: Icons.schedule,
           tone: SboxTone.warning,
-          note: autoPct == null ? null : 'Tự duyệt $autoPct% (30 ngày)'),
+          note: autoPct == null ? null : 'Tự duyệt $autoPct% (30 ngày)',
+          onTap: _drillOverdue),
     ]);
 
     final filters = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

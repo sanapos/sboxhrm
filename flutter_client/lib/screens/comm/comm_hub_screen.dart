@@ -16,6 +16,7 @@ import 'comm_common.dart';
 import 'comm_editor.dart';
 import 'comm_moderation.dart';
 import 'comm_post.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import '../../theme/sbox_tokens.dart';
 
 /// Truyền thông v2 — mạng xã hội nội bộ.
@@ -1080,6 +1081,71 @@ class _CommInsightsPageState extends State<CommInsightsPage> {
     });
   }
 
+  /// Bài đăng trong 30 ngày (cùng mốc với máy chủ: PublishedAt >= now − 30 ngày).
+  List<CommPostStat> get _recent {
+    final since = DateTime.now().toUtc().subtract(const Duration(days: 30));
+    return _posts.where((p) => p.publishedAt != null && !p.publishedAt!.toUtc().isBefore(since)).toList();
+  }
+
+  void _openPost(CommPostStat p) => Navigator.of(context)
+      .push(MaterialPageRoute(builder: (_) => CommPostDetailPage(postId: p.id, ctx: widget.ctx)));
+
+  ReportDrillRow _postRow(CommPostStat p, {required String trailing, Color? color}) => ReportDrillRow(
+        title: p.title,
+        subtitle: [
+          if ((p.channelName ?? '').isNotEmpty) p.channelName!,
+          if (p.publishedAt != null)
+            '${p.publishedAt!.toLocal().day.toString().padLeft(2, '0')}/${p.publishedAt!.toLocal().month.toString().padLeft(2, '0')}',
+          'đọc ${p.read}/${p.audience}',
+          if (p.requireAck) 'xác nhận ${p.acked}/${p.audience}',
+        ].join(' · '),
+        trailing: trailing,
+        trailingColor: color,
+        icon: Icons.article_outlined,
+        onTap: () => _openPost(p),
+      );
+
+  void _drillPosts30() => showReportDrillSheet(
+        context,
+        title: 'Bài đăng 30 ngày',
+        rows: [for (final p in _recent) _postRow(p, trailing: SboxFmt.pct(p.readRate))],
+      );
+
+  void _drillReadRate() {
+    final rows = _recent..sort((a, b) => a.readRate.compareTo(b.readRate));
+    showReportDrillSheet(
+      context,
+      title: 'Tỷ lệ đọc theo bài',
+      note: 'Tỷ lệ đọc TB = trung bình (người đã đọc ÷ người nhận) của ${rows.length} bài đăng trong 30 ngày. Thấp nhất lên đầu.',
+      rows: [
+        for (final p in rows)
+          _postRow(p, trailing: SboxFmt.pct(p.readRate), color: p.readRate < 50 ? SboxColors.dangerText : null),
+      ],
+    );
+  }
+
+  void _drillRequired() => showReportDrillSheet(
+        context,
+        title: 'Văn bản bắt buộc xác nhận',
+        rows: [
+          for (final p in _posts.where((p) => p.requireAck))
+            _postRow(p, trailing: '${p.acked}/${p.audience}'),
+        ],
+      );
+
+  void _drillOutstanding() {
+    int miss(CommPostStat p) => (p.audience - p.acked).clamp(0, 1 << 30);
+    final rows = _posts.where((p) => p.requireAck && miss(p) > 0).toList()..sort((a, b) => miss(b).compareTo(miss(a)));
+    showReportDrillSheet(
+      context,
+      title: 'Lượt chưa xác nhận',
+      note: 'Mỗi văn bản bắt buộc: người nhận − người đã xác nhận bản mới nhất. Bấm bài → «Ai đã đọc» để xem từng người.',
+      countLabel: '${rows.length} bài',
+      total: 'Tổng ${SboxFmt.number(rows.fold<int>(0, (a, p) => a + miss(p)))} lượt',
+      rows: [for (final p in rows) _postRow(p, trailing: '${miss(p)} người', color: SboxColors.dangerText)],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = _data;
@@ -1090,10 +1156,14 @@ class _CommInsightsPageState extends State<CommInsightsPage> {
           ? const SboxLoading()
           : SboxReportLayout(
               kpis: [
-                SboxKpi(label: 'Bài 30 ngày', value: SboxFmt.number(d['posts30'] as num? ?? 0), icon: Icons.article_outlined),
-                SboxKpi(label: 'Tỷ lệ đọc TB', value: SboxFmt.pct(d['avgReadRate'] as num? ?? 0), icon: Icons.visibility_outlined, tone: SboxTone.success),
-                SboxKpi(label: 'Văn bản bắt buộc', value: SboxFmt.number(d['requiredPosts'] as num? ?? 0), icon: Icons.verified_user_outlined, tone: SboxTone.violet),
-                SboxKpi(label: 'Lượt chưa xác nhận', value: SboxFmt.number(d['outstandingAcks'] as num? ?? 0), icon: Icons.pending_actions_outlined, tone: SboxTone.danger),
+                SboxKpi(label: 'Bài 30 ngày', value: SboxFmt.number(d['posts30'] as num? ?? 0), icon: Icons.article_outlined,
+                    onTap: _drillPosts30),
+                SboxKpi(label: 'Tỷ lệ đọc TB', value: SboxFmt.pct(d['avgReadRate'] as num? ?? 0), icon: Icons.visibility_outlined, tone: SboxTone.success,
+                    onTap: _drillReadRate),
+                SboxKpi(label: 'Văn bản bắt buộc', value: SboxFmt.number(d['requiredPosts'] as num? ?? 0), icon: Icons.verified_user_outlined, tone: SboxTone.violet,
+                    onTap: _drillRequired),
+                SboxKpi(label: 'Lượt chưa xác nhận', value: SboxFmt.number(d['outstandingAcks'] as num? ?? 0), icon: Icons.pending_actions_outlined, tone: SboxTone.danger,
+                    onTap: _drillOutstanding),
               ],
               charts: [
                 SboxChartCard(

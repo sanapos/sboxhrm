@@ -26,6 +26,7 @@ import '../widgets/sbox/sbox_table.dart';
 import '../widgets/sbox/sbox_charts.dart';
 import '../widgets/sbox/sbox_basics.dart';
 import '../widgets/sbox/sbox_report.dart';
+import '../widgets/reports/report_drill_sheet.dart';
 const _kiotBlue = PosTheme.kiotBlue;
 
 /// Báo cáo POS: doanh thu + tồn kho + lô/HSD (API `/api/pos/reports/*`).
@@ -524,22 +525,181 @@ class _PosReportsScreenState extends State<PosReportsScreen>
     );
   }
 
+  // ───── Ô «Tổng quan» → đơn / phiếu tạo ra số đó ─────
+  // Dùng drill-split/orders và drill-split/refunds (cùng lọc với sales/summary: cửa hàng, chi nhánh,
+  // người xem, kỳ, giờ cắt ngày) nên tổng danh sách khớp số trên ô.
+
+  Map<String, String> get _salesRangeQuery => {
+        if (_salesTime.from != null) 'from': _salesTime.from!.toIso8601String(),
+        if (_salesTime.to != null) 'to': _salesTime.to!.toIso8601String(),
+      };
+
+  /// [field]: cột tiền bên phải mỗi đơn (total / vatAmount / grandTotal / discount / cogs / profit).
+  void _drillSalesOrders(
+    String title,
+    String field, {
+    String? sort,
+    bool onlyDiscount = false,
+    bool withCogs = false,
+    String? note,
+    String? chipTotal,
+    bool showMoney = true,
+  }) {
+    var truncated = false;
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: _salesTime.displayLabel,
+      note: note,
+      total: chipTotal,
+      footer: 'Tối đa 500 đơn; số tổng tính trên toàn bộ kỳ.',
+      emptyText: 'Không có đơn',
+      load: () async {
+        final res = await _api.getReportJson('/api/pos/reports/drill-split/orders', query: {
+          ..._salesRangeQuery,
+          if (sort != null) 'sort': sort,
+          if (onlyDiscount) 'onlyDiscount': 'true',
+          if (withCogs) 'withCogs': 'true',
+        });
+        if (res['isSuccess'] != true || res['data'] is! Map) {
+          throw Exception(res['message']?.toString() ?? 'Không tải được danh sách đơn');
+        }
+        final d = Map<String, dynamic>.from(res['data'] as Map);
+        truncated = d['truncated'] == true;
+        final items = _mapsOf(d['items']);
+        double val(Map<String, dynamic> o) =>
+            field == 'inclVat' ? _num(o['total']) + _num(o['vatAmount']) : _num(o[field]);
+        if (field == 'profit' || field == 'cogs') {
+          items.sort((a, b) => _num(b[field]).compareTo(_num(a[field])));
+        }
+        return [
+          for (final o in items)
+            ReportDrillRow(
+              title: '${o['orderNo'] ?? ''}${(o['customerName'] ?? '').toString().isEmpty ? '' : ' · ${o['customerName']}'}',
+              subtitle: [
+                if (DateTime.tryParse('${o['saleDate'] ?? ''}') != null)
+                  DateFormat('dd/MM HH:mm').format(DateTime.parse('${o['saleDate']}').toLocal()),
+                if ((o['soldByName'] ?? '').toString().isNotEmpty) '${o['soldByName']}',
+                if (field != 'total') 'DT ${_moneyFmt.format(_num(o['total']))}',
+              ].join(' · '),
+              trailing: showMoney ? _moneyFmt.format(val(o)) : null,
+              trailingColor: field == 'profit' && _num(o['profit']) < 0 ? Colors.red.shade700 : null,
+              icon: Icons.receipt_long_outlined,
+              onTap: () => PosReportOpen.sale(context, '${o['id']}'),
+            ),
+          if (truncated)
+            ReportDrillRow(
+              title: 'Xem đủ danh sách đơn trong kỳ',
+              subtitle: 'Kỳ có hơn 500 đơn',
+              icon: Icons.more_horiz,
+              onTap: () => PosReportOpen.sales(context, from: _salesTime.from, to: _salesTime.to),
+            ),
+        ];
+      },
+    );
+  }
+
+  void _drillRefunds(Map<String, dynamic> s) {
+    showReportDrillSheet(
+      context,
+      title: 'Hoàn trả trong kỳ',
+      subtitle: _salesTime.displayLabel,
+      note: 'Phiếu khách trả hàng có NGÀY TRẢ trong kỳ (đơn gốc có thể bán ở kỳ trước).',
+      total: 'Tổng ${_moneyFmt.format(_num(s['totalRefund']))}',
+      footer: 'Tối đa 500 phiếu mới nhất.',
+      emptyText: 'Không có phiếu trả hàng',
+      load: () async {
+        final res = await _api.getReportJson('/api/pos/reports/drill-split/refunds', query: _salesRangeQuery);
+        if (res['isSuccess'] != true || res['data'] is! Map) {
+          throw Exception(res['message']?.toString() ?? 'Không tải được phiếu trả hàng');
+        }
+        final items = _mapsOf((res['data'] as Map)['items']);
+        return [
+          for (final r in items)
+            ReportDrillRow(
+              title: '${r['returnNo'] ?? r['orderNo'] ?? ''}',
+              subtitle: [
+                if ((r['orderNo'] ?? '').toString().isNotEmpty) 'Đơn ${r['orderNo']}',
+                if ((r['customerName'] ?? '').toString().isNotEmpty) '${r['customerName']}',
+                if (DateTime.tryParse('${r['returnedAt'] ?? ''}') != null)
+                  DateFormat('dd/MM HH:mm').format(DateTime.parse('${r['returnedAt']}').toLocal()),
+              ].join(' · '),
+              trailing: _moneyFmt.format(_num(r['refund'])),
+              icon: Icons.assignment_return_outlined,
+              onTap: () => PosReportOpen.sale(context, '${r['orderId']}'),
+            ),
+        ];
+      },
+    );
+  }
+
+  void _drillPaid(Map<String, dynamic> s) {
+    final byPayment = _mapsOf(s['byPayment']);
+    showReportDrillSheet(
+      context,
+      title: 'Đã thu',
+      subtitle: _salesTime.displayLabel,
+      note: 'Tiền thu khi bán trong kỳ theo phương thức (không gồm khách trả nợ về sau). Bấm để xem đơn.',
+      total: 'Tổng ${_moneyFmt.format(_num(s['totalPaid']))}',
+      rows: [
+        for (final p in byPayment)
+          ReportDrillRow(
+            title: p['paymentMethod']?.toString() ?? 'Khác',
+            subtitle: '${p['count'] ?? 0} lượt thu',
+            trailing: _moneyFmt.format(_num(p['total'])),
+            icon: Icons.payments_outlined,
+            onTap: () => PosReportOpen.sales(context,
+                from: _salesTime.from, to: _salesTime.to, paymentMethod: p['paymentMethod']?.toString()),
+          ),
+      ],
+    );
+  }
+
   Widget _buildSalesBody(Map<String, dynamic> s) {
     final topProducts = (s['topProducts'] as List?) ?? [];
+    String total(String k) => 'Tổng ${_moneyFmt.format(_num(s[k]))}';
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         _card('Tổng quan', [
-          _row('Số đơn', '${s['orderCount'] ?? 0}'),
-          _row('Doanh thu (chưa VAT)', _moneyFmt.format(_num(s['totalRevenue']))),
-          _row('VAT', _moneyFmt.format(_num(s['totalVat']))),
-          _row('Doanh thu gồm VAT', _moneyFmt.format(_num(s['totalRevenueInclVat']))),
-          _row('Hoàn trả trong kỳ', _moneyFmt.format(_num(s['totalRefund']))),
-          _row('Đã thu', _moneyFmt.format(_num(s['totalPaid']))),
-          _row('Giảm giá', _moneyFmt.format(_num(s['totalDiscount']))),
-          _row('Giá vốn', _moneyFmt.format(_num(s['totalCogs']))),
-          _row('Lợi nhuận', _moneyFmt.format(_num(s['totalProfit']))),
-          _row('Biên LN', '${_num(s['profitMarginPct']).toStringAsFixed(1)}%'),
+          _row('Số đơn', '${s['orderCount'] ?? 0}',
+              onTap: () => _drillSalesOrders('Đơn trong kỳ', 'total',
+                  note: 'Đơn hoàn tất trong kỳ; số bên phải là doanh thu chưa VAT.')),
+          _row('Doanh thu (chưa VAT)', _moneyFmt.format(_num(s['totalRevenue'])),
+              onTap: () => _drillSalesOrders('Doanh thu (chưa VAT)', 'total', sort: 'total', chipTotal: total('totalRevenue'))),
+          _row('VAT', _moneyFmt.format(_num(s['totalVat'])),
+              onTap: () => _drillSalesOrders('VAT', 'vatAmount', sort: 'vat', chipTotal: total('totalVat'))),
+          _row('Doanh thu gồm VAT', _moneyFmt.format(_num(s['totalRevenueInclVat'])),
+              onTap: () => _drillSalesOrders('Doanh thu gồm VAT', 'inclVat',
+                  sort: 'total',
+                  chipTotal: total('totalRevenueInclVat'),
+                  note: 'Doanh thu gồm VAT = doanh thu chưa VAT + VAT = ${_moneyFmt.format(_num(s['totalRevenue']))} + '
+                      '${_moneyFmt.format(_num(s['totalVat']))}.')),
+          _row('Hoàn trả trong kỳ', _moneyFmt.format(_num(s['totalRefund'])), onTap: () => _drillRefunds(s)),
+          _row('Đã thu', _moneyFmt.format(_num(s['totalPaid'])), onTap: () => _drillPaid(s)),
+          _row('Giảm giá', _moneyFmt.format(_num(s['totalDiscount'])),
+              onTap: () => _drillSalesOrders('Giảm giá', 'discount',
+                  sort: 'discount',
+                  onlyDiscount: true,
+                  chipTotal: total('totalDiscount'),
+                  note: 'Giảm từng dòng + giảm cả đơn + voucher + đổi điểm.')),
+          _row('Giá vốn', _moneyFmt.format(_num(s['totalCogs'])),
+              onTap: () => _drillSalesOrders('Giá vốn', 'cogs',
+                  withCogs: true,
+                  chipTotal: total('totalCogs'),
+                  note: 'Giá vốn thuần của đơn (đã trừ hàng khách trả, gồm món dịch vụ).')),
+          _row('Lợi nhuận', _moneyFmt.format(_num(s['totalProfit'])),
+              onTap: () => _drillSalesOrders('Lợi nhuận', 'profit',
+                  withCogs: true,
+                  chipTotal: total('totalProfit'),
+                  note: 'Lợi nhuận = Doanh thu (chưa VAT) − Giá vốn = ${_moneyFmt.format(_num(s['totalRevenue']))} − '
+                      '${_moneyFmt.format(_num(s['totalCogs']))}.')),
+          _row('Biên LN', '${_num(s['profitMarginPct']).toStringAsFixed(1)}%',
+              onTap: () => _drillSalesOrders('Biên lợi nhuận', 'profit',
+                  withCogs: true,
+                  note: 'Biên LN = Lợi nhuận ÷ Doanh thu (chưa VAT) = ${_moneyFmt.format(_num(s['totalProfit']))} ÷ '
+                      '${_moneyFmt.format(_num(s['totalRevenue']))} = ${_num(s['profitMarginPct']).toStringAsFixed(1)}%. '
+                      'Dưới đây là lợi nhuận từng đơn.')),
         ]),
         const SizedBox(height: 12),
         if (((s['byPayment'] as List?) ?? []).isNotEmpty)
@@ -904,8 +1064,9 @@ class _PosReportsScreenState extends State<PosReportsScreen>
               note: '${SboxFmt.money(_num(sm['expiringSoonValue']))} · ưu tiên bán trước', onTap: () => _setLotFilter('expiring')),
           SboxKpi(label: 'Lô đang còn hàng', value: SboxFmt.number(active), icon: Icons.layers_outlined, tone: SboxTone.violet,
               note: 'SL ${_fq(_num(sm['totalLotQty']))}', onTap: () => _setLotFilter('all')),
+          // Giá trị = cộng cột giá trị của mọi lô còn hàng → bỏ lọc, danh sách lô bên dưới chính là nguồn.
           SboxKpi(label: 'Giá trị hàng theo lô', value: SboxFmt.money(_num(sm['lotInventoryValue'])), icon: Icons.inventory_2_outlined,
-              note: noExp > 0 ? '${SboxFmt.number(noExp)} lô không ghi HSD' : null),
+              note: noExp > 0 ? '${SboxFmt.number(noExp)} lô không ghi HSD' : null, onTap: () => _setLotFilter('all')),
         ],
         charts: [
           SboxChartCard(

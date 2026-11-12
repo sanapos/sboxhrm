@@ -50,6 +50,7 @@ import '../theme/sbox_tokens.dart';
 import '../utils/vn_search.dart';
 import '../widgets/sbox/sbox_basics.dart' show SboxTone;
 import '../widgets/sbox/sbox_report.dart' show SboxKpi, SboxKpiStrip;
+import '../widgets/reports/report_drill_sheet.dart';
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key, this.initialDatePreset});
 
@@ -2075,6 +2076,45 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     ];
   }
 
+  /// Chip «Tổng bản ghi» / «Chưa gắn nhân viên» → gom bản ghi đang lọc theo người (PIN), kèm số lượt.
+  void _drillLogsByPerson(String title, List<Attendance> list, {String? note}) {
+    final groups = <String, List<Attendance>>{};
+    for (final a in list) {
+      final k = (a.employeeId ?? a.enrollNumber ?? '').trim();
+      (groups[k.isEmpty ? '—' : k] ??= []).add(a);
+    }
+    final entries = groups.entries.toList()..sort((a, b) => b.value.length.compareTo(a.value.length));
+    final hm = DateFormat('HH:mm dd/MM');
+    showReportDrillSheet(
+      context,
+      title: title,
+      note: note,
+      countLabel: '${entries.length} người',
+      total: 'Tổng ${list.length} bản ghi',
+      rows: [
+        for (final e in entries)
+          () {
+            final first = e.value.first;
+            final name = (first.employeeName ?? '').trim();
+            final times = e.value.map((a) => a.attendanceTime).toList()..sort();
+            return ReportDrillRow(
+              title: name.isNotEmpty
+                  ? name
+                  : (first.deviceUserName ?? '').trim().isNotEmpty
+                      ? '${first.deviceUserName!.trim()} (chưa gắn)'
+                      : 'PIN ${first.enrollNumber ?? e.key}',
+              subtitle: [
+                if ((first.enrollNumber ?? '').isNotEmpty) 'PIN ${first.enrollNumber}',
+                if ((first.deviceName ?? '').isNotEmpty) first.deviceName!,
+                times.length == 1 ? hm.format(times.first) : '${hm.format(times.first)} → ${hm.format(times.last)}',
+              ].join(' · '),
+              trailing: '${e.value.length} lượt',
+            );
+          }(),
+      ],
+    );
+  }
+
   /// Thẻ KPI log thô — bấm thẻ kiểu xác thực để lọc (bấm lại để bỏ lọc).
   Widget _buildStatsRow() {
     final list = _filteredAttendances;
@@ -2107,6 +2147,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         icon: Icons.list_alt,
         tone: truncated ? SboxTone.warning : SboxTone.brand,
         note: truncated ? 'Chưa tải hết — thu hẹp khoảng ngày' : '$people người đã chấm',
+        onTap: () => _drillLogsByPerson('Bản ghi chấm công theo người', list,
+            note: truncated ? 'Chỉ gồm $total bản ghi đã tải (máy chủ có ${_attendanceServerTotalCount}).' : null),
       ),
       SboxKpi(
         label: 'Vân tay',
@@ -2146,6 +2188,9 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         icon: Icons.link_off,
         tone: unlinked > 0 ? SboxTone.danger : SboxTone.success,
         note: unlinked > 0 ? 'Chưa vào bảng công — liên kết ở Nhân sự chấm công' : 'Đầy đủ',
+        onTap: () => _drillLogsByPerson('Bản ghi chưa gắn nhân viên',
+            list.where((a) => (a.employeeName ?? '').trim().isEmpty).toList(),
+            note: 'PIN trên máy chấm công chưa liên kết hồ sơ nhân sự → không vào bảng công.'),
       ),
     ]);
   }

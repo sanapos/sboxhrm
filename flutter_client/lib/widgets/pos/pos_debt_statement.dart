@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../utils/pos_report_open.dart';
+import '../reports/report_drill_sheet.dart';
 import '../sbox/sbox_ui.dart';
 
 typedef PosStatementLoader = Future<Map<String, dynamic>> Function(DateTime from, DateTime to);
@@ -156,6 +157,68 @@ class _PosDebtStatementViewState extends State<PosDebtStatementView> {
     return '${_dmy(d)} ${_two(d.hour)}:${_two(d.minute)}';
   }
 
+  /// Ô «phát sinh tăng / giảm» → các chứng từ trong sổ có cột đó > 0; tổng khớp số trên ô.
+  void _drillSide(List<Map<String, dynamic>> items, String field, String title) {
+    final rows = items.where((r) => _d(r[field]) > 0).toList();
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: '${_dmy(_from)} – ${_dmy(_to)}',
+      total: 'Tổng ${SboxFmt.money(_d(_data[field]))}',
+      emptyText: 'Không có chứng từ',
+      rows: [
+        for (final r in rows)
+          ReportDrillRow(
+            title: '${r['docLabel'] ?? r['docType'] ?? ''}${'${r['docNo'] ?? ''}'.isEmpty ? '' : ' · ${r['docNo']}'}',
+            subtitle: [_at(r['at']), if ('${r['note'] ?? ''}'.isNotEmpty) '${r['note']}'].join(' · '),
+            trailing: SboxFmt.money(_d(r[field])),
+            trailingColor: field == 'increase' ? SboxColors.dangerText : SboxColors.successText,
+            icon: Icons.receipt_long_outlined,
+            onTap: _canOpen(r) ? () => _openDoc(r) : null,
+          ),
+      ],
+    );
+  }
+
+  /// Đầu kỳ / cuối kỳ: số dư = đầu kỳ + tăng − giảm; mỗi dòng mở danh sách thành phần.
+  void _drillBalance(List<Map<String, dynamic>> items, {required bool closing}) {
+    final opening = _d(_data['opening']);
+    final inc = _d(_data['increase']);
+    final dec = _d(_data['decrease']);
+    final close = _d(_data['closing']);
+    showReportDrillSheet(
+      context,
+      title: closing ? 'Cuối kỳ' : 'Đầu kỳ',
+      subtitle: '${_dmy(_from)} – ${_dmy(_to)}',
+      showCount: false,
+      note: closing
+          ? 'Cuối kỳ = Đầu kỳ + ${widget.increaseLabel} − ${widget.decreaseLabel} = ${SboxFmt.money(opening)} + '
+              '${SboxFmt.money(inc)} − ${SboxFmt.money(dec)} = ${SboxFmt.money(close)}.'
+          : 'Đầu kỳ = số dư công nợ sau mọi chứng từ trước ngày ${_dmy(_from)}. '
+              'Đổi «Kỳ» sang khoảng sớm hơn để xem các chứng từ tạo ra số dư này.',
+      rows: [
+        ReportDrillRow(title: 'Đầu kỳ', trailing: SboxFmt.money(opening), icon: Icons.flag_outlined),
+        if (closing) ...[
+          ReportDrillRow(
+            title: widget.increaseLabel,
+            trailing: '+${SboxFmt.money(inc)}',
+            trailingColor: SboxColors.dangerText,
+            icon: Icons.trending_up,
+            onTap: () => _drillSide(items, 'increase', widget.increaseLabel),
+          ),
+          ReportDrillRow(
+            title: widget.decreaseLabel,
+            trailing: '−${SboxFmt.money(dec)}',
+            trailingColor: SboxColors.successText,
+            icon: Icons.trending_down,
+            onTap: () => _drillSide(items, 'decrease', widget.decreaseLabel),
+          ),
+          ReportDrillRow(title: 'Cuối kỳ', trailing: SboxFmt.money(close), icon: Icons.account_balance_wallet_outlined),
+        ],
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = (_data['items'] as List? ?? const [])
@@ -191,10 +254,14 @@ class _PosDebtStatementViewState extends State<PosDebtStatementView> {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: SboxSpace.md),
           child: SboxKpiStrip(maxColumns: 4, items: [
-            SboxKpi(label: 'Đầu kỳ', value: SboxFmt.money(opening), icon: Icons.flag_outlined),
-            SboxKpi(label: widget.increaseLabel, value: SboxFmt.money(_d(_data['increase'])), icon: Icons.trending_up, tone: SboxTone.danger),
-            SboxKpi(label: widget.decreaseLabel, value: SboxFmt.money(_d(_data['decrease'])), icon: Icons.trending_down, tone: SboxTone.success),
-            SboxKpi(label: 'Cuối kỳ', value: SboxFmt.money(closing), icon: Icons.account_balance_wallet_outlined, tone: closing > 0 ? SboxTone.warning : SboxTone.neutral),
+            SboxKpi(label: 'Đầu kỳ', value: SboxFmt.money(opening), icon: Icons.flag_outlined,
+                onTap: () => _drillBalance(items, closing: false)),
+            SboxKpi(label: widget.increaseLabel, value: SboxFmt.money(_d(_data['increase'])), icon: Icons.trending_up, tone: SboxTone.danger,
+                onTap: () => _drillSide(items, 'increase', widget.increaseLabel)),
+            SboxKpi(label: widget.decreaseLabel, value: SboxFmt.money(_d(_data['decrease'])), icon: Icons.trending_down, tone: SboxTone.success,
+                onTap: () => _drillSide(items, 'decrease', widget.decreaseLabel)),
+            SboxKpi(label: 'Cuối kỳ', value: SboxFmt.money(closing), icon: Icons.account_balance_wallet_outlined, tone: closing > 0 ? SboxTone.warning : SboxTone.neutral,
+                onTap: () => _drillBalance(items, closing: true)),
           ]),
         ),
         if (mismatch)

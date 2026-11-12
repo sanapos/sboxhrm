@@ -18,6 +18,7 @@ import 'hr_fin_common.dart';
 import 'hr_fin_ledger.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox_icon_tile.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 
 /// Các tab của Tài chính nhân sự.
 enum HrFinTab { overview, inbox, advances, rewards, cash, people, me, settings }
@@ -176,6 +177,64 @@ class _HrFinanceHubScreenState extends State<HrFinanceHubScreen> {
 
   Future<void> _detail(HrFinItem it) async {
     if (await _actions.showDetail(context, it, canAct: true)) _load();
+  }
+
+  // ─── Bấm chip số liệu → danh sách khoản ───────────────────────
+
+  ReportDrillRow _finRow(HrFinItem it, {bool signed = false}) => ReportDrillRow(
+        title: it.employeeName.isEmpty ? it.title : it.employeeName,
+        subtitle: [
+          if (it.employeeName.isNotEmpty) it.title,
+          if ((it.code ?? '').isNotEmpty) it.code!,
+          hrFinDate(it.date),
+          if ((it.subtitle ?? '').isNotEmpty) it.subtitle!,
+        ].join(' · '),
+        trailing: signed ? '${it.direction == 'out' ? '−' : '+'}${hrFinMoney(it.amount)}' : hrFinMoney(it.amount),
+        trailingColor: signed ? (it.direction == 'out' ? SboxColors.dangerText : SboxColors.successText) : null,
+        icon: it.employeeName.isEmpty ? Icons.receipt_long_outlined : null,
+        onTap: it.kind == 'cash' ? null : () => _detail(it),
+      );
+
+  /// Danh sách đã có trên màn (lọc tại chỗ).
+  void _drillLocal(String title, List<HrFinItem> items, {String? note, bool money = true}) {
+    final rows = [...items]..sort((a, b) => b.amount.compareTo(a.amount));
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: hrFinMonthLabel(_month),
+      note: note,
+      total: money ? 'Tổng ${hrFinMoney(rows.fold<double>(0, (a, b) => a + b.amount))}' : null,
+      rows: [for (final it in rows) _finRow(it)],
+    );
+  }
+
+  /// Số tổng từ GET summary → GET summary/drill (cùng điều kiện), tổng các dòng = số trên chip.
+  void _drillSummary(String title, List<String> kinds, {String? note}) {
+    final month = _month;
+    final signed = kinds.length > 1;
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: hrFinMonthLabel(month),
+      note: note,
+      load: () async {
+        final all = <HrFinItem>[];
+        for (final k in kinds) {
+          final r = await _api.getReportJson('/api/hr-finance/summary/drill',
+              query: {'kind': k, 'year': '${month.year}', 'month': '${month.month}'});
+          if (r['isSuccess'] != true) throw Exception(r['message'] ?? 'Không tải được danh sách');
+          all.addAll(HrFinItem.listFrom(r['data']));
+        }
+        all.sort((a, b) => b.amount.compareTo(a.amount));
+        return [for (final it in all) _finRow(it, signed: signed)];
+      },
+      total: () {
+        final s = _summary;
+        if (s == null) return null;
+        final v = kinds.fold<double>(0, (a, k) => a + (k == 'cashOut' && signed ? -s.n(k) : s.n(k)));
+        return signed ? 'Chênh lệch ${hrFinMoney(v)}' : 'Tổng ${hrFinMoney(v)}';
+      }(),
+    );
   }
 
   void _openLegacy(Widget screen, String title) {
@@ -368,23 +427,23 @@ class _HrFinanceHubScreenState extends State<HrFinanceHubScreen> {
       const SizedBox(height: SboxSpace.md),
       SboxKpiStrip(items: [
         SboxKpi(label: 'Ứng lương đã chi', value: hrFinMoney(s.n('advancePaid')), icon: Icons.payments_outlined,
-            note: 'Trừ lương kỳ này ${hrFinMoney(s.n('advanceToDeduct'))}', onTap: () => _setTab(HrFinTab.advances)),
+            note: 'Trừ lương kỳ này ${hrFinMoney(s.n('advanceToDeduct'))}',
+            onTap: () => _drillSummary('Ứng lương đã chi', const ['advancePaid'],
+                note: 'Yêu cầu ứng đã duyệt, đã chi trong tháng (số duyệt, không có thì số xin).')),
         SboxKpi(label: 'Thưởng', value: hrFinMoney(s.n('bonus')), icon: Icons.card_giftcard_outlined, tone: SboxTone.success,
-            onTap: () {
-              _rewardKind = 'bonus';
-              _setTab(HrFinTab.rewards);
-            }),
+            onTap: () => _drillSummary('Thưởng đã duyệt', const ['bonus'])),
         SboxKpi(label: 'Phạt', value: hrFinMoney(s.n('penalty')), icon: Icons.gavel_outlined, tone: SboxTone.danger,
-            note: 'Phiếu phạt ${hrFinMoney(s.n('ticketPenalty'))}', onTap: () {
-              _rewardKind = 'penalty';
-              _setTab(HrFinTab.rewards);
-            }),
+            note: 'Phiếu phạt ${hrFinMoney(s.n('ticketPenalty'))}',
+            onTap: () => _drillSummary('Phạt đã duyệt', const ['penalty'],
+                note: 'Gồm phạt thủ công đã duyệt và phiếu phạt chấm công đã duyệt / tự duyệt.')),
         SboxKpi(label: 'Công tác phí', value: hrFinMoney(s.n('tripSettled')), icon: Icons.flight_takeoff_outlined, tone: SboxTone.violet,
-            note: 'Ứng công tác ${hrFinMoney(s.n('tripAdvancePaid'))}'),
+            note: 'Ứng công tác ${hrFinMoney(s.n('tripAdvancePaid'))}',
+            onTap: () => _drillSummary('Quyết toán công tác đã duyệt', const ['tripSettled'],
+                note: 'Số trên chip = tổng chi các bản quyết toán duyệt trong tháng (dòng phụ «Ứng công tác» không cộng vào).')),
         SboxKpi(label: 'Thu quỹ', value: hrFinMoney(s.n('cashIn')), icon: Icons.south_west_rounded, tone: SboxTone.success,
-            onTap: () => _setTab(HrFinTab.cash)),
+            onTap: () => _drillSummary('Phiếu thu đã hoàn tất', const ['cashIn'])),
         SboxKpi(label: 'Chi quỹ', value: hrFinMoney(s.n('cashOut')), icon: Icons.north_east_rounded, tone: SboxTone.warning,
-            onTap: () => _setTab(HrFinTab.cash)),
+            onTap: () => _drillSummary('Phiếu chi đã hoàn tất', const ['cashOut'])),
       ]),
       const SizedBox(height: SboxSpace.md),
       if (wide)
@@ -509,12 +568,17 @@ class _HrFinanceHubScreenState extends State<HrFinanceHubScreen> {
       const SizedBox(height: SboxSpace.md),
       SboxKpiStrip(maxColumns: 4, items: [
         SboxKpi(label: 'Chờ duyệt', value: hrFinMoney(sum((i) => i.action == 'approve')), icon: Icons.hourglass_top_rounded, tone: SboxTone.warning,
-            note: '${all.where((i) => i.action == 'approve').length} yêu cầu'),
+            note: '${all.where((i) => i.action == 'approve').length} yêu cầu',
+            onTap: () => _drillLocal('Ứng lương chờ duyệt', all.where((i) => i.action == 'approve').toList())),
         SboxKpi(label: 'Đã duyệt · chờ chi', value: hrFinMoney(sum((i) => i.action == 'pay')), icon: Icons.payments_outlined,
-            note: '${all.where((i) => i.action == 'pay').length} yêu cầu'),
-        SboxKpi(label: 'Đã chi trong tháng', value: hrFinMoney(_summary?.n('advancePaid') ?? 0), icon: Icons.task_alt_rounded, tone: SboxTone.success),
+            note: '${all.where((i) => i.action == 'pay').length} yêu cầu',
+            onTap: () => _drillLocal('Ứng lương đã duyệt, chờ chi', all.where((i) => i.action == 'pay').toList())),
+        SboxKpi(label: 'Đã chi trong tháng', value: hrFinMoney(_summary?.n('advancePaid') ?? 0), icon: Icons.task_alt_rounded, tone: SboxTone.success,
+            onTap: () => _drillSummary('Ứng lương đã chi trong tháng', const ['advancePaid'])),
         SboxKpi(label: 'Trừ lương kỳ này', value: hrFinMoney(_summary?.n('advanceToDeduct') ?? 0), icon: Icons.receipt_long_outlined, tone: SboxTone.violet,
-            note: 'Theo kỳ trừ + trả góp'),
+            note: 'Theo kỳ trừ + trả góp',
+            onTap: () => _drillSummary('Ứng lương trừ vào lương kỳ này', const ['advanceToDeduct'],
+                note: 'Ứng trả góp: phần góp của kỳ này. Ứng một lần (không góp): trừ hết vào tháng đã chi.')),
       ]),
       const SizedBox(height: SboxSpace.md),
       HrFinSegment<String>(
@@ -550,10 +614,14 @@ class _HrFinanceHubScreenState extends State<HrFinanceHubScreen> {
       _monthRow(),
       const SizedBox(height: SboxSpace.md),
       SboxKpiStrip(maxColumns: 4, items: [
-        SboxKpi(label: 'Thưởng đã duyệt', value: hrFinMoney(sum((i) => i.kind == 'bonus')), icon: Icons.card_giftcard_outlined, tone: SboxTone.success),
-        SboxKpi(label: 'Phạt thủ công', value: hrFinMoney(sum((i) => i.kind == 'penalty')), icon: Icons.gavel_outlined, tone: SboxTone.danger),
-        SboxKpi(label: 'Phiếu phạt chấm công', value: hrFinMoney(sum((i) => i.kind == 'ticket')), icon: Icons.alarm_outlined, tone: SboxTone.warning),
-        SboxKpi(label: 'Đang khiếu nại', value: '${_rewards.where((i) => i.isDisputeOpen).length}', icon: Icons.feedback_outlined, tone: SboxTone.violet),
+        SboxKpi(label: 'Thưởng đã duyệt', value: hrFinMoney(sum((i) => i.kind == 'bonus')), icon: Icons.card_giftcard_outlined, tone: SboxTone.success,
+            onTap: () => _drillLocal('Thưởng đã duyệt', _rewards.where((i) => i.isApproved && i.kind == 'bonus').toList())),
+        SboxKpi(label: 'Phạt thủ công', value: hrFinMoney(sum((i) => i.kind == 'penalty')), icon: Icons.gavel_outlined, tone: SboxTone.danger,
+            onTap: () => _drillLocal('Phạt thủ công đã duyệt', _rewards.where((i) => i.isApproved && i.kind == 'penalty').toList())),
+        SboxKpi(label: 'Phiếu phạt chấm công', value: hrFinMoney(sum((i) => i.kind == 'ticket')), icon: Icons.alarm_outlined, tone: SboxTone.warning,
+            onTap: () => _drillLocal('Phiếu phạt chấm công đã duyệt', _rewards.where((i) => i.isApproved && i.kind == 'ticket').toList())),
+        SboxKpi(label: 'Đang khiếu nại', value: '${_rewards.where((i) => i.isDisputeOpen).length}', icon: Icons.feedback_outlined, tone: SboxTone.violet,
+            onTap: () => _drillLocal('Phiếu đang khiếu nại', _rewards.where((i) => i.isDisputeOpen).toList(), money: false)),
       ]),
       if (byReason.isNotEmpty) ...[
         const SizedBox(height: SboxSpace.md),
@@ -604,11 +672,36 @@ class _HrFinanceHubScreenState extends State<HrFinanceHubScreen> {
       ]),
       const SizedBox(height: SboxSpace.md),
       SboxKpiStrip(maxColumns: 4, items: [
-        SboxKpi(label: 'Tổng thu', value: hrFinMoney(s?.n('cashIn') ?? 0), icon: Icons.south_west_rounded, tone: SboxTone.success),
-        SboxKpi(label: 'Tổng chi', value: hrFinMoney(s?.n('cashOut') ?? 0), icon: Icons.north_east_rounded, tone: SboxTone.danger),
-        SboxKpi(label: 'Chênh lệch', value: hrFinMoney((s?.n('cashIn') ?? 0) - (s?.n('cashOut') ?? 0)), icon: Icons.balance_rounded),
+        SboxKpi(label: 'Tổng thu', value: hrFinMoney(s?.n('cashIn') ?? 0), icon: Icons.south_west_rounded, tone: SboxTone.success,
+            onTap: () => _drillSummary('Phiếu thu đã hoàn tất', const ['cashIn'])),
+        SboxKpi(label: 'Tổng chi', value: hrFinMoney(s?.n('cashOut') ?? 0), icon: Icons.north_east_rounded, tone: SboxTone.danger,
+            onTap: () => _drillSummary('Phiếu chi đã hoàn tất', const ['cashOut'])),
+        SboxKpi(label: 'Chênh lệch', value: hrFinMoney((s?.n('cashIn') ?? 0) - (s?.n('cashOut') ?? 0)), icon: Icons.balance_rounded,
+            onTap: () => _drillSummary('Thu − chi trong tháng', const ['cashIn', 'cashOut'],
+                note: 'Chênh lệch = tổng phiếu thu − tổng phiếu chi đã hoàn tất trong tháng.')),
         SboxKpi(label: 'Chờ thanh toán', value: '${pending.length}', icon: Icons.hourglass_top_rounded, tone: SboxTone.warning,
-            note: hrFinMoney(pending.fold<double>(0, (a, b) => a + b.amount))),
+            note: hrFinMoney(pending.fold<double>(0, (a, b) => a + b.amount)),
+            onTap: () => showReportDrillSheet(
+                  context,
+                  title: 'Phiếu quỹ chờ thanh toán',
+                  subtitle: hrFinMonthLabel(_month),
+                  total: 'Tổng ${hrFinMoney(pending.fold<double>(0, (a, b) => a + b.amount))}',
+                  rows: [
+                    for (final c in [...pending]..sort((a, b) => b.amount.compareTo(a.amount)))
+                      ReportDrillRow(
+                        title: c.description.isEmpty ? c.categoryName : c.description,
+                        subtitle: [
+                          if (c.transactionCode.isNotEmpty) c.transactionCode,
+                          hrFinDate(c.transactionDate),
+                          c.categoryName,
+                          if (c.contactName != null && c.contactName!.isNotEmpty) c.contactName!,
+                        ].join(' · '),
+                        trailing: '${c.type == CashTransactionType.expense ? '−' : '+'}${hrFinMoney(c.amount)}',
+                        trailingColor: c.type == CashTransactionType.expense ? SboxColors.dangerText : SboxColors.successText,
+                        icon: Icons.receipt_long_outlined,
+                      ),
+                  ],
+                )),
       ]),
       const SizedBox(height: SboxSpace.md),
       ...sboxChartRows([

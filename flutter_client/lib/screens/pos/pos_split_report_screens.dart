@@ -9,6 +9,7 @@ import '../../widgets/pos/pos_customer_debt_collect_dialog.dart';
 import '../../widgets/pos/pos_debt_statement.dart';
 import '../../widgets/pos/pos_party_debt_detail_page.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import 'pos_network_report_screen.dart';
 import 'pos_offline_sales_screen.dart';
 import 'pos_risk_report_screen.dart';
@@ -673,6 +674,304 @@ VoidCallback _closeSheetThen(BuildContext context, VoidCallback f) => () {
       f();
     };
 
+// ─── Chip bấm ra chi tiết («số này từ đâu ra») ──────────────────────
+// Endpoint /api/pos/reports/drill-split/* lọc y hệt endpoint tổng của từng báo cáo; tổng (`sum…`) tính trên toàn bộ,
+// danh sách tối đa 500 dòng.
+
+const _drillMax = 500;
+
+Map<String, String> _drillQ(PosKiotTimeFilterState t, [Map<String, String?> extra = const {}]) => {
+      if (t.from != null) 'from': t.from!.toIso8601String(),
+      if (t.to != null) 'to': t.to!.toIso8601String(),
+      for (final e in extra.entries)
+        if (e.value != null && e.value!.isNotEmpty) e.key: e.value!,
+    };
+
+Future<Map<String, dynamic>> _drillGet(String path, Map<String, String> q) async {
+  final r = await ApiService().getReportJson('/api/pos/reports/drill-split/$path', query: q);
+  if (r['isSuccess'] == true && r['data'] is Map) return Map<String, dynamic>.from(r['data'] as Map);
+  final m = '${r['message'] ?? ''}'.trim();
+  throw Exception(m.isEmpty ? 'Không tải được dữ liệu' : m);
+}
+
+class _Drill {
+  const _Drill(this.rows, {this.total, this.footer, this.countLabel, this.note});
+  final List<ReportDrillRow> rows;
+  final String? total;
+  final String? footer;
+  final String? countLabel;
+  final String? note;
+}
+
+String? _drillFooter(Map<String, dynamic> d, int shown) {
+  final c = _n(d['count']).toInt();
+  return d['truncated'] == true || c > shown
+      ? 'Hiện $shown dòng đầu trên tổng ${SboxFmt.number(c)} dòng · số tổng tính trên toàn bộ'
+      : null;
+}
+
+String? _joinNotes(List<String?> parts) {
+  final s = parts.whereType<String>().where((e) => e.trim().isNotEmpty).join('\n');
+  return s.isEmpty ? null : s;
+}
+
+/// Tải chi tiết (vòng quay giữa màn) rồi mở sheet — tải trước để dòng tổng là tổng thật từ máy chủ.
+Future<void> _openDrill(
+  BuildContext context, {
+  required String title,
+  String? subtitle,
+  String? note,
+  required Future<_Drill> Function() fetch,
+  String emptyText = 'Không có dữ liệu',
+}) async {
+  final nav = Navigator.of(context, rootNavigator: true);
+  var open = true;
+  unawaited(showDialog<void>(
+    context: context,
+    useRootNavigator: true,
+    barrierDismissible: false,
+    builder: (_) => const Center(child: CircularProgressIndicator()),
+  ).whenComplete(() => open = false));
+  _Drill? d;
+  String? err;
+  try {
+    d = await fetch();
+  } catch (e) {
+    err = '$e'.replaceFirst('Exception: ', '');
+  }
+  // Người dùng bấm quay lại khi đang tải → bỏ, không mở sheet.
+  if (!open) return;
+  nav.pop();
+  if (!context.mounted) return;
+  if (d == null) {
+    NotificationOverlayManager().showError(title: tr('Không tải được chi tiết'), message: tr(err ?? ''));
+    return;
+  }
+  await showReportDrillSheet(
+    context,
+    title: title,
+    subtitle: subtitle,
+    note: _joinNotes([note, d.note]),
+    rows: d.rows,
+    total: d.total,
+    countLabel: d.countLabel,
+    footer: d.footer,
+    emptyText: emptyText,
+  );
+}
+
+ReportDrillRow _drillOrderRow(BuildContext context, Map<String, dynamic> e, String trailing,
+        {String? extra, Color? color}) =>
+    ReportDrillRow(
+      title: '${e['orderNo'] ?? '—'}',
+      subtitle: [
+        _fmtDt(e['saleDate'] ?? e['createdAt']),
+        '${e['customerName'] ?? ''}'.trim(),
+        '${e['soldByName'] ?? ''}'.trim(),
+        if (extra != null) extra,
+      ].where((s) => s.isNotEmpty).join(' · '),
+      trailing: trailing,
+      trailingColor: color,
+      icon: Icons.receipt_long_outlined,
+      onTap: () => unawaited(PosReportOpen.sale(context, '${e['id'] ?? e['Id'] ?? ''}')),
+    );
+
+/// Đơn bán của một chip. [measure]: total (doanh thu chưa VAT), vat, inclVat, paid, discount, voucher, grand
+/// (gồm VAT + phụ thu + phí giao), cogs, profit, margin. [path]: orders (bán hàng) / pnl-orders / voucher-orders.
+Future<_Drill> _drillOrders(
+  BuildContext context,
+  PosKiotTimeFilterState t,
+  String measure, {
+  String path = 'orders',
+  Map<String, String?> extra = const {},
+}) async {
+  final withCogs = const {'cogs', 'profit', 'margin'}.contains(measure);
+  final d = await _drillGet(
+      path,
+      _drillQ(t, {
+        ...extra,
+        if (withCogs) 'withCogs': 'true',
+        if (measure == 'discount') 'onlyDiscount': 'true',
+        'sort': switch (measure) {
+          'discount' => 'discount',
+          'voucher' => 'voucher',
+          'vat' => 'vat',
+          _ => null,
+        },
+        'limit': '$_drillMax',
+      }));
+  final items = _maps(d['items']);
+  if (!context.mounted) return const _Drill([]);
+  // Không có quyền xem giá vốn → máy chủ bỏ trường cogs / profit.
+  final masked = withCogs && d['sumCogs'] == null;
+  double valueOf(Map<String, dynamic> e) => switch (measure) {
+        'vat' => _n(e['vatAmount']),
+        'inclVat' => _n(e['total']) + _n(e['vatAmount']),
+        'paid' => _n(e['paidAmount']),
+        'discount' => _n(e['discount']),
+        'voucher' => _n(e['voucherDiscount']),
+        'grand' => _n(e['grandTotal']),
+        'cogs' => masked ? _n(e['total']) : _n(e['cogs']),
+        'profit' => masked ? _n(e['total']) : _n(e['profit']),
+        _ => _n(e['total']),
+      };
+  final sumTotal = _n(d['sumTotal']);
+  final sum = switch (measure) {
+    'vat' => _n(d['sumVat']),
+    'inclVat' => sumTotal + _n(d['sumVat']),
+    'paid' => _n(d['sumPaid']),
+    'discount' => _n(d['sumDiscount']),
+    'voucher' => _n(d['sumVoucherDiscount']),
+    'grand' => _n(d['sumGrandTotal']),
+    'cogs' => masked ? sumTotal : _n(d['sumCogs']),
+    'profit' => masked ? sumTotal : _n(d['sumProfit']),
+    _ => sumTotal,
+  };
+  String? extraOf(Map<String, dynamic> e) {
+    if ((measure == 'cogs' || measure == 'profit') && !masked) {
+      return 'DT ${SboxFmt.money(_n(e['total']))}${measure == 'profit' ? ' · GV ${SboxFmt.money(_n(e['cogs']))}' : ''}';
+    }
+    if (measure == 'voucher' || measure == 'grand') return '${e['voucherCode'] ?? ''}';
+    if (measure == 'inclVat') return 'VAT ${SboxFmt.money(_n(e['vatAmount']))}';
+    return null;
+  }
+
+  final rows = <ReportDrillRow>[
+    for (final e in items)
+      if (measure == 'margin' && !masked)
+        _drillOrderRow(
+          context,
+          e,
+          _n(e['total']) != 0 ? SboxFmt.pct(_n(e['profit']) / _n(e['total']) * 100) : '—',
+          extra: 'DT ${SboxFmt.money(_n(e['total']))} · LN ${SboxFmt.money(_n(e['profit']))}',
+        )
+      else
+        _drillOrderRow(
+          context,
+          e,
+          SboxFmt.money(measure == 'margin' ? _n(e['total']) : valueOf(e)),
+          extra: extraOf(e),
+          color: measure == 'profit' && !masked && _n(e['profit']) < 0 ? SboxColors.dangerText : null,
+        ),
+  ];
+  final sumProfit = _n(d['sumProfit']);
+  return _Drill(
+    rows,
+    countLabel: SboxFmt.number(_n(d['count'])),
+    footer: _drillFooter(d, items.length),
+    total: measure == 'margin'
+        ? (masked || sumTotal == 0
+            ? 'Tổng doanh thu ${SboxFmt.money(sumTotal)}'
+            : 'LN ${SboxFmt.money(sumProfit)} / DT ${SboxFmt.money(sumTotal)} = ${SboxFmt.pct(sumProfit / sumTotal * 100)}')
+        : 'Tổng ${SboxFmt.money(sum)}',
+    note: masked ? 'Tài khoản không có quyền xem giá vốn — chỉ hiện doanh thu từng đơn' : null,
+  );
+}
+
+/// Phiếu khách trả hàng theo ngày trả (cùng nguồn thẻ «Hoàn trả» của báo cáo bán hàng).
+Future<_Drill> _drillRefunds(BuildContext context, PosKiotTimeFilterState t) async {
+  final d = await _drillGet('refunds', _drillQ(t));
+  final items = _maps(d['items']);
+  if (!context.mounted) return const _Drill([]);
+  return _Drill(
+    [
+      for (final e in items)
+        ReportDrillRow(
+          title: '${e['returnNo'] ?? '—'}',
+          subtitle: [
+            if ('${e['orderNo'] ?? ''}'.isNotEmpty) 'Đơn ${e['orderNo']}',
+            '${e['customerName'] ?? ''}'.trim(),
+            _fmtDt(e['returnedAt']),
+          ].where((s) => s.isNotEmpty).join(' · '),
+          trailing: SboxFmt.money(_n(e['refund'])),
+          trailingColor: SboxColors.dangerText,
+          icon: Icons.assignment_return_outlined,
+          onTap: () => unawaited(PosReportOpen.sale(context, '${e['orderId'] ?? ''}')),
+        ),
+    ],
+    countLabel: SboxFmt.number(_n(d['count'])),
+    footer: _drillFooter(d, items.length),
+    total: 'Tổng hoàn ${SboxFmt.money(_n(d['sumRefund']))}',
+    note: 'Tính theo ngày khách trả hàng (đơn gốc có thể bán ở kỳ khác). Bấm phiếu để mở hóa đơn gốc.',
+  );
+}
+
+ReportDrillRow _drillCashRow(BuildContext context, Map<String, dynamic> e) {
+  final income = '${e['type']}'.toLowerCase() == 'income';
+  final code = '${e['transactionCode'] ?? ''}'.trim();
+  return ReportDrillRow(
+    title: code.isEmpty ? (income ? 'Phiếu thu' : 'Phiếu chi') : code,
+    subtitle: [
+      '${e['description'] ?? ''}'.trim(),
+      '${e['category'] ?? ''}'.trim(),
+      _payMethodLabel(e['paymentMethod']),
+      _fmtWallDt(e['transactionDate']),
+    ].where((s) => s.isNotEmpty).join(' · '),
+    trailing: '${income ? '+' : '−'}${SboxFmt.money(_n(e['amount']))}',
+    trailingColor: income ? SboxColors.successText : SboxColors.dangerText,
+    icon: income ? Icons.south_west_rounded : Icons.north_east_rounded,
+    onTap: () => unawaited(PosReportOpen.cashTx(context, e)),
+  );
+}
+
+/// Phiếu thu / chi. [path]: cash (sổ quỹ), expenses (báo cáo chi phí), sale-receipts (thu khi bán / thu nợ).
+Future<(_Drill, Map<String, dynamic>)> _drillCashRaw(
+    BuildContext context, PosKiotTimeFilterState t, String path, Map<String, String?> extra) async {
+  final d = await _drillGet(path, _drillQ(t, extra));
+  final items = _maps(d['items']);
+  if (!context.mounted) return (const _Drill([]), d);
+  return (
+    _Drill(
+      [for (final e in items) _drillCashRow(context, e)],
+      countLabel: SboxFmt.number(_n(d['count'])),
+      footer: _drillFooter(d, items.length),
+      total: 'Tổng ${SboxFmt.money(_n(d['sumAmount']))}',
+    ),
+    d,
+  );
+}
+
+Future<_Drill> _drillCash(BuildContext context, PosKiotTimeFilterState t, String path,
+        [Map<String, String?> extra = const {}]) async =>
+    (await _drillCashRaw(context, t, path, extra)).$1;
+
+/// «Đã thu khi bán»: quản lý → phiếu thu bán hàng trong kỳ (như sales/summary); nhân viên, hoặc kỳ không có phiếu thu
+/// → tiền đã trả trên từng hóa đơn (sales/summary cũng tính như vậy trong trường hợp này).
+Future<_Drill> _drillSalePaid(BuildContext context, PosKiotTimeFilterState t, {String? method}) async {
+  final (drill, d) = await _drillCashRaw(context, t, 'sale-receipts', {'kind': 'sale', 'paymentMethod': method});
+  if (d['mode'] != 'orders' && _n(d['count']) > 0) {
+    return _Drill(drill.rows,
+        countLabel: drill.countLabel,
+        footer: drill.footer,
+        total: drill.total,
+        note: 'Phiếu thu bán hàng trong kỳ (chưa gồm thu nợ khách). Bấm phiếu để xem phiếu / hóa đơn gốc.');
+  }
+  if (method == null) {
+    if (!context.mounted) return drill;
+    final o = await _drillOrders(context, t, 'paid');
+    return _Drill(o.rows,
+        countLabel: o.countLabel,
+        footer: o.footer,
+        total: o.total,
+        note: 'Tính theo tiền đã trả trên từng hóa đơn hoàn thành trong kỳ.');
+  }
+  final (total, orders) =
+      await _fetchSalesOrders(ApiService(), from: t.from, to: t.to, paymentMethod: method, pageSize: 200);
+  if (!context.mounted) return drill;
+  return _Drill(
+    [for (final e in orders) _drillOrderRow(context, e, SboxFmt.money(_n(e['paidAmount'])))],
+    countLabel: SboxFmt.number(total),
+    footer: total > orders.length ? 'Hiện ${orders.length} hóa đơn đầu trên tổng $total' : null,
+    total: 'Tổng ${SboxFmt.money(orders.fold<double>(0, (a, e) => a + _n(e['paidAmount'])))}',
+    note: 'Tính theo tiền đã trả trên từng hóa đơn có phương thức «$method».',
+  );
+}
+
+/// Kỳ trước (chip so sánh): ghi số kỳ trước vào ghi chú; danh sách vẫn là của kỳ này.
+String? _prevNote(Map<String, dynamic>? prev, String key, {bool money = true}) => prev == null
+    ? null
+    : 'Kỳ trước: ${money ? SboxFmt.money(_n(prev[key])) : SboxFmt.number(_n(prev[key]))}. Danh sách dưới đây là của kỳ này.';
+
 /// Doanh thu — không gộp lợi nhuận / PTTT / nhân viên.
 class PosRevenueReportScreen extends StatefulWidget {
   const PosRevenueReportScreen({super.key});
@@ -781,6 +1080,43 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
       soldByLabel: soldByLabel,
       paymentMethod: paymentMethod,
     ));
+  }
+
+  /// Bấm chip / ô số → các đơn / phiếu làm ra số đó.
+  void _drillTile(String kind) {
+    final t = _time;
+    final prev = _prev;
+    final (String title, String? note, Future<_Drill> Function() fetch) = switch (kind) {
+      'orders' => (
+          'Số hóa đơn',
+          _joinNotes(['Hóa đơn hoàn thành trong kỳ (theo ngày bán).', _prevNote(prev, 'orderCount', money: false)]),
+          () => _drillOrders(context, t, 'total'),
+        ),
+      'paid' => ('Đã thu khi bán', _prevNote(prev, 'totalPaid'), () => _drillSalePaid(context, t)),
+      'debt' => (
+          'Thu nợ khách',
+          'Phiếu thu nợ khách trong kỳ (theo ngày phiếu).',
+          () => _drillCash(context, t, 'sale-receipts', {'kind': 'debt'}),
+        ),
+      'refund' => ('Hoàn trả', _prevNote(prev, 'totalRefund'), () => _drillRefunds(context, t)),
+      'vat' => ('VAT', 'VAT từng hóa đơn trong kỳ, xếp theo VAT giảm dần.', () => _drillOrders(context, t, 'vat')),
+      'inclVat' => (
+          'Doanh thu gồm VAT',
+          'Doanh thu chưa VAT + VAT của từng hóa đơn.',
+          () => _drillOrders(context, t, 'inclVat'),
+        ),
+      'discount' => (
+          'Giảm giá',
+          'Giảm giá = giảm từng dòng + giảm cả đơn + voucher + đổi điểm. Chỉ liệt kê hóa đơn có giảm giá.',
+          () => _drillOrders(context, t, 'discount'),
+        ),
+      _ => (
+          'Doanh thu (chưa VAT)',
+          _joinNotes(['Tiền hàng từng hóa đơn hoàn thành (đã trừ giảm giá, hàng trả; chưa VAT).', _prevNote(prev, 'totalRevenue')]),
+          () => _drillOrders(context, t, 'total'),
+        ),
+    };
+    unawaited(_openDrill(context, title: title, subtitle: t.displayLabel, note: note, fetch: fetch));
   }
 
   @override
@@ -940,7 +1276,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                     children: [
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
-                        onTileTap: (_) => _openAllSales(),
+                        onTileTap: (i) => _drillTile(const ['revenue', 'vat', 'inclVat'][i]),
                         tiles: [
                           (label: 'DT chưa VAT', value: revenue, color: PosTheme.kiotBlue),
                           (label: 'VAT', value: vat, color: SboxColors.violet),
@@ -954,7 +1290,7 @@ class _PosRevenueReportScreenState extends State<PosRevenueReportScreen> {
                       const SizedBox(height: 8),
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
-                        onTileTap: (_) => _openAllSales(),
+                        onTileTap: (i) => _drillTile(const ['refund', 'paid', 'discount'][i]),
                         tiles: [
                           (
                             label: 'Hoàn trả',
@@ -1591,6 +1927,88 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
     );
   }
 
+  /// Chip nhập hàng → phiếu nhập / trả NCC trong kỳ (cùng danh sách máy chủ dùng để cộng số).
+  void _drillPurchase(String kind, List<Map<String, dynamic>> receipts, List<Map<String, dynamic>> returns) {
+    final d = _data ?? const <String, dynamic>{};
+    ReportDrillRow receiptRow(Map<String, dynamic> e, double v, {String? extra}) => ReportDrillRow(
+          title: e['receiptNo']?.toString() ?? '—',
+          subtitle: [
+            (e['supplierName']?.toString() ?? '').isEmpty ? 'Không chọn NCC' : '${e['supplierName']}',
+            _fmtDt(e['date']),
+            if (extra != null) extra,
+          ].join(' · '),
+          trailing: SboxFmt.money(v),
+          icon: Icons.move_to_inbox_outlined,
+          onTap: () => unawaited(PosReportOpen.purchaseReceipt(context, '${e['id'] ?? e['Id'] ?? ''}')),
+        );
+    ReportDrillRow returnRow(Map<String, dynamic> e, double v) => ReportDrillRow(
+          title: e['returnNo']?.toString() ?? '—',
+          subtitle: [
+            (e['supplierName']?.toString() ?? '').isEmpty ? 'Không chọn NCC' : '${e['supplierName']}',
+            _fmtDt(e['date']),
+            if (_n(e['RefundDue'] ?? e['refundDue']) > 0) 'NCC còn phải hoàn ${SboxFmt.money(_n(e['RefundDue'] ?? e['refundDue']))}',
+          ].join(' · '),
+          trailing: SboxFmt.money(v),
+          trailingColor: SboxColors.dangerText,
+          icon: Icons.outbox_outlined,
+          onTap: () => unawaited(PosReportOpen.purchaseReturn(context, '${e['id'] ?? e['Id'] ?? ''}')),
+        );
+    double retAmt(Map<String, dynamic> e) => _n(e['netAmount'] ?? e['totalAmount']);
+    final List<ReportDrillRow> rows;
+    final String title;
+    final String note;
+    final double total;
+    switch (kind) {
+      case 'returns':
+        title = 'Trả nhà cung cấp';
+        note = 'Giá trị NCC phải hoàn từng phiếu trả (sau chiết khấu, gồm VAT).';
+        rows = [for (final e in returns) returnRow(e, retAmt(e))];
+        total = returns.fold<double>(0, (a, e) => a + retAmt(e));
+      case 'due':
+        final due = receipts.where((e) => _n(e['balanceDue']) != 0).toList()
+          ..sort((a, b) => _n(b['balanceDue']).compareTo(_n(a['balanceDue'])));
+        title = 'Còn nợ NCC (phiếu trong kỳ)';
+        note = 'Còn nợ = thành tiền − đã trả của từng phiếu nhập trong kỳ. '
+            'Đã trả trên phiếu ${SboxFmt.money(_n(d['paidOnReceipts']))}'
+            '${d['paidInPeriodBranchApprox'] == true ? '' : '; chi NCC trong kỳ (mọi phiếu) ${SboxFmt.money(_n(d['paidInPeriod']))}'}.';
+        rows = [
+          for (final e in due)
+            receiptRow(e, _n(e['balanceDue']), extra: 'thành tiền ${SboxFmt.money(_n(e['grandTotal']))}'),
+        ];
+        total = due.fold<double>(0, (a, e) => a + _n(e['balanceDue']));
+      case 'net':
+        title = 'Nhập ròng';
+        note = 'Nhập ròng = tiền nhập hàng − trả NCC. Phiếu trả NCC ghi âm.';
+        rows = [
+          for (final e in receipts) receiptRow(e, _n(e['grandTotal'])),
+          for (final e in returns)
+            ReportDrillRow(
+              title: returnRow(e, 0).title,
+              subtitle: returnRow(e, 0).subtitle,
+              trailing: '−${SboxFmt.money(retAmt(e))}',
+              trailingColor: SboxColors.dangerText,
+              icon: Icons.outbox_outlined,
+              onTap: returnRow(e, 0).onTap,
+            ),
+        ];
+        total = receipts.fold<double>(0, (a, e) => a + _n(e['grandTotal'])) - returns.fold<double>(0, (a, e) => a + retAmt(e));
+      default:
+        title = 'Tiền nhập hàng';
+        note = 'Thành tiền từng phiếu nhập (sau chiết khấu, gồm VAT).';
+        rows = [for (final e in receipts) receiptRow(e, _n(e['grandTotal']))];
+        total = receipts.fold<double>(0, (a, e) => a + _n(e['grandTotal']));
+    }
+    unawaited(showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: [_time.displayLabel, if (_supplierId != null) _supplierOptions[_supplierId] ?? ''].join(' · '),
+      note: note,
+      rows: rows,
+      total: 'Tổng ${SboxFmt.money(total)}',
+      emptyText: 'Không có phiếu trong kỳ',
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final d = _data ?? const <String, dynamic>{};
@@ -1647,11 +2065,11 @@ class _PosPurchaseReportScreenState extends State<PosPurchaseReportScreen> {
       kpis: [
         SboxKpi(label: 'Tiền nhập hàng', value: SboxFmt.money(_n(d['receiptAmount'])), icon: Icons.move_to_inbox_outlined,
             note: '${_n(d['receiptCount']).toInt()} phiếu · VAT ${SboxFmt.money(_n(d['receiptVat']))}',
-            onTap: () => setState(() => _docKind = 1)),
+            onTap: () => _drillPurchase('receipts', receipts, returns)),
         // Giá trị NCC phải hoàn (sau chiết khấu phiếu trả) — trước đây lấy trước chiết khấu nên «nhập ròng» sai.
         SboxKpi(label: 'Trả nhà cung cấp', value: SboxFmt.money(_n(d['returnAmount'])), icon: Icons.outbox_outlined, tone: SboxTone.warning,
             note: '${_n(d['returnCount']).toInt()} phiếu · đã hoàn ${SboxFmt.money(_n(d['returnRefundReceived']))}',
-            onTap: () => setState(() => _docKind = 2)),
+            onTap: () => _drillPurchase('returns', receipts, returns)),
         SboxKpi(
             label: 'Còn nợ NCC (phiếu trong kỳ)',
             value: SboxFmt.money(balanceDue),
@@ -3685,7 +4103,13 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
                       children: [
                         for (var i = 0; i < methods.length; i++) ...[
                           if (i > 0) const Divider(height: 14),
-                          _methodRow(methods[i]),
+                          PosReportNavRow(
+                            onTap: () => _drillCashbook(
+                              '${methods[i]['type']}'.toLowerCase() == 'income' ? 'Income' : 'Expense',
+                              method: '${methods[i]['paymentMethod'] ?? ''}',
+                            ),
+                            child: _methodRow(methods[i]),
+                          ),
                         ],
                       ],
                     ),
@@ -3743,6 +4167,20 @@ class _PosCashbookReportScreenState extends State<PosCashbookReportScreen> {
               ],
             ),
     );
+  }
+
+  /// Chip sổ quỹ → mọi phiếu thu / chi hoàn thành trong kỳ (cùng lọc với cashbook/summary), không chỉ 80 phiếu mới nhất.
+  void _drillCashbook(String type, {String? method}) {
+    final t = _time;
+    final income = type == 'Income';
+    final label = method == null || method.isEmpty ? null : _methodLabel(method);
+    unawaited(_openDrill(
+      context,
+      title: '${income ? 'Tổng thu' : 'Tổng chi'}${label == null ? '' : ' · $label'}',
+      subtitle: t.displayLabel,
+      note: 'Phiếu ${income ? 'thu' : 'chi'} đã hoàn thành trong kỳ (theo ngày phiếu). Bấm phiếu để xem chi tiết.',
+      fetch: () => _drillCash(context, t, 'cash', {'type': type, 'paymentMethod': method}),
+    ));
   }
 
   Widget _cashRow(Map<String, dynamic> e) {
@@ -3871,6 +4309,29 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
 
   void _openSale(Map<String, dynamic> e) {
     unawaited(PosReportOpen.sale(context, '${e['id'] ?? e['Id'] ?? ''}'));
+  }
+
+  /// Chip KQKD theo đơn → từng hóa đơn hoàn thành trong kỳ (cùng lọc với pnl/summary).
+  void _drillPnlOrders(String measure) {
+    final t = _time;
+    final (title, note) = switch (measure) {
+      'vat' => ('VAT', 'VAT từng hóa đơn (không tính vào doanh thu thuần).'),
+      'discount' => (
+          'Giảm giá',
+          'Giảm giá = giảm từng dòng + giảm cả đơn + voucher + đổi điểm. Chỉ liệt kê hóa đơn có giảm giá.',
+        ),
+      'cogs' => ('Giá vốn', 'Giá vốn thuần từng hóa đơn (đã trừ giá vốn hàng khách trả).'),
+      'profit' => ('Lợi nhuận gộp', 'Lợi nhuận gộp = doanh thu thuần − giá vốn của từng hóa đơn.'),
+      _ => (
+          'Doanh thu thuần',
+          'Doanh thu thuần = tiền hàng từng hóa đơn (chưa VAT, đã trừ giảm giá và hàng khách trả).',
+        ),
+    };
+    unawaited(_openDrill(context,
+        title: title,
+        subtitle: t.displayLabel,
+        note: note,
+        fetch: () => _drillOrders(context, t, measure, path: 'pnl-orders')));
   }
 
   @override
@@ -4046,11 +4507,7 @@ class _PosPnlReportScreenState extends State<PosPnlReportScreen> {
                     children: [
                       PosReportMetricTiles(
                         moneyFmt: _moneyFmt,
-                        onTileTap: (_) => PosReportOpen.sales(
-                          context,
-                          from: _time.from,
-                          to: _time.to,
-                        ),
+                        onTileTap: (i) => _drillPnlOrders(const ['total', 'vat', 'discount'][i]),
                         tiles: [
                           (
                             label: 'Doanh thu',

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
 import '../../models/hr_finance.dart';
 import '../../services/api_service.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'hr_fin_actions.dart';
 import 'hr_fin_common.dart';
@@ -15,15 +16,39 @@ class HrFinLedgerView extends StatelessWidget {
   final Widget? header;
   final Widget? Function(HrFinItem it)? itemAction;
 
+  /// Chip → các khoản trong sổ đã cộng vào số (cùng điều kiện máy chủ tính bonus / penalty / advance).
+  void _drill(BuildContext context, String title, bool Function(HrFinItem i) where) {
+    final rows = ledger.items.where(where).toList()..sort((a, b) => b.amount.compareTo(a.amount));
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: ledger.employeeName,
+      total: 'Tổng ${hrFinMoney(rows.fold<double>(0, (a, b) => a + b.amount))}',
+      rows: [
+        for (final it in rows)
+          ReportDrillRow(
+            title: it.title,
+            subtitle: [hrFinDate(it.date), if ((it.subtitle ?? '').isNotEmpty) it.subtitle!].join(' · '),
+            trailing: hrFinMoney(it.amount),
+            icon: it.isPenalty ? Icons.gavel_outlined : Icons.receipt_long_outlined,
+            onTap: () => onTapItem(it),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = ledger;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       if (header != null) ...[header!, const SizedBox(height: SboxSpace.md)],
       SboxKpiStrip(items: [
-        SboxKpi(label: 'Thưởng', value: hrFinMoney(l.bonus), icon: Icons.card_giftcard_outlined, tone: SboxTone.success),
-        SboxKpi(label: 'Phạt', value: hrFinMoney(l.penalty), icon: Icons.gavel_outlined, tone: SboxTone.danger),
-        SboxKpi(label: 'Đã ứng', value: hrFinMoney(l.advance), icon: Icons.payments_outlined, tone: SboxTone.brand),
+        SboxKpi(label: 'Thưởng', value: hrFinMoney(l.bonus), icon: Icons.card_giftcard_outlined, tone: SboxTone.success,
+            onTap: () => _drill(context, 'Thưởng', (i) => i.isApproved && i.kind == 'bonus')),
+        SboxKpi(label: 'Phạt', value: hrFinMoney(l.penalty), icon: Icons.gavel_outlined, tone: SboxTone.danger,
+            onTap: () => _drill(context, 'Phạt', (i) => i.isApproved && i.isPenalty)),
+        SboxKpi(label: 'Đã ứng', value: hrFinMoney(l.advance), icon: Icons.payments_outlined, tone: SboxTone.brand,
+            onTap: () => _drill(context, 'Đã ứng lương', (i) => i.kind == 'advance' && i.status == 'Paid')),
         SboxKpi(
             label: 'Còn nợ ứng',
             value: hrFinMoney(l.advanceOutstanding),

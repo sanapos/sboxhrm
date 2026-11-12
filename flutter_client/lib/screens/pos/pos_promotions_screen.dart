@@ -16,6 +16,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_numeric_keypad.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/pos_unsaved_changes.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -1035,6 +1036,96 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
     _load();
   }
 
+  double _nn(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
+
+  /// Hóa đơn có khuyến mãi trong kỳ = hợp các hóa đơn của từng chương trình (một hóa đơn áp nhiều
+  /// chương trình chỉ tính một lần, tiền giảm cộng dồn). Nguồn: report/orders từng chương trình.
+  Future<List<Map<String, dynamic>>> _promoOrders() async {
+    final items = ((_data?['items'] as List?) ?? const []).whereType<Map>().toList();
+    final byId = <String, Map<String, dynamic>>{};
+    for (final i in items) {
+      final res = await _api.getPosPromotionReportOrders('${i['promotionId']}', _from, _to);
+      if (res['isSuccess'] != true || res['data'] is! Map) {
+        throw Exception(res['message']?.toString() ?? 'Không tải được danh sách hóa đơn');
+      }
+      for (final o in (((res['data'] as Map)['items'] as List?) ?? const []).whereType<Map>()) {
+        final id = '${o['id']}';
+        final cur = byId[id];
+        if (cur == null) {
+          byId[id] = {...Map<String, dynamic>.from(o), 'programs': <String>['${i['name']}']};
+        } else {
+          cur['discount'] = _nn(cur['discount']) + _nn(o['discount']);
+          (cur['programs'] as List<String>).add('${i['name']}');
+        }
+      }
+    }
+    final list = byId.values.toList()
+      ..sort((a, b) => '${b['at']}'.compareTo('${a['at']}'));
+    return list;
+  }
+
+  /// [field]: discount / total — số bên phải mỗi hóa đơn.
+  void _drillOrders(String title, String field, {String? note, String? total}) {
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: '${_dateFmt.format(_from)} → ${_dateFmt.format(_to)}',
+      note: note,
+      total: total,
+      footer: 'Mỗi chương trình tải tối đa 500 hóa đơn mới nhất.',
+      emptyText: 'Không có hóa đơn',
+      load: () async {
+        final list = await _promoOrders();
+        final fmt = DateFormat('dd/MM HH:mm');
+        return [
+          for (final o in list)
+            ReportDrillRow(
+              title: '${o['orderNo']}${(o['customerName'] ?? '').toString().isEmpty ? '' : ' · ${o['customerName']}'}',
+              subtitle: [
+                if (DateTime.tryParse('${o['at']}') != null) fmt.format(DateTime.parse('${o['at']}')),
+                (o['programs'] as List<String>).join(', '),
+                if (field != 'discount') 'giảm ${_money.format(_nn(o['discount']))} đ',
+              ].join(' · '),
+              trailing: '${_money.format(_nn(o[field]))} đ',
+              trailingColor: field == 'discount' ? Colors.red.shade700 : null,
+              icon: Icons.receipt_long_outlined,
+              onTap: () => PosReportOpen.sale(context, '${o['id']}'),
+            ),
+        ];
+      },
+    );
+  }
+
+  /// Lãi gộp theo chương trình (máy chủ chỉ trả lãi theo chương trình, không theo hóa đơn).
+  void _drillProfit() {
+    final items = ((_data?['items'] as List?) ?? const []).whereType<Map>().toList()
+      ..sort((a, b) => _nn(b['profit']).compareTo(_nn(a['profit'])));
+    final d = _data!;
+    showReportDrillSheet(
+      context,
+      title: 'Lãi gộp HĐ có KM',
+      subtitle: '${_dateFmt.format(_from)} → ${_dateFmt.format(_to)}',
+      note: 'Lãi gộp = Doanh thu HĐ có KM − giá vốn = ${_money.format(_nn(d['promoRevenue']))} − '
+          '${_money.format(_nn(d['promoRevenue']) - _nn(d['promoProfit']))} = ${_money.format(_nn(d['promoProfit']))} đ; '
+          'biên ${_nn(d['promoMarginPct']).toStringAsFixed(1).replaceAll('.', ',')}%. '
+          'Dưới đây là lãi theo từng chương trình — hóa đơn áp nhiều chương trình được tính ở mỗi chương trình.',
+      rows: [
+        for (final i in items)
+          ReportDrillRow(
+            title: '${i['name']}',
+            subtitle: '${i['orders']} HĐ · doanh thu ${_money.format(_nn(i['revenue']))} đ'
+                '${i['marginPct'] != null ? ' · biên ${_nn(i['marginPct']).toStringAsFixed(1).replaceAll('.', ',')}%' : ''}',
+            trailing: '${_money.format(_nn(i['profit']))} đ',
+            icon: Icons.local_offer_outlined,
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => PosPromotionOrdersPage(
+                  promotionId: '${i['promotionId']}', name: '${i['name']}', from: _from, to: _to),
+            )),
+          ),
+      ],
+    );
+  }
+
   String _delta(double cur, double prev) {
     if (prev <= 0) return cur > 0 ? 'mới phát sinh' : 'kỳ trước: 0';
     final pct = (cur - prev) / prev * 100;
@@ -1069,16 +1160,33 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
                   : ListView(padding: const EdgeInsets.all(16), children: [
                       Wrap(spacing: 12, runSpacing: 12, children: [
                         _kpi('Hóa đơn có KM', '${d['orders'] ?? 0} / ${d['allOrders'] ?? 0}',
-                            '${n(d['promoOrderRate']).toStringAsFixed(1).replaceAll('.', ',')}% tổng hóa đơn · ${_delta(n(d['orders']), n(prev['orders']))}'),
+                            '${n(d['promoOrderRate']).toStringAsFixed(1).replaceAll('.', ',')}% tổng hóa đơn · ${_delta(n(d['orders']), n(prev['orders']))}',
+                            onTap: () => _drillOrders('Hóa đơn có khuyến mãi', 'total',
+                                note: 'Tỷ lệ = hóa đơn có KM ÷ tổng hóa đơn hoàn tất = ${d['orders'] ?? 0} ÷ ${d['allOrders'] ?? 0} = '
+                                    '${n(d['promoOrderRate']).toStringAsFixed(1).replaceAll('.', ',')}%. Số bên phải là tiền hóa đơn.')),
                         _kpi('Tổng tiền giảm', '${_money.format(n(d['totalDiscount']))} đ',
-                            '${n(d['discountRate']).toStringAsFixed(1).replaceAll('.', ',')}% giá trị hàng · ${_delta(n(d['totalDiscount']), n(prev['totalDiscount']))}'),
+                            '${n(d['discountRate']).toStringAsFixed(1).replaceAll('.', ',')}% giá trị hàng · ${_delta(n(d['totalDiscount']), n(prev['totalDiscount']))}',
+                            onTap: () => _drillOrders('Tiền giảm khuyến mãi', 'discount',
+                                total: 'Tổng ${_money.format(n(d['totalDiscount']))} đ',
+                                note: '% giá trị hàng = tiền giảm ÷ (doanh thu HĐ có KM + tiền giảm) = '
+                                    '${_money.format(n(d['totalDiscount']))} ÷ (${_money.format(n(d['promoRevenue']))} + '
+                                    '${_money.format(n(d['totalDiscount']))}).')),
                         _kpi('HĐ bình quân có KM', '${_money.format(n(d['avgBillPromo']))} đ',
-                            'không KM: ${_money.format(n(d['avgBillNormal']))} đ'),
+                            'không KM: ${_money.format(n(d['avgBillNormal']))} đ',
+                            onTap: () => _drillOrders('HĐ bình quân có KM', 'total',
+                                note: 'Bình quân = doanh thu HĐ có KM ÷ số HĐ có KM = ${_money.format(n(d['promoRevenue']))} ÷ '
+                                    '${d['orders'] ?? 0} = ${_money.format(n(d['avgBillPromo']))} đ.\n'
+                                    'Không KM = (tổng doanh thu − doanh thu HĐ có KM) ÷ (tổng HĐ − HĐ có KM) = '
+                                    '(${_money.format(n(d['allRevenue']))} − ${_money.format(n(d['promoRevenue']))}) ÷ '
+                                    '(${d['allOrders'] ?? 0} − ${d['orders'] ?? 0}).')),
                         _kpi('Doanh thu HĐ có KM', '${_money.format(n(d['promoRevenue']))} đ',
-                            'trên tổng ${_money.format(n(d['allRevenue']))} đ'),
+                            'trên tổng ${_money.format(n(d['allRevenue']))} đ',
+                            onTap: () => _drillOrders('Doanh thu HĐ có KM', 'total',
+                                total: 'Tổng ${_money.format(n(d['promoRevenue']))} đ')),
                         if (d['promoMarginPct'] != null)
                           _kpi('Lãi gộp HĐ có KM', '${_money.format(n(d['promoProfit']))} đ',
-                              'biên ${n(d['promoMarginPct']).toStringAsFixed(1).replaceAll('.', ',')}% (đã trừ khuyến mãi) · HĐ không KM: ${n(d['normalMarginPct']).toStringAsFixed(1).replaceAll('.', ',')}%'),
+                              'biên ${n(d['promoMarginPct']).toStringAsFixed(1).replaceAll('.', ',')}% (đã trừ khuyến mãi) · HĐ không KM: ${n(d['normalMarginPct']).toStringAsFixed(1).replaceAll('.', ',')}%',
+                              onTap: _drillProfit),
                       ]),
                       if (daily.any((e) => n(e['discount']) > 0)) ...[
                         const SizedBox(height: 20),
@@ -1159,11 +1267,14 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
     return u['isActive'] == true ? 'đang bật' : 'đã tắt';
   }
 
-  Widget _kpi(String label, String value, String note) => ConstrainedBox(
+  Widget _kpi(String label, String value, String note, {VoidCallback? onTap}) => ConstrainedBox(
         constraints: const BoxConstraints(minWidth: 220, maxWidth: 300),
         child: Card(
           margin: EdgeInsets.zero,
-          child: Padding(
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: Padding(
             padding: const EdgeInsets.all(12),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(tr(label), style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
@@ -1172,6 +1283,7 @@ class _PosPromotionReportScreenState extends State<PosPromotionReportScreen> {
               const SizedBox(height: 2),
               Text(tr(note), style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary)),
             ]),
+          ),
           ),
         ),
       );

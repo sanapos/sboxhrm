@@ -25,6 +25,7 @@ import '../utils/navigation_notifier.dart';
 import '../utils/store_role_helper.dart';
 import '../utils/permission_navigation.dart';
 import 'task/task_assignment_tab.dart';
+import '../widgets/reports/report_drill_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
@@ -2321,6 +2322,65 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     );
   }
 
+  /// Chip tab «Thống kê» → danh sách việc (GET /api/Tasks/statistics/drill, cùng bộ lọc kỳ / chi nhánh).
+  void _drillStats(String title,
+      {required String kind,
+      WorkTaskStatus? status,
+      String? assigneeId,
+      String? note,
+      bool notDoneFirst = false}) {
+    final df = DateFormat('dd/MM');
+    final range = _fromDate == null && _toDate == null
+        ? null
+        : 'Tạo từ ${_fromDate == null ? '…' : DateFormat('dd/MM/yyyy').format(_fromDate!)}'
+            ' đến ${_toDate == null ? '…' : DateFormat('dd/MM/yyyy').format(_toDate!)}';
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: range,
+      note: note,
+      load: () async {
+        final r = await _api.getReportJson('/api/Tasks/statistics/drill', query: {
+          'kind': kind,
+          if (status != null) 'status': '${status.index}',
+          if (assigneeId != null) 'assigneeId': assigneeId,
+          if (_fromDate != null) 'fromDate': _fromDate!.toIso8601String(),
+          if (_toDate != null) 'toDate': _toDate!.toIso8601String(),
+          if (_filterBranchId != null && _filterBranchId!.isNotEmpty) 'branchId': _filterBranchId!,
+        });
+        if (r['isSuccess'] != true) {
+          throw Exception(r['message'] ?? 'Không tải được danh sách việc');
+        }
+        final list = (r['data'] is List ? r['data'] as List : const [])
+            .whereType<Map>()
+            .map((e) => WorkTask.fromJson(Map<String, dynamic>.from(e)))
+            .toList();
+        if (notDoneFirst) {
+          list.sort((a, b) => (a.status == WorkTaskStatus.completed ? 1 : 0)
+              .compareTo(b.status == WorkTaskStatus.completed ? 1 : 0));
+        }
+        return [
+          for (final t in list)
+            ReportDrillRow(
+              title: t.title,
+              subtitle: [
+                if (t.taskCode.isNotEmpty) t.taskCode,
+                (t.assigneeName ?? '').trim().isEmpty ? 'Chưa giao' : t.assigneeName!.trim(),
+                if (t.dueDate != null) 'Hạn ${df.format(t.dueDate!)}',
+              ].join(' · '),
+              trailing: t.isOverdue ? 'Quá hạn · ${getTaskStatusLabel(t.status)}' : getTaskStatusLabel(t.status),
+              trailingColor: t.isOverdue ? SboxColors.danger : _statusColor(t.status),
+              icon: _statusIcon(t.status),
+              onTap: () {
+                if (_tabCtrl.index != 0) _tabCtrl.animateTo(0);
+                _loadDetail(t.id);
+              },
+            ),
+        ];
+      },
+    );
+  }
+
   // ======================== STATISTICS VIEW ========================
   // Tổng kết các hoạt động: thống kê tổng quan, theo trạng thái, theo nhân viên
   Widget _buildStatsView() {
@@ -2341,8 +2401,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     s.totalTasks,
                     Icons.assignment,
                     HrmPageChrome.primaryNavy,
-                    onTap: () =>
-                        _navigateToFilteredList(clearFilters: true))),
+                    onTap: () => _drillStats('Tất cả công việc', kind: 'all'))),
             const SizedBox(width: 6),
             Expanded(
                 child: _statCard(
@@ -2350,8 +2409,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     s.completedCount,
                     Icons.check_circle,
                     HrmPageChrome.primaryNavy,
-                    onTap: () => _navigateToFilteredList(
-                        status: WorkTaskStatus.completed))),
+                    onTap: () => _drillStats('Việc đã xong',
+                        kind: 'status', status: WorkTaskStatus.completed))),
             const SizedBox(width: 6),
             Expanded(
                 child: _statCard(
@@ -2359,8 +2418,8 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     s.inProgressCount,
                     Icons.pending_actions,
                     HrmPageChrome.chipLight,
-                    onTap: () => _navigateToFilteredList(
-                        status: WorkTaskStatus.inProgress))),
+                    onTap: () => _drillStats('Việc đang làm',
+                        kind: 'status', status: WorkTaskStatus.inProgress))),
             const SizedBox(width: 6),
             Expanded(
                 child: _statCard(
@@ -2368,13 +2427,19 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                     s.overdueCount,
                     Icons.warning_amber,
                     SboxColors.danger,
-                    onTap: () =>
-                        _navigateToFilteredList(overdue: true))),
+                    onTap: () => _drillStats('Việc quá hạn',
+                        kind: 'overdue',
+                        note: 'Chưa xong / chưa hủy và đã qua hạn.'))),
           ],
         ),
         const SizedBox(height: 12),
         // --- Completion Rate ---
         _sectionCard('Tỉ lệ hoàn thành', Icons.pie_chart,
+            onTap: () => _drillStats('Tỉ lệ hoàn thành',
+                kind: 'all',
+                notDoneFirst: true,
+                note: 'Tỉ lệ = ${s.completedCount} việc xong ÷ ${s.totalTasks} việc tạo trong kỳ. '
+                    'Tiến độ TB = trung bình % tiến độ của mọi việc. Việc chưa xong lên đầu.'),
             child: Column(children: [
               Row(children: [
                 Expanded(
@@ -2404,32 +2469,32 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
               if (s.assignedCount > 0)
                 _statBar('Chờ xác nhận', s.assignedCount, s.totalTasks,
                     HrmPageChrome.chipLight,
-                    onTap: () => _navigateToFilteredList(
-                        status: WorkTaskStatus.assigned)),
+                    onTap: () => _drillStats('Chờ xác nhận',
+                        kind: 'status', status: WorkTaskStatus.assigned)),
               _statBar('Chờ làm', s.todoCount, s.totalTasks,
                   SboxColors.slate400,
-                  onTap: () =>
-                      _navigateToFilteredList(status: WorkTaskStatus.todo)),
+                  onTap: () => _drillStats('Chờ làm',
+                      kind: 'status', status: WorkTaskStatus.todo)),
               _statBar('Đang làm', s.inProgressCount, s.totalTasks,
                   HrmPageChrome.primaryNavy,
-                  onTap: () => _navigateToFilteredList(
-                      status: WorkTaskStatus.inProgress)),
+                  onTap: () => _drillStats('Đang làm',
+                      kind: 'status', status: WorkTaskStatus.inProgress)),
               _statBar('Đang xem xét', s.inReviewCount, s.totalTasks,
                   HrmPageChrome.primaryNavy,
-                  onTap: () => _navigateToFilteredList(
-                      status: WorkTaskStatus.inReview)),
+                  onTap: () => _drillStats('Đang xem xét',
+                      kind: 'status', status: WorkTaskStatus.inReview)),
               _statBar('Hoàn thành', s.completedCount, s.totalTasks,
                   HrmPageChrome.primaryNavy,
-                  onTap: () => _navigateToFilteredList(
-                      status: WorkTaskStatus.completed)),
+                  onTap: () => _drillStats('Hoàn thành',
+                      kind: 'status', status: WorkTaskStatus.completed)),
               _statBar('Tạm hoãn', s.onHoldCount, s.totalTasks,
                   HrmPageChrome.chipLight,
-                  onTap: () => _navigateToFilteredList(
-                      status: WorkTaskStatus.onHold)),
+                  onTap: () => _drillStats('Tạm hoãn',
+                      kind: 'status', status: WorkTaskStatus.onHold)),
               _statBar('Đã hủy', s.cancelledCount, s.totalTasks,
                   SboxColors.danger,
-                  onTap: () => _navigateToFilteredList(
-                      status: WorkTaskStatus.cancelled)),
+                  onTap: () => _drillStats('Đã hủy',
+                      kind: 'status', status: WorkTaskStatus.cancelled)),
             ])),
         const SizedBox(height: 12),
         // --- Theo nhân viên (thời gian nhân viên) ---
@@ -2437,7 +2502,16 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
           _sectionCard('Thống kê theo nhân viên', Icons.people,
               child: Column(
                 children: s.byAssignee!
-                    .map((a) => Container(
+                    .map((a) => InkWell(
+                        borderRadius: BorderRadius.circular(10),
+                        onTap: () => _drillStats(
+                            'Việc của ${a.employeeName?.trim() ?? 'nhân viên'}',
+                            kind: 'assignee',
+                            assigneeId: a.employeeId,
+                            notDoneFirst: true,
+                            note: 'Việc người này phụ trách chính, tạo trong kỳ. '
+                                '% = việc xong ÷ tổng việc.'),
+                        child: Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
@@ -2501,7 +2575,7 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
                               ]),
                             ),
                           ]),
-                        ))
+                        )))
                     .toList(),
               )),
       ]),
@@ -2547,7 +2621,18 @@ class _TaskManagementScreenState extends State<TaskManagementScreen>
     );
   }
 
-  Widget _sectionCard(String title, IconData icon, {required Widget child}) {
+  Widget _sectionCard(String title, IconData icon,
+      {required Widget child, VoidCallback? onTap}) {
+    final card = _sectionCardBody(title, icon, child: child);
+    if (onTap == null) return card;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: card,
+    );
+  }
+
+  Widget _sectionCardBody(String title, IconData icon, {required Widget child}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),

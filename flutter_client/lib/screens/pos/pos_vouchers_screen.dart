@@ -26,6 +26,9 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
   List<PosVoucher> _items = [];
   bool _loading = true;
 
+  /// Bấm ô số đầu màn → lọc bảng bên dưới: null = tất cả, 'running' = đang chạy, 'used' = đã có lượt dùng.
+  String? _kpiFilter;
+
   @override
   void initState() {
     super.initState();
@@ -306,16 +309,39 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
           ],
         ),
         kpis: [
-          SboxKpi(label: 'Voucher', value: SboxFmt.number(_items.length), icon: Icons.confirmation_number_outlined),
-          SboxKpi(label: 'Đang chạy', value: SboxFmt.number(running), icon: Icons.play_circle_outline, tone: SboxTone.success),
-          SboxKpi(label: 'Lượt đã dùng', value: SboxFmt.number(used), icon: Icons.receipt_long_outlined, tone: SboxTone.violet),
+          SboxKpi(label: 'Voucher', value: SboxFmt.number(_items.length), icon: Icons.confirmation_number_outlined,
+              onTap: () => setState(() => _kpiFilter = null)),
+          SboxKpi(label: 'Đang chạy', value: SboxFmt.number(running), icon: Icons.play_circle_outline, tone: SboxTone.success,
+              onTap: () => setState(() => _kpiFilter = _kpiFilter == 'running' ? null : 'running')),
+          SboxKpi(label: 'Lượt đã dùng', value: SboxFmt.number(used), icon: Icons.receipt_long_outlined, tone: SboxTone.violet,
+              note: 'Cộng cột «Đã dùng»',
+              onTap: () => setState(() => _kpiFilter = _kpiFilter == 'used' ? null : 'used')),
         ],
         maxKpiColumns: 3,
-        table: SboxCard(
+        table: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+          if (_kpiFilter != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Align(alignment: Alignment.centerLeft, child: InputChip(
+                label: Text(tr(_kpiFilter == 'running'
+                    ? 'Đang chạy: $running voucher'
+                    : 'Đã có lượt dùng: $used lượt')),
+                onDeleted: () => setState(() => _kpiFilter = null),
+              )),
+            ),
+          SboxCard(
           padding: EdgeInsets.zero,
           child: SboxDataTable<PosVoucher>(
             loading: _loading,
-            rows: _items,
+            rows: switch (_kpiFilter) {
+              'running' => _items.where((v) => _status(v).$1 == 'Đang chạy').toList(),
+              'used' => _items.where((v) => v.usedCount > 0).toList()
+                ..sort((a, b) => b.usedCount.compareTo(a.usedCount)),
+              _ => _items,
+            },
             pageSize: 50,
             onRowTap: canEdit ? (v) => _openEditor(v) : null,
             emptyTitle: 'Chưa có voucher',
@@ -375,6 +401,7 @@ class _PosVouchersScreenState extends State<PosVouchersScreen> {
             ],
           ),
         ),
+        ]),
       ),
     );
   }

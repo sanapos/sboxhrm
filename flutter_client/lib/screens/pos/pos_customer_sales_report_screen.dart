@@ -10,6 +10,7 @@ import '../../utils/pos_report_export.dart';
 import '../../utils/pos_report_open.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../widgets/sbox/sbox_ui.dart';
@@ -63,6 +64,52 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
 
   double _n(dynamic v) => v is num ? v.toDouble() : double.tryParse('$v') ?? 0;
 
+  void _openCustomer(Map<String, dynamic> r) {
+    final cid = '${r['customerId'] ?? r['id'] ?? ''}';
+    unawaited(PosReportOpen.sales(
+      context,
+      from: _time.from,
+      to: _time.to,
+      customerId: cid.isEmpty ? null : cid,
+      customerName: r['name']?.toString(),
+    ));
+  }
+
+  /// Chip → các dòng khách (đã có trên màn) cộng lại ra số chip. [field] = revenue / profit / null (đếm).
+  void _drill(
+    String title,
+    List<Map<String, dynamic>> items, {
+    String? field,
+    String? note,
+    String? chipTotal,
+  }) {
+    final list = [...items]..sort((a, b) => _n(b[field ?? 'revenue']).compareTo(_n(a[field ?? 'revenue'])));
+    final sum = field == null ? 0.0 : list.fold<double>(0, (s, r) => s + _n(r[field]));
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: _time.displayLabel,
+      note: note,
+      total: chipTotal ?? (field == null ? null : 'Tổng ${_moneyFmt.format(sum)}'),
+      emptyText: 'Không có khách',
+      rows: [
+        for (final r in list)
+          ReportDrillRow(
+            title: r['name']?.toString() ?? '—',
+            subtitle: [
+              if ('${r['phone'] ?? r['customerCode'] ?? ''}'.trim().isNotEmpty) '${r['phone'] ?? r['customerCode']}',
+              '${r['orderCount'] ?? 0} đơn',
+              if (field != 'revenue') 'DT ${_moneyFmt.format(_n(r['revenue']))}',
+              if (r['isNew'] == true) 'Khách mới',
+            ].join(' · '),
+            trailing: _moneyFmt.format(_n(r[field ?? 'revenue'])),
+            trailingColor: field == null ? SboxColors.slate600 : null,
+            onTap: () => _openCustomer(r),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = ((_data?['items'] as List?) ?? [])
@@ -79,16 +126,26 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
     final oldRev = items.where((r) => r['customerId'] != null && r['isNew'] != true).fold<double>(0, (a, r) => a + _n(r['revenue']));
     final insight = SboxInsightPanel(
       kpis: [
-        SboxKpi(label: 'Doanh thu từ khách', value: SboxFmt.money(rev), icon: Icons.payments_outlined, note: _time.displayLabel),
-        SboxKpi(label: 'Lợi nhuận', value: SboxFmt.money(_n(_data?['totalProfit'])), icon: Icons.trending_up_rounded, tone: SboxTone.success),
+        SboxKpi(label: 'Doanh thu từ khách', value: SboxFmt.money(rev), icon: Icons.payments_outlined, note: _time.displayLabel,
+            onTap: () => _drill('Doanh thu từ khách', items, field: 'revenue',
+                note: walkInRev > 0 ? 'Gồm khách lẻ (đơn không gắn khách) ${_moneyFmt.format(walkInRev)}.' : null)),
+        SboxKpi(label: 'Lợi nhuận', value: SboxFmt.money(_n(_data?['totalProfit'])), icon: Icons.trending_up_rounded, tone: SboxTone.success,
+            onTap: () => _drill('Lợi nhuận theo khách', items, field: 'profit')),
         SboxKpi(label: 'Khách mua', value: SboxFmt.number(custCount), icon: Icons.people_outline, tone: SboxTone.violet,
-            note: '${SboxFmt.number(_n(_data?['newCustomerCount']))} khách mới'),
+            note: '${SboxFmt.number(_n(_data?['newCustomerCount']))} khách mới',
+            onTap: () => _drill('Khách mua', [for (final r in items) if ('${r['customerId'] ?? ''}'.isNotEmpty) r],
+                note: 'Khách có gắn mã trên đơn; khách lẻ không tính. Số tiền bên phải là doanh thu.')),
         SboxKpi(
             label: 'DT TB / khách',
             value: SboxFmt.money(custCount > 0 ? namedRev / custCount : 0),
             icon: Icons.person_outline,
             tone: SboxTone.neutral,
-            note: walkInRev > 0 ? 'Khách lẻ ${SboxFmt.money(walkInRev)}' : null),
+            note: walkInRev > 0 ? 'Khách lẻ ${SboxFmt.money(walkInRev)}' : null,
+            onTap: () => _drill('DT TB / khách', [for (final r in items) if ('${r['customerId'] ?? ''}'.isNotEmpty) r],
+                field: 'revenue',
+                note: 'DT TB / khách = (Doanh thu − khách lẻ) ÷ số khách = (${_moneyFmt.format(rev)} − '
+                    '${_moneyFmt.format(walkInRev)}) ÷ ${SboxFmt.number(custCount)} = '
+                    '${_moneyFmt.format(custCount > 0 ? namedRev / custCount : 0)}.')),
       ],
       charts: [
         SboxChartCard(
@@ -160,6 +217,12 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
                   title: 'Tổng kỳ',
                   child: PosReportMetricTiles(
                     moneyFmt: _moneyFmt,
+                    onTileTap: (i) => switch (i) {
+                      0 => _drill('Doanh thu', items, field: 'revenue'),
+                      1 => _drill('Lợi nhuận', items, field: 'profit'),
+                      _ => _drill('Khách mới', [for (final r in items) if (r['isNew'] == true) r],
+                          note: 'Khách mua lần đầu trong kỳ. Số tiền bên phải là doanh thu.'),
+                    },
                     tiles: [
                       (
                         label: 'DT',
@@ -203,15 +266,8 @@ class _PosCustomerSalesReportScreenState extends State<PosCustomerSalesReportScr
   Widget _row(Map<String, dynamic> r) {
     final last = parseApiUtcDateTime(r['lastPurchaseAt']);
     final isNew = r['isNew'] == true;
-    final cid = '${r['customerId'] ?? r['id'] ?? ''}';
     return InkWell(
-      onTap: () => unawaited(PosReportOpen.sales(
-        context,
-        from: _time.from,
-        to: _time.to,
-        customerId: cid.isEmpty ? null : cid,
-        customerName: r['name']?.toString(),
-      )),
+      onTap: () => _openCustomer(r),
       child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

@@ -3,8 +3,10 @@ import 'package:flutter/services.dart';
 
 import '../../../l10n/app_tr.dart';
 import '../../../services/api_service.dart';
+import '../../../widgets/reports/report_drill_sheet.dart';
 import '../../../widgets/sbox/sbox_ui.dart';
 import '../service_packages_tab.dart';
+import 'sa_ops_v2.dart' show saDrillKeys, saDrillStores;
 import 'sa_v2_common.dart';
 
 /// Gói dịch vụ v2: danh sách gói (giá, dòng sản phẩm, số cửa hàng, key, cảnh báo) + trình sửa gói.
@@ -46,6 +48,66 @@ class PackagesV2TabState extends State<PackagesV2Tab> {
           ? (rs[1]['data'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
           : [];
     });
+  }
+
+  /// Danh sách gói đứng sau một ô đếm; bấm gói → mở trình sửa gói.
+  void _packageSheet(String title, List<Map<String, dynamic>> list, {String? note, bool problems = false}) {
+    showReportDrillSheet(
+      context,
+      title: title,
+      note: note,
+      emptyText: 'Không có gói',
+      rows: [
+        for (final p in list)
+          ReportDrillRow(
+            title: '${p['name'] ?? ''}',
+            icon: Icons.inventory_2_outlined,
+            subtitle: problems
+                ? [
+                    if ((p['missing'] as List? ?? []).isNotEmpty)
+                      'Thiếu phụ thuộc: ${(p['missing'] as List).map((m) => m is Map ? '${m['code']} → ${m['missing']}' : '$m').join(', ')}',
+                    if ((p['unknown'] as List? ?? []).isNotEmpty) 'Mã không còn dùng: ${(p['unknown'] as List).join(', ')}',
+                  ].join(' · ')
+                : '${saProductLineLabel('${p['productLine'] ?? 'both'}')} · '
+                    '${p['monthlyPrice'] == null ? 'Giá: liên hệ' : '${saMoney(p['monthlyPrice'] as num)} / tháng'}',
+            trailing: '${p['stores'] ?? 0} cửa hàng',
+            onTap: () => _edit(p),
+          ),
+      ],
+    );
+  }
+
+  /// «Cửa hàng dùng gói»: tách theo gói (cộng = số trên ô) + dòng cửa hàng chưa gán gói (không tính vào tổng).
+  void _storesByPackage(int totalStores) {
+    final list = packages.where((p) => ((p['stores'] as num?) ?? 0) > 0).toList()
+      ..sort((a, b) => ((b['stores'] as num?) ?? 0).compareTo((a['stores'] as num?) ?? 0));
+    final unassigned = _allStores == null ? 0 : _allStores! - totalStores;
+    showReportDrillSheet(
+      context,
+      title: 'Cửa hàng dùng gói',
+      note: 'Số cửa hàng đang gán từng gói. Bấm một gói để xem danh sách cửa hàng.',
+      countLabel: '${list.length} gói',
+      total: 'Tổng $totalStores cửa hàng',
+      footer: unassigned > 0 ? 'Ngoài ra $unassigned cửa hàng chưa gán gói (dòng cuối, không tính vào tổng).' : null,
+      rows: [
+        for (final p in list)
+          ReportDrillRow(
+            title: '${p['name'] ?? ''}',
+            icon: Icons.inventory_2_outlined,
+            subtitle: '${p['activeStores'] ?? 0} hoạt động · ${p['expiringStores'] ?? 0} sắp hết hạn',
+            trailing: '${p['stores'] ?? 0}',
+            onTap: () => saDrillStores(context, title: 'Cửa hàng · ${p['name']}', query: {'packageId': '${p['id']}'}),
+          ),
+        if (unassigned > 0)
+          ReportDrillRow(
+            title: 'Chưa gán gói',
+            icon: Icons.help_outline,
+            trailing: '$unassigned',
+            trailingColor: SboxColors.slate500,
+            onTap: () => saDrillStores(context, title: 'Cửa hàng chưa gán gói', query: const {'noPackage': 'true'}),
+          ),
+      ],
+    );
   }
 
   Future<void> _edit(Map<String, dynamic>? pkg, {bool copy = false}) async {
@@ -92,12 +154,29 @@ class PackagesV2TabState extends State<PackagesV2Tab> {
           ),
           const SizedBox(height: SboxSpace.md),
           SboxKpiStrip(maxColumns: 4, items: [
-            SboxKpi(label: 'Gói đang bán', value: '${packages.where((p) => p['isActive'] == true && p['isPublic'] == true).length}', icon: Icons.storefront_outlined),
-            SboxKpi(label: 'Gói gán tay', value: '${packages.where((p) => p['isPublic'] != true).length}', icon: Icons.lock_outline, tone: SboxTone.neutral),
+            SboxKpi(
+                label: 'Gói đang bán',
+                value: '${packages.where((p) => p['isActive'] == true && p['isPublic'] == true).length}',
+                icon: Icons.storefront_outlined,
+                onTap: () => _packageSheet('Gói đang bán', packages.where((p) => p['isActive'] == true && p['isPublic'] == true).toList(),
+                    note: 'Gói đang bật và hiện trên trang đăng ký.')),
+            SboxKpi(
+                label: 'Gói gán tay',
+                value: '${packages.where((p) => p['isPublic'] != true).length}',
+                icon: Icons.lock_outline,
+                tone: SboxTone.neutral,
+                onTap: () => _packageSheet('Gói gán tay', packages.where((p) => p['isPublic'] != true).toList(),
+                    note: 'Gói không hiện trên trang đăng ký, chỉ Super Admin gán cho cửa hàng.')),
             SboxKpi(label: 'Cửa hàng dùng gói', value: '$totalStores', icon: Icons.store_mall_directory_outlined, tone: SboxTone.success,
-                note: _allStores != null && _allStores! > totalStores ? '${_allStores! - totalStores} cửa hàng chưa gán gói' : null),
+                note: _allStores != null && _allStores! > totalStores ? '${_allStores! - totalStores} cửa hàng chưa gán gói' : null,
+                onTap: () => _storesByPackage(totalStores)),
             SboxKpi(label: 'Gói cần kiểm tra', value: '$warn', icon: Icons.warning_amber_rounded, tone: warn > 0 ? SboxTone.warning : SboxTone.neutral,
-                note: 'Thiếu chức năng phụ thuộc / mã cũ'),
+                note: 'Thiếu chức năng phụ thuộc / mã cũ',
+                onTap: () => _packageSheet(
+                    'Gói cần kiểm tra',
+                    packages.where((p) => (p['missing'] as List? ?? []).isNotEmpty || (p['unknown'] as List? ?? []).isNotEmpty).toList(),
+                    note: 'Gói có chức năng thiếu chức năng phụ thuộc, hoặc còn mã chức năng không dùng nữa. Bấm một gói để sửa.',
+                    problems: true)),
           ]),
           const SizedBox(height: SboxSpace.md),
           Row(children: [
@@ -133,6 +212,12 @@ class _PackageCard extends StatelessWidget {
   final SaCatalog? catalog;
   final VoidCallback onEdit;
   final VoidCallback onCopy;
+
+  static Widget _link(String text, VoidCallback onTap) => InkWell(
+        onTap: onTap,
+        child: Text(text,
+            style: SboxType.captionStyle().copyWith(decoration: TextDecoration.underline, decorationStyle: TextDecorationStyle.dotted)),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -203,10 +288,24 @@ class _PackageCard extends StatelessWidget {
         const SizedBox(height: SboxSpace.sm),
         Row(children: [
           Expanded(
-            child: Text(
-              '${pkg['stores'] ?? 0} cửa hàng (${pkg['activeStores'] ?? 0} hoạt động, ${pkg['expiringStores'] ?? 0} sắp hết hạn) · ${pkg['unusedKeys'] ?? 0} key chưa dùng',
-              style: SboxType.captionStyle(),
-            ),
+            // Từng số bấm ra danh sách cửa hàng / key đứng sau số đó.
+            child: Wrap(spacing: 4, runSpacing: 2, crossAxisAlignment: WrapCrossAlignment.center, children: [
+              _link('${pkg['stores'] ?? 0} cửa hàng',
+                  () => saDrillStores(context, title: 'Cửa hàng · ${pkg['name']}', query: {'packageId': '${pkg['id']}'})),
+              _link('(${pkg['activeStores'] ?? 0} hoạt động,',
+                  () => saDrillStores(context,
+                      title: 'Cửa hàng hoạt động · ${pkg['name']}',
+                      query: {'packageId': '${pkg['id']}', 'kind': 'active'},
+                      note: 'Đang hoạt động, không khóa, chưa hết hạn.')),
+              _link('${pkg['expiringStores'] ?? 0} sắp hết hạn)',
+                  () => saDrillStores(context,
+                      title: 'Cửa hàng sắp hết hạn · ${pkg['name']}',
+                      query: {'packageId': '${pkg['id']}', 'kind': 'expiring'},
+                      note: 'Đang hoạt động, hết hạn trong 7 ngày tới.')),
+              Text('·', style: SboxType.captionStyle()),
+              _link('${pkg['unusedKeys'] ?? 0} key chưa dùng',
+                  () => saDrillKeys(context, title: 'Key chưa dùng · ${pkg['name']}', status: 'unused', packageId: '${pkg['id']}')),
+            ]),
           ),
           IconButton(tooltip: tr('Tạo bản sao'), icon: const Icon(Icons.copy_all_outlined, size: 18), onPressed: onCopy),
           SboxButton.secondary(label: 'Sửa', icon: Icons.edit_outlined, size: SboxButtonSize.sm, onPressed: onEdit),

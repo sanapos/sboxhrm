@@ -21,6 +21,7 @@ import '../widgets/hrm_mini_stat_chip.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/reports/report_drill_sheet.dart';
 const _theme = HrmPageChrome.primaryNavy;
 
 class DownloadedDocumentsScreen extends StatefulWidget {
@@ -381,11 +382,16 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
         children: [
           HrmPageChrome.horizontalStatCards(
             cards: [
-              _statCard('Tổng tệp', '$total', Icons.folder_open),
-              _statCard('Excel', '$excel', Icons.table_chart),
-              _statCard('PDF/Word/CSV', '$docs', Icons.description),
-              _statCard('Ảnh', '$images', Icons.image),
-              _statCard('Dung lượng', _formatSize(_svc.totalBytes), Icons.sd_storage_outlined),
+              _statCard('Tổng tệp', '$total', Icons.folder_open,
+                  onTap: () => _drillFiles('Tất cả tệp', (_) => true)),
+              _statCard('Excel', '$excel', Icons.table_chart,
+                  onTap: () => _drillFiles('Tệp Excel', (e) => e.isExcel)),
+              _statCard('PDF/Word/CSV', '$docs', Icons.description,
+                  onTap: () => _drillFiles('Tệp PDF / Word / CSV', (e) => e.isPdf || e.isWord || e.isCsv)),
+              _statCard('Ảnh', '$images', Icons.image,
+                  onTap: () => _drillFiles('Ảnh', (e) => e.isImage)),
+              _statCard('Dung lượng', _formatSize(_svc.totalBytes), Icons.sd_storage_outlined,
+                  onTap: () => _drillFiles('Dung lượng theo tệp', (_) => true, bySize: true)),
             ],
             minCardWidth: 100,
             gap: 8,
@@ -411,7 +417,42 @@ class _DownloadedDocumentsScreenState extends State<DownloadedDocumentsScreen> {
         _searchCtrl.clear();
       });
 
-  Widget _statCard(String label, String value, IconData icon) {
+  /// Ô số liệu → đúng các tệp đã đếm (toàn bộ tệp đã lưu, không theo bộ lọc bên dưới).
+  void _drillFiles(String title, bool Function(DownloadedDocument d) where, {bool bySize = false}) {
+    final list = _svc.items.where(where).toList();
+    list.sort(bySize ? (a, b) => b.sizeBytes.compareTo(a.sizeBytes) : (a, b) => b.downloadedAt.compareTo(a.downloadedAt));
+    showReportDrillSheet(
+      context,
+      title: title,
+      total: bySize ? 'Tổng ${_formatSize(list.fold<int>(0, (s, d) => s + d.sizeBytes))}' : null,
+      rows: [
+        for (final d in list)
+          ReportDrillRow(
+            title: d.displayName,
+            subtitle: '${tr(d.category)} · ${_fmt.format(d.downloadedAt)}',
+            trailing: _formatSize(d.sizeBytes),
+            icon: d.isImage
+                ? Icons.image_outlined
+                : d.isExcel
+                    ? Icons.table_chart_outlined
+                    : Icons.description_outlined,
+            onTap: () => _open(d),
+          ),
+      ],
+    );
+  }
+
+  Widget _statCard(String label, String value, IconData icon, {VoidCallback? onTap}) {
+    if (onTap != null) {
+      return Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: _statCard(label, value, icon),
+        ),
+      );
+    }
     return HrmStatSummaryCard(
       icon: icon,
       value: value,
