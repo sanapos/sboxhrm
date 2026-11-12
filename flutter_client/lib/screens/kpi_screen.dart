@@ -26,6 +26,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
 import 'kpi/kpi_report_view.dart';
+import '../widgets/reports/report_drill_sheet.dart';
 import '../utils/api_datetime.dart';
 import '../utils/vietnamese_font.dart';
 class KpiScreen extends StatefulWidget {
@@ -1272,21 +1273,42 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                       ('TB', '${avgPct.toStringAsFixed(0)}%'),
                       ('Lương', _cur.format(totalBonus)),
                     ];
+                    final reached = filteredTargets
+                        .where((t) => (t['completionRate'] ?? 0) >= 100)
+                        .toList();
+                    final notReached = filteredTargets
+                        .where((t) =>
+                            (t['completionRate'] ?? 0) < 100 &&
+                            t['actualValue'] != null)
+                        .toList();
+                    final taps = <VoidCallback>[
+                      () => _drillTargets(
+                          'Nhân viên có chỉ tiêu', filteredTargets),
+                      () => _drillTargets('Đạt mục tiêu', reached),
+                      () => _drillTargets('Chưa đạt mục tiêu', notReached,
+                          worstFirst: true,
+                          note: 'Đã có doanh số nhưng hoàn thành dưới 100%.'),
+                      () => _drillTargets(
+                          'Tiến độ theo nhân viên', filteredTargets,
+                          worstFirst: true,
+                          note:
+                              'Tiến độ TB = tổng % hoàn thành ÷ ${filteredTargets.length} chỉ tiêu (chưa có doanh số tính 0%). Thấp nhất lên đầu.'),
+                      () => _hasPersistedSalaries
+                          ? _drillSalaries(
+                              'Tổng lương (gross)', _filteredSalaries)
+                          : _drillPreviewSalary(filteredTargets),
+                    ];
                     final cards = [
                       _statCard('Nhân viên', '${filteredTargets.length}',
-                          Icons.people_outline),
-                      _statCard(
-                          'Đạt mục tiêu',
-                          '${filteredTargets.where((t) => (t['completionRate'] ?? 0) >= 100).length}',
-                          Icons.check_circle_outline),
-                      _statCard(
-                          'Chưa đạt',
-                          '${filteredTargets.where((t) => (t['completionRate'] ?? 0) < 100 && t['actualValue'] != null).length}',
-                          Icons.warning_amber_outlined),
+                          Icons.people_outline, null, taps[0]),
+                      _statCard('Đạt mục tiêu', '${reached.length}',
+                          Icons.check_circle_outline, null, taps[1]),
+                      _statCard('Chưa đạt', '${notReached.length}',
+                          Icons.warning_amber_outlined, null, taps[2]),
                       _statCard('Tiến độ TB', '${avgPct.toStringAsFixed(1)}%',
-                          Icons.analytics_outlined),
+                          Icons.analytics_outlined, null, taps[3]),
                       _statCard('Tổng lương', _cur.format(totalBonus),
-                          Icons.payments_outlined),
+                          Icons.payments_outlined, null, taps[4]),
                     ];
                     if (isNarrow) {
                       return SingleChildScrollView(
@@ -1297,7 +1319,8 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
                               if (i > 0) const SizedBox(width: 6),
                               SizedBox(
                                 width: i == mini.length - 1 ? 160 : 92,
-                                child: _miniStat(mini[i].$1, mini[i].$2),
+                                child: _miniStat(mini[i].$1, mini[i].$2,
+                                    onTap: taps[i]),
                               ),
                             ],
                           ],
@@ -2860,26 +2883,30 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
       {bool compact = false}) {
     return LayoutBuilder(builder: (context, constraints) {
       final mobileLayout = compact || constraints.maxWidth < 600;
+      final reached =
+          filtered.where((t) => (t['completionRate'] ?? 0) >= 100).toList();
+      final mid = filtered.where((t) {
+        final p = (t['completionRate'] ?? 0) as num;
+        return p >= 70 && p < 100;
+      }).toList();
+      final low = filtered.where((t) {
+        final p = (t['completionRate'] ?? 0) as num;
+        return t['actualValue'] != null && p < 70;
+      }).toList();
+      final noSales = filtered.where((t) => t['actualValue'] == null).toList();
       final items = [
-        _miniStat('Tổng NV', '${filtered.length}'),
-        _miniStat(
-            'Đạt ≥100%',
-            '${filtered.where((t) => (t['completionRate'] ?? 0) >= 100).length}'),
-        _miniStat(
-            '70-99%',
-            '${filtered.where((t) {
-              final p = (t['completionRate'] ?? 0) as num;
-              return p >= 70 && p < 100;
-            }).length}'),
-        _miniStat(
-            '<70%',
-            '${filtered.where((t) {
-              final p = (t['completionRate'] ?? 0) as num;
-              return t['actualValue'] != null && p < 70;
-            }).length}'),
-        _miniStat(
-            'Chưa có DS',
-            '${filtered.where((t) => t['actualValue'] == null).length}'),
+        _miniStat('Tổng NV', '${filtered.length}',
+            onTap: () => _drillTargets('Nhân viên có chỉ tiêu', filtered)),
+        _miniStat('Đạt ≥100%', '${reached.length}',
+            onTap: () => _drillTargets('Đạt ≥100%', reached)),
+        _miniStat('70-99%', '${mid.length}',
+            onTap: () => _drillTargets('Đạt 70-99%', mid, worstFirst: true)),
+        _miniStat('<70%', '${low.length}',
+            onTap: () => _drillTargets('Đạt dưới 70%', low,
+                worstFirst: true,
+                note: 'Đã có doanh số, hoàn thành dưới 70%.')),
+        _miniStat('Chưa có DS', '${noSales.length}',
+            onTap: () => _drillTargets('Chưa có doanh số', noSales)),
       ];
       if (mobileLayout) {
         return Wrap(
@@ -4138,13 +4165,26 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
           const SizedBox(height: 12),
           HrmPageChrome.horizontalStatCards(
             cards: [
-              _statCard('Nhân viên', '${rows.length}', Icons.people_outline),
+              _statCard(
+                  'Nhân viên',
+                  '${rows.length}',
+                  Icons.people_outline,
+                  null,
+                  () => _drillSalaries('Nhân viên có bảng lương', rows,
+                      showTotal: false)),
               _statCard('Tổng gross', _cur.format(totalGross),
-                  Icons.payments_outlined),
+                  Icons.payments_outlined, null,
+                  () => _drillSalaries('Tổng gross', rows)),
               _statCard('Thực nhận', _cur.format(totalNet),
-                  Icons.account_balance_wallet_outlined),
-              _statCard('Chờ duyệt', '$pendingCount',
-                  Icons.pending_actions_outlined),
+                  Icons.account_balance_wallet_outlined, null,
+                  () => _drillSalaries('Thực nhận', rows, field: 'netIncome')),
+              _statCard(
+                  'Chờ duyệt',
+                  '$pendingCount',
+                  Icons.pending_actions_outlined,
+                  null,
+                  () => _drillSalaries('Bảng lương chờ duyệt',
+                      rows.where((s) => s['isApproved'] != true).toList())),
             ],
           ),
           const SizedBox(height: 16),
@@ -4982,8 +5022,120 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     }
   }
 
-  Widget _statCard(String label, String value, IconData icon, [Color? accent]) {
+  // ── Bấm chip số liệu → danh sách dòng đã dùng để tính ──
+  double _pctOf(Map<String, dynamic> t) =>
+      ((t['completionRate'] ?? 0) as num).toDouble();
+
+  Color _pctColor(double p) => p >= 100
+      ? _green
+      : p >= 70
+          ? _blue
+          : _red;
+
+  String? get _periodLabel => _currentPeriod?['name']?.toString();
+
+  void _drillTargets(String title, List<Map<String, dynamic>> list,
+      {String? note, bool worstFirst = false}) {
+    final sorted = List<Map<String, dynamic>>.from(list);
+    if (worstFirst) {
+      sorted.sort((a, b) => _pctOf(a).compareTo(_pctOf(b)));
+    } else {
+      sorted.sort((a, b) => (a['employeeName'] ?? '')
+          .toString()
+          .compareTo((b['employeeName'] ?? '').toString()));
+    }
+    String n(dynamic v) => _cur.format(((v ?? 0) as num));
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: _periodLabel,
+      note: note,
+      rows: [
+        for (final t in sorted)
+          ReportDrillRow(
+            title: t['employeeName']?.toString() ?? '',
+            subtitle: [
+              if ((t['department'] ?? '').toString().isNotEmpty)
+                t['department'].toString(),
+              t['actualValue'] == null
+                  ? 'Chưa có doanh số · chỉ tiêu ${n(t['targetValue'])}'
+                  : '${n(t['actualValue'])} / ${n(t['targetValue'])}',
+            ].join(' · '),
+            trailing: t['actualValue'] == null
+                ? '—'
+                : '${_pctOf(t).toStringAsFixed(1)}%',
+            trailingColor:
+                t['actualValue'] == null ? null : _pctColor(_pctOf(t)),
+          ),
+      ],
+    );
+  }
+
+  void _drillSalaries(String title, List<Map<String, dynamic>> list,
+      {String field = 'grossIncome', bool showTotal = true}) {
+    double v(Map<String, dynamic> r) => ((r[field] ?? 0) as num).toDouble();
+    final sorted = List<Map<String, dynamic>>.from(list)
+      ..sort((a, b) => v(b).compareTo(v(a)));
+    final total = sorted.fold<double>(0, (s, r) => s + v(r));
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: _periodLabel,
+      total: showTotal ? 'Tổng ${_cur.format(total)}' : null,
+      rows: [
+        for (final r in sorted)
+          ReportDrillRow(
+            title: r['employeeName']?.toString() ?? '',
+            subtitle: [
+              if ((r['employeeCode'] ?? '').toString().isNotEmpty)
+                r['employeeCode'].toString(),
+              r['isApproved'] == true ? 'Đã duyệt' : 'Chờ duyệt',
+            ].join(' · '),
+            trailing: _cur.format(v(r)),
+          ),
+      ],
+    );
+  }
+
+  void _drillPreviewSalary(List<Map<String, dynamic>> list) {
+    final sorted = List<Map<String, dynamic>>.from(list)
+      ..sort((a, b) =>
+          _previewSalaryTotal(b).compareTo(_previewSalaryTotal(a)));
+    final total =
+        sorted.fold<double>(0, (s, t) => s + _previewSalaryTotal(t));
+    showReportDrillSheet(
+      context,
+      title: 'Lương KPI tạm tính',
+      subtitle: _periodLabel,
+      note: 'Chưa có bảng lương đã tính: mỗi dòng = lương hoàn thành theo % đạt + thưởng bậc + thưởng / phạt, không âm.',
+      total: 'Tổng ${_cur.format(total)}',
+      rows: [
+        for (final t in sorted)
+          ReportDrillRow(
+            title: t['employeeName']?.toString() ?? '',
+            subtitle: 'Đạt ${_pctOf(t).toStringAsFixed(1)}%',
+            trailing: _cur.format(_previewSalaryTotal(t)),
+          ),
+      ],
+    );
+  }
+
+  Widget _statCard(String label, String value, IconData icon,
+      [Color? accent, VoidCallback? onTap]) {
     final c = accent ?? _accent;
+    final card = _statCardBody(label, value, icon, c);
+    if (onTap == null) return card;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: card,
+      ),
+    );
+  }
+
+  Widget _statCardBody(String label, String value, IconData icon, Color c) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -5029,7 +5181,20 @@ class _KpiScreenState extends State<KpiScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _miniStat(String label, String value) {
+  Widget _miniStat(String label, String value, {VoidCallback? onTap}) {
+    final box = _miniStatBody(label, value);
+    if (onTap == null) return box;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: box,
+      ),
+    );
+  }
+
+  Widget _miniStatBody(String label, String value) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
       decoration: BoxDecoration(

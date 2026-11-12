@@ -116,7 +116,7 @@ public class HrFinPayrollAdjDto
 /// </summary>
 [ApiController]
 [Route("api/hr-finance")]
-public class HrFinanceController(
+public partial class HrFinanceController(
     ZKTecoDbContext db,
     IFileStorageService storage,
     ISystemNotificationService notifications,

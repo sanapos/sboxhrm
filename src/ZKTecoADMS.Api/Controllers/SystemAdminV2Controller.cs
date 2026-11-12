@@ -85,7 +85,7 @@ public class SaImpersonateRequest
 [ApiController]
 [Authorize(Roles = nameof(Roles.SuperAdmin))]
 [Route("api/system-admin/v2")]
-public class SystemAdminV2Controller(
+public partial class SystemAdminV2Controller(
     ZKTecoDbContext db,
     UserManager<ApplicationUser> userManager,
     IAccessTokenService accessTokenService,

@@ -17,6 +17,7 @@ import '../../widgets/hrm_page_chrome.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_gym_trainer.dart';
 import '../../widgets/pos/pos_list_filters.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import '../../theme/sbox_tokens.dart';
 
@@ -658,6 +659,67 @@ class _MemberHistoryState extends State<_MemberHistory> {
   bool _loading = true;
   String? _error;
 
+  /// Bấm ô số → lọc danh sách lượt ngay bên dưới: all / entered (đã vào) / warn (cần kiểm tra).
+  String _only = 'all';
+
+  void _drillDays(List<Map> entered) {
+    final byDay = <DateTime, List<Map>>{};
+    for (final v in entered) {
+      final d = _date(v['checkInAt']);
+      if (d == null) continue;
+      byDay.putIfAbsent(DateTime(d.year, d.month, d.day), () => []).add(v);
+    }
+    final days = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
+    showReportDrillSheet(
+      context,
+      title: 'Số ngày tập',
+      subtitle: widget.name,
+      note: 'Mỗi ngày có ít nhất một lượt vào được tính 1 ngày (lượt bị từ chối ở cửa không tính).',
+      emptyText: 'Chưa có ngày tập',
+      rows: [
+        for (final d in days)
+          ReportDrillRow(
+            title: '${_wd[d.weekday - 1]} ${_dmy.format(d)}',
+            subtitle: byDay[d]!
+                .map((v) => _date(v['checkInAt']))
+                .whereType<DateTime>()
+                .map(_hm.format)
+                .join(', '),
+            trailing: '${byDay[d]!.length} lượt',
+            icon: Icons.event_available_outlined,
+          ),
+      ],
+    );
+  }
+
+  void _drillAvg() {
+    final rows = _items.where((v) => ((v['durationMinutes'] as num?)?.toInt() ?? 0) > 0).toList();
+    final sum = rows.fold<int>(0, (s, v) => s + (v['durationMinutes'] as num).toInt());
+    showReportDrillSheet(
+      context,
+      title: 'TB mỗi lượt',
+      subtitle: widget.name,
+      note: rows.isEmpty
+          ? null
+          : 'TB = tổng thời gian ÷ số lượt có giờ ra = ${_duration(sum)} ÷ ${rows.length} = '
+              '${_duration((sum / rows.length).round())}. Lượt chưa quẹt ra không tính.',
+      emptyText: 'Chưa có lượt có giờ ra',
+      rows: [
+        for (final v in rows)
+          () {
+            final inAt = _date(v['checkInAt']);
+            final outAt = _date(v['checkOutAt']);
+            return ReportDrillRow(
+              title: inAt == null ? '—' : '${_wd[inAt.weekday - 1]} ${_dmy.format(inAt)}',
+              subtitle: '${inAt == null ? '' : _hm.format(inAt)} → ${outAt == null ? '…' : _hm.format(outAt)}',
+              trailing: _duration((v['durationMinutes'] as num).toInt()),
+              icon: Icons.timer_outlined,
+            );
+          }(),
+      ],
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -723,13 +785,24 @@ class _MemberHistoryState extends State<_MemberHistory> {
         ],
         const SizedBox(height: 12),
         _StatGrid([
-          _StatTile(label: 'Số lượt', value: '${entered.length}', tone: SboxTone.brand),
-          _StatTile(label: 'Số ngày tập', value: '$days', tone: SboxTone.success),
+          _StatTile(
+              label: 'Số lượt',
+              value: '${entered.length}',
+              tone: SboxTone.brand,
+              selected: _only == 'entered',
+              onTap: () => setState(() => _only = _only == 'entered' ? 'all' : 'entered')),
+          _StatTile(label: 'Số ngày tập', value: '$days', tone: SboxTone.success, onTap: () => _drillDays(entered)),
           _StatTile(
               label: 'TB mỗi lượt',
               value: mins.isEmpty ? '–' : _duration((mins.reduce((a, b) => a + b) / mins.length).round()),
-              tone: SboxTone.violet),
-          _StatTile(label: 'Cần kiểm tra', value: '$warn', tone: warn > 0 ? SboxTone.danger : SboxTone.neutral),
+              tone: SboxTone.violet,
+              onTap: _drillAvg),
+          _StatTile(
+              label: 'Cần kiểm tra',
+              value: '$warn',
+              tone: warn > 0 ? SboxTone.danger : SboxTone.neutral,
+              selected: _only == 'warn',
+              onTap: () => setState(() => _only = _only == 'warn' ? 'all' : 'warn')),
         ]),
         const SizedBox(height: 12),
         if (_loading)
@@ -739,7 +812,12 @@ class _MemberHistoryState extends State<_MemberHistory> {
         else if (_items.isEmpty)
           _emptyBox(icon: Icons.event_busy, title: 'Chưa có lượt tập', text: 'Hội viên chưa tập lần nào trong kỳ này.')
         else
-          for (final v in _items) _historyRow(v),
+          for (final v in switch (_only) {
+            'entered' => entered,
+            'warn' => _items.where((v) => v['status'] != 'Ok').toList(),
+            _ => _items,
+          })
+            _historyRow(v),
       ],
     );
   }
@@ -1138,7 +1216,7 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
                 selected: _filter == 'all',
                 onTap: () => setState(() => _filter = 'all'),
               ),
-              _StatTile(label: 'Hội viên', value: '${n('customers')}', tone: SboxTone.violet),
+              _StatTile(label: 'Hội viên', value: '${n('customers')}', tone: SboxTone.violet, onTap: () => _drillMembers(all)),
               _StatTile(
                 label: 'Cần kiểm tra',
                 value: '${n('warnings')}',
@@ -1184,6 +1262,32 @@ class _VisitsTabState extends State<_VisitsTab> with AutomaticKeepAliveClientMix
           ],
         ),
       ),
+    );
+  }
+
+  /// «Hội viên» trong ngày = số khách khác nhau có lượt; mỗi dòng một hội viên kèm số lượt.
+  void _drillMembers(List<Map> all) {
+    final by = <String, List<Map>>{};
+    for (final v in all) {
+      by.putIfAbsent('${v['customerId'] ?? v['customerName'] ?? ''}', () => []).add(v);
+    }
+    final keys = by.keys.toList()..sort((a, b) => by[b]!.length.compareTo(by[a]!.length));
+    showReportDrillSheet(
+      context,
+      title: 'Hội viên trong ngày',
+      subtitle: _dmy.format(_day),
+      note: 'Mỗi hội viên có lượt trong ngày tính một lần; số bên phải là số lượt.',
+      emptyText: 'Chưa có hội viên',
+      rows: [
+        for (final k in keys)
+          ReportDrillRow(
+            title: '${by[k]!.first['customerName'] ?? '—'}',
+            subtitle: '${by[k]!.first['phone'] ?? ''}',
+            trailing: '${by[k]!.length} lượt',
+            onTap: () => _showMemberHistory(context,
+                customerId: '${by[k]!.first['customerId']}', name: '${by[k]!.first['customerName'] ?? ''}'),
+          ),
+      ],
     );
   }
 
@@ -2050,26 +2154,43 @@ class _ReportTabState extends State<_ReportTab> with AutomaticKeepAliveClientMix
             const SizedBox(height: 8),
             GymTrafficSection(from: from, to: to),
             SboxKpiStrip(items: [
-              SboxKpi(label: 'Lượt tập', value: n('totalVisits'), icon: Icons.fitness_center, tone: SboxTone.brand),
-              SboxKpi(label: 'Hội viên tập', value: n('members'), icon: Icons.people_outline, tone: SboxTone.violet),
-              SboxKpi(label: 'Tổng giờ tập', value: n('totalHours'), icon: Icons.timer_outlined, tone: SboxTone.success),
+              // Lượt / hội viên / giờ = cộng các dòng hội viên bên dưới → xếp danh sách theo cột đó.
+              SboxKpi(label: 'Lượt tập', value: n('totalVisits'), icon: Icons.fitness_center, tone: SboxTone.brand,
+                  onTap: () => setState(() => _sort = 'visits')),
+              SboxKpi(label: 'Hội viên tập', value: n('members'), icon: Icons.people_outline, tone: SboxTone.violet,
+                  onTap: () => setState(() => _sort = 'visits')),
+              SboxKpi(label: 'Tổng giờ tập', value: n('totalHours'), icon: Icons.timer_outlined, tone: SboxTone.success,
+                  onTap: () => setState(() => _sort = 'hours')),
               SboxKpi(
                   label: 'TB mỗi lượt',
                   value: '${n('avgMinutes')} phút',
                   icon: Icons.av_timer,
-                  tone: SboxTone.neutral),
+                  tone: SboxTone.neutral,
+                  onTap: () => _drillReport(all, from, to, 'TB mỗi lượt',
+                      (r) => v(r, 'visits') > 0,
+                      trailing: (r) => v(r, 'visits') > 0
+                          ? '${(v(r, 'totalHours') * 60 / v(r, 'visits')).round()} phút'
+                          : '—',
+                      note: 'TB = tổng giờ tập ÷ số lượt = ${n('totalHours')} giờ ÷ ${n('totalVisits')} lượt ≈ '
+                          '${n('avgMinutes')} phút. Mỗi dòng là TB riêng của hội viên.')),
               SboxKpi(
                   label: 'Lượt cần kiểm tra',
                   value: n('warnings'),
                   icon: Icons.warning_amber_rounded,
                   tone: SboxTone.danger,
-                  onTap: () => setState(() => _sort = 'warn')),
+                  onTap: () => _drillReport(all, from, to, 'Lượt cần kiểm tra', (r) => v(r, 'warnings') > 0,
+                      trailing: (r) => '${v(r, 'warnings')} lượt',
+                      note: 'Lượt bị từ chối ở cửa, hết buổi / hết hạn… Bấm hội viên để xem từng lượt.')),
               SboxKpi(
                   label: 'Sắp hết hạn / buổi',
                   value: n('expiring'),
                   icon: Icons.event_busy,
                   tone: SboxTone.warning,
-                  onTap: () => setState(() => _sort = 'expiring')),
+                  onTap: () => _drillReport(all, from, to, 'Sắp hết hạn / buổi', (r) => r['expiringSoon'] == true,
+                      trailing: (r) => [
+                            if ('${r['remaining'] ?? ''}'.isNotEmpty) 'còn ${r['remaining']}',
+                            if ('${r['expiresAt'] ?? ''}'.isNotEmpty) 'hạn ${r['expiresAt']}',
+                          ].join(' · '))),
             ]),
             const SizedBox(height: 12),
             Row(children: [
@@ -2138,6 +2259,28 @@ class _ReportTabState extends State<_ReportTab> with AutomaticKeepAliveClientMix
 
   void _openHistory(Map r, DateTime from, DateTime to) => _showMemberHistory(context,
       customerId: r['customerId'].toString(), name: r['customerName']?.toString() ?? '', from: from, to: to);
+
+  /// Chip → các hội viên trong bảng báo cáo (cùng kỳ) thỏa điều kiện; bấm dòng mở lịch sử tập.
+  void _drillReport(List<Map> all, DateTime from, DateTime to, String title, bool Function(Map r) where,
+      {required String Function(Map r) trailing, String? note}) {
+    final rows = all.where(where).toList();
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: '${_dmy.format(from)} – ${_dmy.format(to)}',
+      note: note,
+      emptyText: 'Không có hội viên',
+      rows: [
+        for (final r in rows)
+          ReportDrillRow(
+            title: '${r['customerName'] ?? '—'}',
+            subtitle: '${r['phone'] ?? ''} · ${r['visits'] ?? 0} lượt',
+            trailing: trailing(r),
+            onTap: () => _openHistory(r, from, to),
+          ),
+      ],
+    );
+  }
 
   Widget _reportCard(Map r, DateTime from, DateTime to) {
     final warnings = (r['warnings'] as num?)?.toInt() ?? 0;

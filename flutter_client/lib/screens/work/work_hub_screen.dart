@@ -921,6 +921,7 @@ class _WorkHubScreenState extends State<WorkHubScreen> {
               projects: _projects,
               workload: _workload,
               isManager: _viewer.isManager,
+              onlyMine: _scope == _kMine,
               selectedProject: p,
               onOpenTask: (t) => _openTaskId(t.id),
               onOpenProject: (x) => _setScope(x.id),

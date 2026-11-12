@@ -7,6 +7,7 @@ import '../../widgets/notification_overlay.dart';
 import '../../widgets/sbox/sbox_basics.dart' show SboxTone;
 import '../../widgets/sbox/sbox_charts.dart';
 import '../../widgets/sbox/sbox_report.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 
 /// Tab «Báo cáo» của màn Sản lượng: tổng hợp, so với kỳ trước, theo ngày,
 /// theo sản phẩm / nhóm, xếp hạng nhân viên; tính lại đơn giá tháng.
@@ -128,6 +129,86 @@ class _ProductionReportViewState extends State<ProductionReportView> {
     return '${v >= 0 ? '▲' : '▼'} ${v.abs().toStringAsFixed(1)}% so với kỳ trước';
   }
 
+  String get _range {
+    String d(DateTime x) => '${x.day.toString().padLeft(2, '0')}/${x.month.toString().padLeft(2, '0')}/${x.year}';
+    return '${d(widget.fromDate)} – ${d(widget.toDate)}';
+  }
+
+  String _dayLabel(Map<String, dynamic> d) {
+    final s = d['date'].toString();
+    return s.length >= 10 ? '${s.substring(8, 10)}/${s.substring(5, 7)}/${s.substring(0, 4)}' : s;
+  }
+
+  ReportDrillRow _empDrillRow(Map<String, dynamic> e, {String? trailing}) => ReportDrillRow(
+        title: '${e['employeeName'] ?? ''}',
+        subtitle: [
+          if ((e['employeeCode'] ?? '').toString().isNotEmpty) '${e['employeeCode']}',
+          if ((e['department'] ?? '').toString().isNotEmpty) '${e['department']}',
+          '${SboxFmt.number(_n(e['quantity']))} SP · ${_n(e['workDays']).toInt()} ngày',
+        ].join(' · '),
+        trailing: trailing ?? SboxFmt.money(_n(e['amount'])),
+      );
+
+  void _drillEmployees(Map<String, dynamic> totals, {required bool avg}) {
+    final rows = _list('byEmployee');
+    if (avg) rows.sort((a, b) => _n(a['amount']).compareTo(_n(b['amount'])));
+    showReportDrillSheet(
+      context,
+      title: avg ? 'Nhân viên có sản lượng' : 'Lương sản phẩm theo nhân viên',
+      subtitle: _range,
+      note: avg
+          ? 'TB / NV = ${SboxFmt.money(_n(totals['amount']))} ÷ ${_n(totals['employees']).toInt()} nhân viên. Thấp nhất lên đầu.'
+          : null,
+      total: 'Tổng ${SboxFmt.money(_n(totals['amount']))}',
+      rows: [for (final e in rows) _empDrillRow(e)],
+    );
+  }
+
+  void _drillProducts(Map<String, dynamic> totals) {
+    final rows = _list('byProduct')..sort((a, b) => _n(b['quantity']).compareTo(_n(a['quantity'])));
+    showReportDrillSheet(
+      context,
+      title: 'Sản lượng theo sản phẩm',
+      subtitle: _range,
+      note: 'Cộng số lượng mọi sản phẩm (khác đơn vị vẫn cộng chung như số trên chip).',
+      total: 'Tổng ${SboxFmt.number(_n(totals['quantity']))}',
+      rows: [
+        for (final p in rows)
+          ReportDrillRow(
+            title: '${p['name'] ?? ''}',
+            subtitle: [
+              if ((p['code'] ?? '').toString().isNotEmpty) '${p['code']}',
+              if ((p['groupName'] ?? '').toString().isNotEmpty) '${p['groupName']}',
+              '${_n(p['employees']).toInt()} NV',
+              SboxFmt.money(_n(p['amount'])),
+            ].join(' · '),
+            trailing: '${SboxFmt.number(_n(p['quantity']))} ${p['unit'] ?? 'SP'}',
+            icon: Icons.inventory_2_outlined,
+          ),
+      ],
+    );
+  }
+
+  void _drillDays(Map<String, dynamic> totals) {
+    final rows = _list('daily')..sort((a, b) => _n(a['amount']).compareTo(_n(b['amount'])));
+    showReportDrillSheet(
+      context,
+      title: 'Ngày có sản lượng',
+      subtitle: _range,
+      note: 'TB / ngày = ${SboxFmt.money(_n(totals['amount']))} ÷ ${_n(totals['workDays']).toInt()} ngày có sản lượng. Thấp nhất lên đầu.',
+      total: 'Tổng ${SboxFmt.money(_n(totals['amount']))}',
+      rows: [
+        for (final d in rows)
+          ReportDrillRow(
+            title: _dayLabel(d),
+            subtitle: '${SboxFmt.number(_n(d['quantity']))} SP · ${_n(d['employees']).toInt()} NV',
+            trailing: SboxFmt.money(_n(d['amount'])),
+            icon: Icons.calendar_today_outlined,
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
@@ -165,6 +246,7 @@ class _ProductionReportViewState extends State<ProductionReportView> {
                 icon: Icons.payments_outlined,
                 tone: SboxTone.success,
                 note: _changeNote(totals['amountChangePct']),
+                onTap: () => _drillEmployees(totals, avg: false),
               ),
               SboxKpi(
                 label: 'Sản lượng',
@@ -172,6 +254,7 @@ class _ProductionReportViewState extends State<ProductionReportView> {
                 icon: Icons.inventory_2_outlined,
                 tone: SboxTone.brand,
                 note: _changeNote(totals['quantityChangePct']),
+                onTap: () => _drillProducts(totals),
               ),
               SboxKpi(
                 label: 'Nhân viên',
@@ -179,6 +262,7 @@ class _ProductionReportViewState extends State<ProductionReportView> {
                 icon: Icons.groups_outlined,
                 tone: SboxTone.violet,
                 note: 'TB ${SboxFmt.money(_n(totals['amountPerEmployee']))} / NV',
+                onTap: () => _drillEmployees(totals, avg: true),
               ),
               SboxKpi(
                 label: 'Ngày có sản lượng',
@@ -186,6 +270,7 @@ class _ProductionReportViewState extends State<ProductionReportView> {
                 icon: Icons.calendar_month_outlined,
                 tone: SboxTone.warning,
                 note: 'TB ${SboxFmt.money(_n(totals['amountPerDay']))} / ngày',
+                onTap: () => _drillDays(totals),
               ),
             ],
             charts: [

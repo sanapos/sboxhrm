@@ -44,6 +44,16 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
   double _sumDebt = 0;
   double _sumPurchase = 0;
 
+  /// Bấm ô số đầu màn → lọc / xếp bảng bên dưới: null = như tải, 'purchase' = mua nhiều nhất, 'debt' = đang nợ.
+  String? _kpiFilter;
+
+  List<PosSupplierFull> get _shown => switch (_kpiFilter) {
+        'debt' => _items.where((x) => x.currentDebt > 0).toList()
+          ..sort((a, b) => b.currentDebt.compareTo(a.currentDebt)),
+        'purchase' => [..._items]..sort((a, b) => b.totalPurchase.compareTo(a.totalPurchase)),
+        _ => _items,
+      };
+
   @override
   void initState() {
     super.initState();
@@ -306,14 +316,18 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
     final indebted = _items.where((x) => x.currentDebt > 0).length;
     _md = posUseMobileList(context) && MediaQuery.sizeOf(context).width >= 1000;
     final kpis = <SboxKpi>[
-      SboxKpi(label: 'Nhà cung cấp', value: SboxFmt.number(_total), icon: Icons.local_shipping_outlined),
-      SboxKpi(label: 'Tổng mua', value: SboxFmt.money(_sumPurchase), icon: Icons.shopping_cart_outlined, tone: SboxTone.brand),
+      SboxKpi(label: 'Nhà cung cấp', value: SboxFmt.number(_total), icon: Icons.local_shipping_outlined,
+          onTap: () => setState(() => _kpiFilter = null)),
+      SboxKpi(label: 'Tổng mua', value: SboxFmt.money(_sumPurchase), icon: Icons.shopping_cart_outlined, tone: SboxTone.brand,
+          note: 'Cộng cột «Tổng mua»',
+          onTap: () => setState(() => _kpiFilter = _kpiFilter == 'purchase' ? null : 'purchase')),
       SboxKpi(
         label: 'Đang nợ NCC',
         value: SboxFmt.money(_sumDebt),
         icon: Icons.account_balance_wallet_outlined,
         tone: _sumDebt > 0 ? SboxTone.danger : SboxTone.neutral,
         note: indebted > 0 ? '$indebted nhà cung cấp' : null,
+        onTap: () => setState(() => _kpiFilter = _kpiFilter == 'debt' ? null : 'debt'),
       ),
     ];
     return Scaffold(
@@ -355,11 +369,28 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
         // Màn chia đôi: số liệu tổng hiện ở cột phải lúc chưa chọn NCC.
         kpis: _md ? const [] : kpis,
         maxKpiColumns: 3,
-        table: SboxCard(
+        table: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+          if (_kpiFilter != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: InputChip(
+                  label: Text(tr(_kpiFilter == 'debt'
+                      ? 'Đang nợ: $indebted NCC · ${SboxFmt.money(_sumDebt)}'
+                      : 'Xếp theo tổng mua · ${SboxFmt.money(_sumPurchase)}')),
+                  onDeleted: () => setState(() => _kpiFilter = null),
+                ),
+              ),
+            ),
+          SboxCard(
           padding: EdgeInsets.zero,
           child: SboxDataTable<PosSupplierFull>(
             loading: _loading,
-            rows: _items,
+            rows: _shown,
             pageSize: 50,
             onRowTap: (s) => _md ? _selectMd(s) : _showHistory(s),
             forceCards: _md,
@@ -416,6 +447,7 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
             ],
           ),
         ),
+        ]),
       ), kpis),
     );
   }
@@ -529,12 +561,15 @@ class _PosSupplierListScreenState extends State<PosSupplierListScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
           child: SboxKpiStrip(maxColumns: 2, items: [
-            SboxKpi(label: 'Tổng mua', value: SboxFmt.money(s.totalPurchase), icon: Icons.shopping_cart_outlined, tone: SboxTone.brand),
+            // Tổng mua → các phiếu nhập / trả / thanh toán; công nợ → sổ đối chiếu (phát sinh, đã trả, số dư).
+            SboxKpi(label: 'Tổng mua', value: SboxFmt.money(s.totalPurchase), icon: Icons.shopping_cart_outlined, tone: SboxTone.brand,
+                onTap: () => _showHistory(s)),
             SboxKpi(
               label: 'Công nợ',
               value: SboxFmt.money(s.currentDebt),
               icon: Icons.account_balance_wallet_outlined,
               tone: s.currentDebt > 0 ? SboxTone.danger : SboxTone.neutral,
+              onTap: () => _showStatement(s),
             ),
           ]),
         ),

@@ -10,6 +10,7 @@ import '../../utils/pos_report_export.dart';
 import '../../utils/pos_report_open.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
 import '../../widgets/sbox/sbox_ui.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 /// Hoa hồng theo NV làm hàng/DV / thành phần combo.
@@ -80,6 +81,35 @@ class _PosStaffCommissionReportScreenState
   String _when(dynamic raw) {
     final d = parseApiUtcDateTime(raw);
     return d == null ? '' : _dt.format(d);
+  }
+
+  /// Chip → bảng «theo nhân viên» cộng lại ra số chip; bấm dòng chọn người đó để xem chi tiết phiếu.
+  void _drillStaff(String title, String field, {String? note, bool pct = false}) {
+    final staff = [..._maps(_data?['byStaff'])]..sort((a, b) => _n(b[field]).compareTo(_n(a[field])));
+    final sum = staff.fold<num>(0, (s, e) => s + _n(e[field]));
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: _time.displayLabel,
+      note: note,
+      total: pct ? null : 'Tổng ${SboxFmt.money(sum)}',
+      emptyText: 'Chưa có hoa hồng trong kỳ',
+      rows: [
+        for (final e in staff)
+          ReportDrillRow(
+            title: '${_f(e, 'employeeName') ?? '—'}',
+            subtitle: [
+              '${_n(e['orderCount']).toInt()} HĐ',
+              'DT ${SboxFmt.money(_n(e['revenue']))}',
+              'HH ${SboxFmt.money(_n(e['commission']))}',
+            ].join(' · '),
+            trailing: pct
+                ? SboxFmt.pct(_n(e['revenue']) > 0 ? _n(e['commission']) / _n(e['revenue']) * 100 : 0)
+                : SboxFmt.money(_n(e[field])),
+            onTap: () => setState(() => _employeeId = _idOf(e)),
+          ),
+      ],
+    );
   }
 
   @override
@@ -176,10 +206,18 @@ class _PosStaffCommissionReportScreenState
                 SboxInsightPanel(
                   kpis: [
                     SboxKpi(label: 'Tổng hoa hồng', value: SboxFmt.money(_n(_data?['totalCommission'])), icon: Icons.handshake_outlined, tone: SboxTone.success,
-                        note: _time.displayLabel),
-                    SboxKpi(label: 'Doanh thu tính HH', value: SboxFmt.money(_n(_data?['totalRevenue'])), icon: Icons.payments_outlined),
-                    SboxKpi(label: 'Nhân viên hưởng', value: SboxFmt.number(_n(_data?['staffCount'])), icon: Icons.badge_outlined, tone: SboxTone.violet),
-                    SboxKpi(label: 'Tỷ lệ HH / doanh thu', value: SboxFmt.pct(pctOf), icon: Icons.percent_rounded, tone: SboxTone.neutral),
+                        note: _time.displayLabel,
+                        onTap: () => _drillStaff('Tổng hoa hồng', 'commission')),
+                    SboxKpi(label: 'Doanh thu tính HH', value: SboxFmt.money(_n(_data?['totalRevenue'])), icon: Icons.payments_outlined,
+                        onTap: () => _drillStaff('Doanh thu tính hoa hồng', 'revenue',
+                            note: 'Doanh thu của các dòng hàng / dịch vụ có nhân viên làm và có cài hoa hồng.')),
+                    SboxKpi(label: 'Nhân viên hưởng', value: SboxFmt.number(_n(_data?['staffCount'])), icon: Icons.badge_outlined, tone: SboxTone.violet,
+                        onTap: () => _drillStaff('Nhân viên hưởng hoa hồng', 'commission')),
+                    SboxKpi(label: 'Tỷ lệ HH / doanh thu', value: SboxFmt.pct(pctOf), icon: Icons.percent_rounded, tone: SboxTone.neutral,
+                        onTap: () => _drillStaff('Tỷ lệ hoa hồng / doanh thu', 'commission', pct: true,
+                            note: 'Tỷ lệ = Tổng hoa hồng ÷ Doanh thu tính HH = ${SboxFmt.money(_n(_data?['totalCommission']))} ÷ '
+                                '${SboxFmt.money(_n(_data?['totalRevenue']))} = ${SboxFmt.pct(pctOf)}. '
+                                'Mỗi dòng là tỷ lệ riêng của nhân viên.')),
                   ],
                   charts: [
                     SboxChartCard(

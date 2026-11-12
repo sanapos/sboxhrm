@@ -6,9 +6,128 @@ import 'package:flutter/services.dart';
 import '../../../l10n/app_tr.dart';
 import '../../../services/api_service.dart';
 import '../../../utils/file_saver.dart' as file_saver;
+import '../../../widgets/reports/report_drill_sheet.dart';
 import '../../../widgets/sbox/sbox_ui.dart';
 import 'sa_v2_common.dart';
 import '../../../utils/api_datetime.dart';
+
+// ─── Chi tiết số liệu («số này từ đâu ra») — dùng chung cho Key, Đại lý, Gói ───
+
+/// Tải trước (vòng quay giữa màn) rồi trả dữ liệu; lỗi → báo và trả null.
+Future<T?> _saFetch<T>(BuildContext context, Future<T> Function() fetch) async {
+  final nav = Navigator.of(context, rootNavigator: true);
+  showDialog<void>(context: context, barrierDismissible: false, builder: (_) => const Center(child: CircularProgressIndicator()));
+  try {
+    final v = await fetch();
+    nav.pop();
+    return v;
+  } catch (e) {
+    nav.pop();
+    if (context.mounted) saToast(context, 'Không tải được dữ liệu', error: true);
+    return null;
+  }
+}
+
+/// Cửa hàng đứng sau một số đếm (drill/stores: theo gói / đại lý / chưa gán gói, kind all | active | expiring | expired | new30).
+Future<void> saDrillStores(BuildContext context, {required String title, required Map<String, String> query, String? note}) async {
+  final d = await _saFetch(context, () async {
+    final r = await ApiService().getReportJson('/api/system-admin/v2/drill/stores', query: query);
+    if (r['isSuccess'] != true || r['data'] is! Map) throw Exception(r['message'] ?? '');
+    return Map<String, dynamic>.from(r['data'] as Map);
+  });
+  if (d == null || !context.mounted) return;
+  final items = [for (final e in (d['items'] as List? ?? const [])) if (e is Map) Map<String, dynamic>.from(e)];
+  final now = DateTime.now();
+  await showReportDrillSheet(
+    context,
+    title: title,
+    note: note,
+    countLabel: '${d['count'] ?? items.length}',
+    emptyText: 'Không có cửa hàng',
+    footer: d['truncated'] == true ? 'Hiện ${items.length} / ${d['count']} cửa hàng.' : null,
+    rows: [
+      for (final s in items)
+        () {
+          final exp = parseApiUtcDateTime(s['expiryDate']);
+          final status = s['isActive'] != true
+              ? 'Ngưng hoạt động'
+              : s['isLocked'] == true
+                  ? 'Đang khóa'
+                  : exp == null
+                      ? 'Không thời hạn'
+                      : exp.isBefore(now)
+                          ? 'Hết hạn ${saDate(s['expiryDate'])}'
+                          : 'Hạn ${saDate(s['expiryDate'])}';
+          return ReportDrillRow(
+            title: '${s['name'] ?? ''}',
+            subtitle: [
+              '${s['code'] ?? ''}',
+              if ('${s['packageName'] ?? ''}'.isNotEmpty) '${s['packageName']}',
+              if ('${s['agentName'] ?? ''}'.isNotEmpty) '${s['agentName']}',
+              if ('${s['ownerName'] ?? ''}'.trim().isNotEmpty) '${s['ownerName']}'.trim(),
+              if ('${s['ownerPhone'] ?? s['phone'] ?? ''}'.isNotEmpty) '${s['ownerPhone'] ?? s['phone']}',
+              'tạo ${saDate(s['createdAt'])}',
+            ].where((x) => x.isNotEmpty).join(' · '),
+            trailing: status,
+            trailingColor: exp != null && exp.isBefore(now) ? SboxColors.dangerText : null,
+          );
+        }(),
+    ],
+  );
+}
+
+/// Key theo trạng thái (licenses: unused | used | revoked) của một đại lý / gói. [activatedSince]: chỉ key kích hoạt từ mốc này.
+Future<void> saDrillKeys(BuildContext context,
+    {required String title, required String status, String? agentId, String? packageId, DateTime? activatedSince, String? note}) async {
+  final res = await _saFetch(context, () async {
+    final api = ApiService();
+    final out = <Map<String, dynamic>>[];
+    var total = 0;
+    for (var page = 1; page <= 5; page++) {
+      final r = await api.saLicenses(status: status, agentId: agentId, packageId: packageId, page: page, pageSize: 200);
+      if (r['isSuccess'] != true || r['data'] is! Map) throw Exception(r['message'] ?? '');
+      final data = Map<String, dynamic>.from(r['data'] as Map);
+      total = (data['total'] as num?)?.toInt() ?? 0;
+      final items = [for (final e in (data['items'] as List? ?? const [])) if (e is Map) Map<String, dynamic>.from(e)];
+      var older = false;
+      for (final k in items) {
+        if (activatedSince != null) {
+          final at = parseApiUtcDateTime(k['activatedAt']);
+          if (at == null || at.isBefore(activatedSince)) {
+            older = true;
+            continue;
+          }
+        }
+        out.add(k);
+      }
+      if (items.isEmpty || older || page * 200 >= total) break;
+    }
+    return (out, total);
+  });
+  if (res == null || !context.mounted) return;
+  final (items, total) = res;
+  final shownAll = activatedSince != null || items.length >= total;
+  await showReportDrillSheet(
+    context,
+    title: title,
+    note: note,
+    countLabel: activatedSince != null ? '${items.length}' : '$total',
+    emptyText: 'Không có key',
+    footer: shownAll ? null : 'Hiện ${items.length} / $total key.',
+    rows: [
+      for (final k in items)
+        ReportDrillRow(
+          title: '${k['key'] ?? ''}',
+          icon: Icons.vpn_key_outlined,
+          subtitle: [
+            '${k['packageName'] ?? k['licenseType'] ?? ''} · ${k['durationDays']} ngày',
+            if (k['storeName'] != null) '${k['storeName']} (${k['storeCode']}) · ${saDate(k['activatedAt'])}',
+            if (k['storeName'] == null) 'tạo ${saDate(k['createdAt'])}',
+          ].join(' · '),
+        ),
+    ],
+  );
+}
 
 /// Khung 2 chế độ xem: màn mới + màn cũ (giữ trạng thái cả hai).
 class SaHubSwitch extends StatefulWidget {
@@ -106,6 +225,15 @@ class _KeysV2ViewState extends State<KeysV2View> {
     });
   }
 
+  void _showStatus(String status) {
+    if (_status == status && _page == 1) return;
+    setState(() {
+      _status = status;
+      _page = 1;
+    });
+    _load();
+  }
+
   Future<void> _revoke() async {
     final ids = _items.where((k) => _selected.contains(k['id']) && k['isUsed'] != true).map((k) => '${k['id']}').toList();
     if (ids.isEmpty) return saToast(context, 'Chỉ thu hồi được key chưa dùng', error: true);
@@ -145,11 +273,15 @@ class _KeysV2ViewState extends State<KeysV2View> {
             actions: [SboxButton.secondary(label: 'Xuất CSV', icon: Icons.download_outlined, onPressed: _export)],
           ),
           const SizedBox(height: SboxSpace.md),
+          // Bấm ô → lọc danh sách key bên dưới đúng trạng thái đó (cùng bộ lọc gói / đại lý / tìm kiếm với số đếm).
           SboxKpiStrip(maxColumns: 4, items: [
-            SboxKpi(label: 'Chưa dùng', value: '${_counts['unused'] ?? 0}', icon: Icons.vpn_key_outlined, tone: SboxTone.brand),
-            SboxKpi(label: 'Đã kích hoạt', value: '${_counts['used'] ?? 0}', icon: Icons.verified_outlined, tone: SboxTone.success),
-            SboxKpi(label: 'Đã thu hồi', value: '${_counts['revoked'] ?? 0}', icon: Icons.block, tone: SboxTone.neutral),
-            SboxKpi(label: 'Tổng', value: '${_counts['all'] ?? 0}', icon: Icons.inventory_2_outlined),
+            SboxKpi(label: 'Chưa dùng', value: '${_counts['unused'] ?? 0}', icon: Icons.vpn_key_outlined, tone: SboxTone.brand,
+                onTap: () => _showStatus('unused')),
+            SboxKpi(label: 'Đã kích hoạt', value: '${_counts['used'] ?? 0}', icon: Icons.verified_outlined, tone: SboxTone.success,
+                onTap: () => _showStatus('used')),
+            SboxKpi(label: 'Đã thu hồi', value: '${_counts['revoked'] ?? 0}', icon: Icons.block, tone: SboxTone.neutral,
+                onTap: () => _showStatus('revoked')),
+            SboxKpi(label: 'Tổng', value: '${_counts['all'] ?? 0}', icon: Icons.inventory_2_outlined, onTap: () => _showStatus('')),
           ]),
           const SizedBox(height: SboxSpace.md),
           SaSegment<String>(
@@ -331,6 +463,65 @@ class _AgentsV2ViewState extends State<AgentsV2View> {
 
   int _n(Map a, String k) => (a[k] as num?)?.toInt() ?? 0;
 
+  /// Ô tổng → tách theo đại lý (cộng các dòng = số trên ô).
+  void _byAgent(String title, int Function(Map<String, dynamic> a) value,
+      {String unit = '',
+      String? note,
+      String Function(Map<String, dynamic> a)? trailing,
+      String? countLabel,
+      bool keepZero = false,
+      void Function(Map<String, dynamic> a)? onTapAgent}) {
+    final rows = _agents.where((a) => keepZero || value(a) != 0).toList()..sort((a, b) => value(b).compareTo(value(a)));
+    final sum = rows.fold<int>(0, (s, a) => s + value(a));
+    showReportDrillSheet(
+      context,
+      title: title,
+      note: note,
+      countLabel: countLabel ?? '${rows.length} đại lý',
+      total: unit.isEmpty ? null : 'Tổng $sum $unit',
+      emptyText: 'Không có đại lý',
+      rows: [
+        for (final a in rows)
+          ReportDrillRow(
+            title: '${a['name'] ?? ''}',
+            subtitle: '${a['code'] ?? ''} · ${a['phone'] ?? a['email'] ?? ''}',
+            trailing: trailing?.call(a) ?? '${value(a)} $unit'.trim(),
+            onTap: onTapAgent == null ? null : () => onTapAgent(a),
+          ),
+      ],
+    );
+  }
+
+  void _stores(Map<String, dynamic> a, String kind) {
+    final label = switch (kind) {
+      'active' => 'hoạt động',
+      'expiring' => 'sắp hết hạn',
+      'expired' => 'đã hết hạn',
+      _ => '',
+    };
+    saDrillStores(context,
+        title: 'Cửa hàng ${label.isEmpty ? '' : '$label '}· ${a['name']}',
+        query: {'agentId': '${a['id']}', 'kind': kind},
+        note: switch (kind) {
+          'active' => 'Đang hoạt động, không khóa, chưa hết hạn.',
+          'expiring' => 'Đang hoạt động, hết hạn trong 7 ngày tới.',
+          'expired' => 'Ngày hết hạn đã qua.',
+          _ => null,
+        });
+  }
+
+  void _keys(Map<String, dynamic> a) =>
+      saDrillKeys(context, title: 'Key chưa dùng · ${a['name']}', status: 'unused', agentId: '${a['id']}');
+
+  void _activations(Map<String, dynamic> a) => saDrillKeys(context,
+      title: 'Kích hoạt 30 ngày · ${a['name']}',
+      status: 'used',
+      agentId: '${a['id']}',
+      activatedSince: DateTime.now().subtract(const Duration(days: 30)));
+
+  Widget _tapChip(SboxStatusChip chip, VoidCallback onTap) =>
+      InkWell(borderRadius: SboxRadius.smAll, onTap: onTap, child: chip);
+
   @override
   Widget build(BuildContext context) {
     final w = MediaQuery.sizeOf(context).width;
@@ -354,20 +545,67 @@ class _AgentsV2ViewState extends State<AgentsV2View> {
           const SboxPageHeader(title: 'Hiệu quả đại lý', subtitle: 'Cửa hàng, kích hoạt key, tồn kho key và khách sắp hết hạn của từng đại lý'),
           const SizedBox(height: SboxSpace.md),
           SboxKpiStrip(maxColumns: 5, items: [
-            SboxKpi(label: 'Đại lý hoạt động', value: '${_agents.where((a) => a['isActive'] == true).length}/${_agents.length}', icon: Icons.support_agent),
-            SboxKpi(label: 'Cửa hàng qua đại lý', value: '${sum('stores')}', icon: Icons.store_outlined, tone: SboxTone.success),
-            SboxKpi(label: 'Kích hoạt 30 ngày', value: '${sum('activations30')}', icon: Icons.trending_up, tone: SboxTone.brand),
-            SboxKpi(label: 'Sắp hết hạn (7 ngày)', value: '${sum('expiringStores')}', icon: Icons.schedule, tone: SboxTone.warning),
-            SboxKpi(label: 'Key đại lý chưa dùng', value: '${sum('unusedKeys')}', icon: Icons.vpn_key_outlined, tone: SboxTone.violet),
+            SboxKpi(
+                label: 'Đại lý hoạt động',
+                value: '${_agents.where((a) => a['isActive'] == true).length}/${_agents.length}',
+                icon: Icons.support_agent,
+                onTap: () => _byAgent('Đại lý', (a) => a['isActive'] == true ? 1 : 0,
+                    trailing: (a) => a['isActive'] == true ? 'Hoạt động' : 'Tạm khóa',
+                    countLabel: '${_agents.where((a) => a['isActive'] == true).length}/${_agents.length}',
+                    keepZero: true,
+                    note: 'Đại lý đang hoạt động / tổng số đại lý. Bấm một đại lý để xem cửa hàng của đại lý đó.',
+                    onTapAgent: (a) => _stores(a, 'all'))),
+            SboxKpi(
+                label: 'Cửa hàng qua đại lý',
+                value: '${sum('stores')}',
+                icon: Icons.store_outlined,
+                tone: SboxTone.success,
+                onTap: () => _byAgent('Cửa hàng qua đại lý', (a) => _n(a, 'stores'),
+                    unit: 'cửa hàng', onTapAgent: (a) => _stores(a, 'all'))),
+            SboxKpi(
+                label: 'Kích hoạt 30 ngày',
+                value: '${sum('activations30')}',
+                icon: Icons.trending_up,
+                tone: SboxTone.brand,
+                onTap: () => _byAgent('Kích hoạt key 30 ngày', (a) => _n(a, 'activations30'),
+                    unit: 'key',
+                    note: 'Key của đại lý được kích hoạt trong 30 ngày gần nhất.',
+                    onTapAgent: _activations)),
+            SboxKpi(
+                label: 'Sắp hết hạn (7 ngày)',
+                value: '${sum('expiringStores')}',
+                icon: Icons.schedule,
+                tone: SboxTone.warning,
+                onTap: () => _byAgent('Cửa hàng sắp hết hạn', (a) => _n(a, 'expiringStores'),
+                    unit: 'cửa hàng',
+                    note: 'Cửa hàng đang hoạt động, ngày hết hạn trong 7 ngày tới.',
+                    onTapAgent: (a) => _stores(a, 'expiring'))),
+            SboxKpi(
+                label: 'Key đại lý chưa dùng',
+                value: '${sum('unusedKeys')}',
+                icon: Icons.vpn_key_outlined,
+                tone: SboxTone.violet,
+                onTap: () => _byAgent('Key đại lý chưa dùng', (a) => _n(a, 'unusedKeys'),
+                    unit: 'key', onTapAgent: (a) => _keys(a))),
           ]),
           const SizedBox(height: SboxSpace.md),
           if (top.isNotEmpty && _n(top.first, 'activations30') > 0)
             SboxChartCard(
               title: 'Kích hoạt key 30 ngày theo đại lý',
-              child: SboxRankList(
-                items: [for (final a in top.take(8)) SboxSlice('${a['name']}', _n(a, 'activations30').toDouble(), caption: '${a['newStores30']} cửa hàng mới')],
-                valueFormat: (v) => '${(v ?? 0).round()} key',
-              ),
+              child: () {
+                final shown = top.take(8).toList();
+                final slices = [
+                  for (final a in shown) SboxSlice('${a['name']}', _n(a, 'activations30').toDouble(), caption: '${a['newStores30']} cửa hàng mới')
+                ];
+                return SboxRankList(
+                  items: slices,
+                  valueFormat: (v) => '${(v ?? 0).round()} key',
+                  onTap: (s) {
+                    final i = slices.indexOf(s);
+                    if (i >= 0) _activations(shown[i]);
+                  },
+                );
+              }(),
             ),
           const SizedBox(height: SboxSpace.md),
           Row(children: [
@@ -409,21 +647,30 @@ class _AgentsV2ViewState extends State<AgentsV2View> {
           const Padding(padding: EdgeInsets.only(top: 4), child: SboxStatusChip(label: 'Chưa hoàn tất đăng ký tài khoản', tone: SboxTone.warning)),
         const SizedBox(height: SboxSpace.sm),
         if (maxStores > 0) ...[
-          Text('Cửa hàng $stores/$maxStores', style: SboxType.smallStyle(SboxColors.text)),
+          InkWell(
+            onTap: () => _stores(a, 'all'),
+            child: Text('Cửa hàng $stores/$maxStores', style: SboxType.smallStyle(SboxColors.text)),
+          ),
           const SizedBox(height: 4),
           SboxRatioBar(parts: [
             SboxSlice('Đã dùng', stores.toDouble(), color: stores >= maxStores ? SboxColors.danger : SboxColors.brand500),
             SboxSlice('Còn', (maxStores - stores).clamp(0, maxStores).toDouble(), color: SboxColors.slate200),
           ], height: 6),
         ] else
-          Text('Cửa hàng $stores (không giới hạn)', style: SboxType.smallStyle(SboxColors.text)),
+          InkWell(
+            onTap: () => _stores(a, 'all'),
+            child: Text('Cửa hàng $stores (không giới hạn)', style: SboxType.smallStyle(SboxColors.text)),
+          ),
         const SizedBox(height: SboxSpace.sm),
         Wrap(spacing: 6, runSpacing: 4, children: [
-          SboxStatusChip(label: '${a['activeStores']} hoạt động', tone: SboxTone.success),
-          if (_n(a, 'expiringStores') > 0) SboxStatusChip(label: '${a['expiringStores']} sắp hết hạn', tone: SboxTone.warning),
-          if (_n(a, 'expiredStores') > 0) SboxStatusChip(label: '${a['expiredStores']} đã hết hạn', tone: SboxTone.danger),
-          SboxStatusChip(label: '${a['unusedKeys']} key tồn', tone: _n(a, 'unusedKeys') < 3 ? SboxTone.warning : SboxTone.neutral),
-          SboxStatusChip(label: '${a['activations30']} kích hoạt / 30 ngày', tone: SboxTone.brand),
+          _tapChip(SboxStatusChip(label: '${a['activeStores']} hoạt động', tone: SboxTone.success), () => _stores(a, 'active')),
+          if (_n(a, 'expiringStores') > 0)
+            _tapChip(SboxStatusChip(label: '${a['expiringStores']} sắp hết hạn', tone: SboxTone.warning), () => _stores(a, 'expiring')),
+          if (_n(a, 'expiredStores') > 0)
+            _tapChip(SboxStatusChip(label: '${a['expiredStores']} đã hết hạn', tone: SboxTone.danger), () => _stores(a, 'expired')),
+          _tapChip(SboxStatusChip(label: '${a['unusedKeys']} key tồn', tone: _n(a, 'unusedKeys') < 3 ? SboxTone.warning : SboxTone.neutral),
+              () => _keys(a)),
+          _tapChip(SboxStatusChip(label: '${a['activations30']} kích hoạt / 30 ngày', tone: SboxTone.brand), () => _activations(a)),
           if (_n(a, 'renewalDayBalance') > 0) SboxStatusChip(label: 'Quỹ ngày gia hạn ${a['renewalDayBalance']}', tone: SboxTone.violet),
         ]),
       ]),

@@ -9,6 +9,7 @@ import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../utils/api_datetime.dart';
 import '../../utils/pos_report_open.dart';
+import 'pos_party_debt_detail_page.dart';
 import 'pos_theme.dart';
 
 /// Lịch sử mua của một khách — mở từ màn bán hàng (gõ SĐT → «Lịch sử mua») để tra lại khách đã mua gì,
@@ -147,9 +148,21 @@ class _HistorySheetState extends State<_HistorySheet> {
           Wrap(spacing: 8, runSpacing: 6, children: [
             if ((widget.phone ?? c?['phone'] ?? '').toString().isNotEmpty)
               _chip(Icons.call_outlined, (widget.phone ?? c?['phone']).toString()),
-            _chip(Icons.receipt_long_outlined, '${_data?['orderCount'] ?? 0} đơn · ${_m(_data?['totalAmount'])}'),
-            _chip(Icons.savings_outlined, 'Tổng mua ${_m(c?['totalPurchase'])}'),
-            if (debt > 0) _chip(Icons.warning_amber_rounded, 'Đang nợ ${_m(debt)}', color: SboxColors.danger),
+            // Số đơn trong khoảng đang chọn = danh sách «Theo đơn» ngay bên dưới.
+            _chip(Icons.receipt_long_outlined, '${_data?['orderCount'] ?? 0} đơn · ${_m(_data?['totalAmount'])}',
+                onTap: () => setState(() => _tab = 0)),
+            // Tổng mua cả đời khách → danh sách hóa đơn của khách (mọi thời gian).
+            _chip(Icons.savings_outlined, 'Tổng mua ${_m(c?['totalPurchase'])}',
+                onTap: () => PosReportOpen.sales(context, customerId: widget.customerId, customerName: widget.customerName)),
+            if (debt > 0)
+              _chip(Icons.warning_amber_rounded, 'Đang nợ ${_m(debt)}',
+                  color: SboxColors.danger,
+                  onTap: () => showPosPartyDebtDetail(context,
+                      isCustomer: true,
+                      id: widget.customerId,
+                      name: widget.customerName,
+                      phone: widget.phone ?? c?['phone']?.toString(),
+                      debt: debt)),
           ]),
           const SizedBox(height: 10),
           Row(children: [
@@ -231,7 +244,10 @@ class _HistorySheetState extends State<_HistorySheet> {
     ]);
   }
 
-  Widget _chip(IconData icon, String text, {Color? color}) => Container(
+  Widget _chip(IconData icon, String text, {Color? color, VoidCallback? onTap}) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: (color ?? PosTheme.kiotBlue).withValues(alpha: 0.08),
@@ -241,8 +257,9 @@ class _HistorySheetState extends State<_HistorySheet> {
           Icon(icon, size: 14, color: color ?? PosTheme.kiotBlue),
           const SizedBox(width: 4),
           Text(tr(text), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: color ?? SboxColors.slate700)),
+          if (onTap != null) Icon(Icons.chevron_right, size: 14, color: color ?? SboxColors.slate500),
         ]),
-      );
+      ));
 
   Widget _empty(String text) => ListView(children: [
         const SizedBox(height: 60),

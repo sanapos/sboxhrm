@@ -5,7 +5,9 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../services/api_service.dart';
 import '../../models/hrm.dart';
+import '../../utils/api_datetime.dart';
 import '../../widgets/notification_overlay.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import 'system_admin_helpers.dart';
 import 'tingee_store_setup_card.dart';
 
@@ -228,9 +230,15 @@ class NotificationCreditsTabState extends State<NotificationCreditsTab> {
             spacing: 12,
             runSpacing: 12,
             children: [
-              _statCard(tr('Còn trong kho'), '$remain', SboxColors.okSwatch),
-              _statCard(tr('Đã mua Tingee'), '$purchased', SboxColors.brand500),
-              _statCard(tr('Đã bán CH'), '$allocated', Colors.orange),
+              _statCard(tr('Còn trong kho'), '$remain', SboxColors.okSwatch,
+                  onTap: () => _ledgerDrill('Nhật ký kho lượt', null, remain,
+                      'Còn trong kho = đã mua Tingee ($purchased) − đã bán / cấp cửa hàng ($allocated). '
+                          'Danh sách: mọi lần nạp (+) và cấp cho cửa hàng (−).')),
+              _statCard(tr('Đã mua Tingee'), '$purchased', SboxColors.brand500,
+                  onTap: () => _ledgerDrill('Lần nạp kho (mua Tingee)', 'TingeePurchase', purchased, null)),
+              _statCard(tr('Đã bán CH'), '$allocated', Colors.orange,
+                  onTap: () => _ledgerDrill('Lượt đã bán / cấp cửa hàng', 'StoreAllocation', allocated,
+                      'Gồm cấp tay từ màn này và cửa hàng tự mua gói lượt (đã thanh toán).')),
               _statCard(tr('Giá vốn/lượt'), '${costPer.toStringAsFixed(0)} đ',
                   SboxColors.slate500),
             ],
@@ -449,19 +457,27 @@ class NotificationCreditsTabState extends State<NotificationCreditsTab> {
             const SizedBox(height: 16),
             Text(tr('Đơn mua credit cửa hàng'),
                 style: const TextStyle(fontWeight: FontWeight.w700)),
-            Text(
-              tr('Paid: ${_purchaseReport!['totalCreditsPaid'] ?? 0} lượt · '
-                  'Pending: ${_purchaseReport!['totalCreditsPending'] ?? 0} lượt'),
-              style: const TextStyle(color: SboxColors.slate500),
-            ),
+            Wrap(spacing: 4, children: [
+              InkWell(
+                onTap: () => _purchaseDrill('Paid', 'Đơn mua lượt đã thanh toán'),
+                child: Text(tr('Paid: ${_purchaseReport!['totalCreditsPaid'] ?? 0} lượt'),
+                    style: const TextStyle(color: SboxColors.slate500, decoration: TextDecoration.underline)),
+              ),
+              const Text('·', style: TextStyle(color: SboxColors.slate500)),
+              InkWell(
+                onTap: () => _purchaseDrill('Pending', 'Đơn mua lượt chờ thanh toán'),
+                child: Text(tr('Pending: ${_purchaseReport!['totalCreditsPending'] ?? 0} lượt'),
+                    style: const TextStyle(color: SboxColors.slate500, decoration: TextDecoration.underline)),
+              ),
+            ]),
           ],
         ],
       ),
     );
   }
 
-  Widget _statCard(String label, String value, Color color) {
-    return Container(
+  Widget _statCard(String label, String value, Color color, {VoidCallback? onTap}) {
+    final card = Container(
       width: 160,
       padding: const EdgeInsets.all(14),
       decoration: AdminHelpers.cardDecoration(borderColor: color),
@@ -475,6 +491,103 @@ class NotificationCreditsTabState extends State<NotificationCreditsTab> {
                   fontSize: 22, fontWeight: FontWeight.bold, color: color)),
         ],
       ),
+    );
+    if (onTap == null) return card;
+    return InkWell(onTap: onTap, borderRadius: BorderRadius.circular(12), child: card);
+  }
+
+  // ── Chi tiết số liệu («số này từ đâu ra») ──
+
+  Future<Map<String, dynamic>?> _drillFetch(String path, Map<String, String> query) async {
+    final nav = Navigator.of(context, rootNavigator: true);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    final r = await _api.getReportJson(path, query: query);
+    nav.pop();
+    if (r['isSuccess'] == true && r['data'] is Map) return Map<String, dynamic>.from(r['data'] as Map);
+    messenger?.showSnackBar(SnackBar(content: Text(tr(r['message']?.toString() ?? 'Không tải được dữ liệu'))));
+    return null;
+  }
+
+  static String _when(Object? raw) {
+    final d = parseApiUtcDateTime(raw);
+    if (d == null) return '';
+    String two(int x) => x.toString().padLeft(2, '0');
+    return '${two(d.day)}/${two(d.month)}/${d.year} ${two(d.hour)}:${two(d.minute)}';
+  }
+
+  /// Nhật ký kho lượt theo nguồn (null = tất cả). [shown]: số trên ô để đối chiếu với tổng nhật ký.
+  Future<void> _ledgerDrill(String title, String? source, int shown, String? note) async {
+    final d = await _drillFetch('/api/system-admin/v2/drill/credit-ledgers', {if (source != null) 'source': source});
+    if (d == null || !mounted) return;
+    final items = [for (final e in (d['items'] as List? ?? const [])) if (e is Map) Map<String, dynamic>.from(e)];
+    final ledgerTotal = source == null ? (d['sumDelta'] as num?)?.toInt() ?? 0 : (d['total'] as num?)?.toInt() ?? 0;
+    final notes = [
+      if (note != null) note,
+      if (ledgerTotal != shown)
+        'Tổng nhật ký ($ledgerTotal) lệch số trên ô ($shown) — số trên ô là bộ đếm của kho, có thể gồm điều chỉnh không ghi nhật ký.',
+    ];
+    await showReportDrillSheet(
+      context,
+      title: title,
+      note: notes.isEmpty ? null : notes.join(' '),
+      countLabel: '${d['count'] ?? items.length}',
+      total: 'Tổng $ledgerTotal lượt',
+      footer: d['truncated'] == true ? 'Hiện ${items.length} / ${d['count']} dòng mới nhất; tổng tính trên tất cả.' : null,
+      emptyText: 'Chưa có nhật ký',
+      rows: [
+        for (final x in items)
+          ReportDrillRow(
+            title: (x['storeName'] ?? '').toString().isNotEmpty
+                ? '${x['storeName']}'
+                : switch ('${x['source']}') {
+                    'TingeePurchase' => 'Nạp kho (mua Tingee)',
+                    'StoreAllocation' => 'Cấp cho cửa hàng',
+                    'AdminAdjust' => 'Điều chỉnh',
+                    final s => s,
+                  },
+            icon: ((x['delta'] as num?) ?? 0) >= 0 ? Icons.add_circle_outline : Icons.remove_circle_outline,
+            subtitle: [
+              _when(x['createdAt']),
+              if ((x['note'] ?? '').toString().isNotEmpty) '${x['note']}',
+              if ((x['createdBy'] ?? '').toString().isNotEmpty) '${x['createdBy']}',
+              'còn ${x['balanceAfter'] ?? 0}',
+            ].join(' · '),
+            trailing: '${((x['delta'] as num?) ?? 0) > 0 ? '+' : ''}${x['delta'] ?? 0}',
+            trailingColor: ((x['delta'] as num?) ?? 0) >= 0 ? SboxColors.successText : SboxColors.dangerText,
+          ),
+      ],
+    );
+  }
+
+  Future<void> _purchaseDrill(String status, String title) async {
+    final d = await _drillFetch('/api/system-admin/v2/drill/credit-purchases', {'status': status});
+    if (d == null || !mounted) return;
+    final items = [for (final e in (d['items'] as List? ?? const [])) if (e is Map) Map<String, dynamic>.from(e)];
+    await showReportDrillSheet(
+      context,
+      title: title,
+      countLabel: '${d['count'] ?? items.length}',
+      total: 'Tổng ${d['credits'] ?? 0} lượt · ${(d['amount'] as num? ?? 0).toStringAsFixed(0)} đ',
+      footer: d['truncated'] == true ? 'Hiện ${items.length} / ${d['count']} đơn mới nhất.' : null,
+      emptyText: 'Không có đơn',
+      rows: [
+        for (final x in items)
+          ReportDrillRow(
+            title: '${x['storeName'] ?? ''}',
+            subtitle: [
+              '${x['packageName'] ?? ''}',
+              '${(x['amountPaid'] as num? ?? 0).toStringAsFixed(0)} đ',
+              _when(x['paidAt'] ?? x['createdAt']),
+              if ((x['externalPaymentRef'] ?? '').toString().isNotEmpty) '${x['externalPaymentRef']}',
+            ].join(' · '),
+            trailing: '${x['creditCount'] ?? 0} lượt',
+          ),
+      ],
     );
   }
 }

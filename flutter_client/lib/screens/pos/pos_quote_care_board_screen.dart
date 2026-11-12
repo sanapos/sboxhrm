@@ -6,6 +6,7 @@ import '../../models/pos_quote.dart';
 import '../../services/api_service.dart';
 import '../../widgets/pos/pos_quote_care_sheet.dart';
 import '../../widgets/pos/pos_theme.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import 'pos_quote_care_report_screen.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -250,6 +251,61 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
 
   int _n(String k) => (_summary[k] as num?)?.toInt() ?? 0;
 
+  /// Ô tổng → các báo giá đang theo (đã tải trên màn) tạo ra số đó; bấm dòng mở sổ chăm sóc.
+  void _drill(String title, List<_CareItem> list,
+      {String Function(_CareItem i)? trailing, String? note, String? total}) {
+    showReportDrillSheet(
+      context,
+      title: title,
+      note: note,
+      total: total,
+      emptyText: 'Không có báo giá',
+      rows: [
+        for (final i in list)
+          ReportDrillRow(
+            title: '${i.quoteNo} · ${i.customerName ?? 'Khách'}',
+            subtitle: [
+              careBandLabel(i.band),
+              if (i.score != null) 'điểm ${i.score}/10',
+              '${_money.format(i.total)} đ',
+              if ((i.ownerName ?? '').isNotEmpty) i.ownerName!,
+            ].join(' · '),
+            trailing: trailing?.call(i),
+            trailingColor: careBandColor(i.band),
+            icon: Icons.request_quote_outlined,
+            onTap: () => _open(i),
+          ),
+      ],
+    );
+  }
+
+  void _drillAvg() {
+    final scored = _items.where((i) => i.score != null).toList()
+      ..sort((a, b) => b.score!.compareTo(a.score!));
+    final sum = scored.fold<int>(0, (s, i) => s + i.score!);
+    final avg = (_summary['averageScore'] as num?)?.toDouble();
+    _drill('Điểm TB', scored,
+        trailing: (i) => '${i.score}/10',
+        note: 'Điểm TB = tổng điểm ÷ số báo giá đã chấm = $sum ÷ ${scored.length}'
+            '${avg == null ? '' : ' = ${avg.toStringAsFixed(1)}/10'}. Báo giá chưa chấm điểm không tính.');
+  }
+
+  void _drillPipeline() {
+    final list = [..._items]..sort((a, b) => b.total.compareTo(a.total));
+    _drill('Giá trị báo giá', list,
+        trailing: (i) => '${_money.format(i.total)} đ',
+        total: 'Tổng ${_money.format((_summary['pipelineValue'] as num?) ?? 0)} đ');
+  }
+
+  void _drillWeighted() {
+    final list = _items.where((i) => i.score != null).toList()
+      ..sort((a, b) => (b.total * b.score!).compareTo(a.total * a.score!));
+    _drill('Kỳ vọng (× điểm/10)', list,
+        trailing: (i) => '${_money.format(i.total * i.score! / 10)} đ',
+        total: 'Tổng ${_money.format((_summary['weightedValue'] as num?) ?? 0)} đ',
+        note: 'Kỳ vọng = Σ (giá trị báo giá × điểm ÷ 10). Báo giá chưa chấm điểm không tính.');
+  }
+
   Widget _summaryCard() {
     final avg = (_summary['averageScore'] as num?)?.toDouble();
     final weighted = (_summary['weightedValue'] as num?)?.toDouble() ?? 0;
@@ -276,11 +332,16 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
                   child: _metric(
                       tr('Điểm TB'),
                       avg == null ? '—' : '${avg.toStringAsFixed(1)}/10',
-                      Icons.speed),
+                      Icons.speed,
+                      onTap: _drillAvg),
                 ),
                 Expanded(
+                  // Danh sách ngay bên dưới chính là các khách đang theo → bỏ lọc / tìm để hiện đủ.
                   child: _metric(tr('Khách đang theo'), '$total',
-                      Icons.people_alt_outlined),
+                      Icons.people_alt_outlined, onTap: () {
+                    _search.clear();
+                    setState(() => _filter = 'all');
+                  }),
                 ),
               ],
             ),
@@ -289,11 +350,13 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
               children: [
                 Expanded(
                   child: _metric(tr('Giá trị báo giá'),
-                      '${_money.format(pipeline)} đ', Icons.request_quote),
+                      '${_money.format(pipeline)} đ', Icons.request_quote,
+                      onTap: _drillPipeline),
                 ),
                 Expanded(
                   child: _metric(tr('Kỳ vọng (× điểm/10)'),
-                      '${_money.format(weighted)} đ', Icons.trending_up),
+                      '${_money.format(weighted)} đ', Icons.trending_up,
+                      onTap: _drillWeighted),
                 ),
               ],
             ),
@@ -315,7 +378,10 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
     );
   }
 
-  Widget _metric(String label, String value, IconData icon) => Row(
+  Widget _metric(String label, String value, IconData icon, {VoidCallback? onTap}) => InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Row(
         children: [
           Icon(icon, size: 20, color: PosTheme.primary),
           const SizedBox(width: 8),
@@ -335,7 +401,7 @@ class _PosQuoteCareBoardScreenState extends State<PosQuoteCareBoardScreen> {
             ),
           ),
         ],
-      );
+      ));
 
   Widget _filters() {
     Widget chip(String key, String label, int? n, Color color) {
@@ -602,15 +668,131 @@ class _PosQuoteCareStaffScreenState extends State<PosQuoteCareStaffScreen> {
     });
   }
 
-  Widget _stat(String label, String value, {Color? color}) => Padding(
-        padding: const EdgeInsets.only(right: 14, top: 4),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text(value, style: TextStyle(fontWeight: FontWeight.w700, color: color)),
-          Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
-        ]),
+  Widget _stat(String label, String value, {Color? color, VoidCallback? onTap}) => InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 14, top: 4),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text(value, style: TextStyle(fontWeight: FontWeight.w700, color: color)),
+            Text(label, style: const TextStyle(fontSize: 11, color: Colors.black54)),
+          ]),
+        ),
       );
 
   num _n(Map<String, dynamic> r, String k) => (r[k] as num?) ?? 0;
+
+  // ───── Số của từng nhân viên → báo giá tạo ra số đó ─────
+  // Đang theo / giá trị / quá hẹn / bỏ quên / điểm TB: từ bảng chăm sóc (care-overview, báo giá đang chào)
+  // lọc theo người lập — cùng nguồn PosQuoteCareBoard như care-staff.
+  // BG lập / đã chốt / doanh số / tỉ lệ chốt: danh sách báo giá lọc người lập + ngày tạo trong [_days] ngày.
+
+  bool _ownedBy(Map<String, dynamic> item, Map<String, dynamic> r) {
+    final emp = '${r['employeeId'] ?? ''}';
+    if (emp.isNotEmpty) return '${item['ownerEmployeeId'] ?? ''}' == emp;
+    return item['ownerEmployeeId'] == null && '${item['ownerName'] ?? ''}' == '${r['name'] ?? ''}';
+  }
+
+  void _drillCare(Map<String, dynamic> r, String title, bool Function(Map<String, dynamic> i) where,
+      {String Function(Map<String, dynamic> i)? trailing, String? total, String? note}) {
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: '${r['name'] ?? 'Chưa rõ người lập'}',
+      note: note,
+      total: total,
+      emptyText: 'Không có báo giá',
+      load: () async {
+        final res = await ApiService().getPosQuoteCareOverview(scope: 'pipeline');
+        if (res['isSuccess'] != true) throw Exception(res['message']?.toString() ?? 'Không tải được dữ liệu');
+        final items = (((res['data'] as Map?)?['items'] as List?) ?? const [])
+            .whereType<Map>()
+            .map((e) => e.cast<String, dynamic>())
+            .where((i) => _ownedBy(i, r) && where(i))
+            .toList();
+        return [
+          for (final i in items)
+            ReportDrillRow(
+              title: '${i['quoteNo'] ?? ''} · ${i['customerName'] ?? 'Khách'}',
+              subtitle: [
+                careBandLabel('${i['band'] ?? 'none'}'),
+                if (i['score'] != null) 'điểm ${i['score']}/10',
+                '${_money.format(_n(i, 'total'))} đ',
+              ].join(' · '),
+              trailing: trailing?.call(i),
+              icon: Icons.request_quote_outlined,
+              onTap: () => showPosQuoteCareSheet(
+                context,
+                quoteId: '${i['quoteId']}',
+                quoteNo: '${i['quoteNo'] ?? ''}',
+                customerName: i['customerName'] as String?,
+                customerPhone: i['customerPhone'] as String?,
+              ),
+            ),
+        ];
+      },
+    );
+  }
+
+  void _drillCreated(Map<String, dynamic> r, String title, {Set<String>? statuses, bool money = false, String? note}) {
+    final emp = '${r['employeeId'] ?? ''}';
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: '${r['name'] ?? 'Chưa rõ người lập'} · $_days ngày',
+      note: note,
+      total: money ? 'Tổng ${_money.format(_n(r, 'acceptedValue'))} đ' : null,
+      emptyText: 'Không có báo giá',
+      footer: emp.isEmpty ? 'Người lập không gắn nhân viên — danh sách có thể gồm báo giá của người khác.' : null,
+      load: () async {
+        final out = <Map<String, dynamic>>[];
+        for (var page = 1; page <= 5; page++) {
+          final res = await ApiService().getPosQuotes(
+            employeeId: emp.isEmpty ? null : emp,
+            from: DateTime.now().toUtc().subtract(Duration(days: _days)),
+            page: page,
+            pageSize: 200,
+          );
+          if (res['isSuccess'] != true) throw Exception(res['message']?.toString() ?? 'Không tải được dữ liệu');
+          final data = (res['data'] as Map?) ?? const {};
+          final list = ((data['items'] as List?) ?? const []).whereType<Map>().map((e) => e.cast<String, dynamic>()).toList();
+          out.addAll(list);
+          if (list.length < 200) break;
+        }
+        final rows = out.where((q) => statuses == null || statuses.contains('${q['status']}')).where((q) {
+          // Người lập không gắn nhân viên: lọc theo tên người lập như máy chủ gom nhóm.
+          if (emp.isNotEmpty) return true;
+          return q['quotedByEmployeeId'] == null && '${q['quotedBy'] ?? ''}' == '${r['name'] ?? ''}';
+        }).toList();
+        return [
+          for (final q in rows)
+            ReportDrillRow(
+              title: '${q['quoteNo'] ?? ''} · ${q['customerName'] ?? 'Khách'}',
+              subtitle: _statusVi('${q['status']}'),
+              trailing: '${_money.format(_n(q, 'total'))} đ',
+              icon: Icons.request_quote_outlined,
+              onTap: () => showPosQuoteCareSheet(
+                context,
+                quoteId: '${q['id']}',
+                quoteNo: '${q['quoteNo'] ?? ''}',
+                customerName: q['customerName'] as String?,
+                customerPhone: q['customerPhone'] as String?,
+              ),
+            ),
+        ];
+      },
+    );
+  }
+
+  static String _statusVi(String s) => switch (s) {
+        'Draft' => 'Nháp',
+        'Sent' => 'Đã gửi',
+        'Revised' => 'Đã sửa',
+        'Accepted' => 'Đã chốt',
+        'Rejected' => 'Từ chối',
+        'Expired' => 'Hết hạn',
+        'Cancelled' => 'Đã hủy',
+        _ => s,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -650,17 +832,37 @@ class _PosQuoteCareStaffScreenState extends State<PosQuoteCareStaffScreen> {
                     Text('${r['name'] ?? tr('Chưa rõ người lập')}',
                         style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                     Wrap(children: [
-                      _stat(tr('Đang theo'), '${_n(r, 'openQuotes')}'),
-                      _stat(tr('Giá trị đang chào'), _money.format(_n(r, 'pipelineValue'))),
+                      _stat(tr('Đang theo'), '${_n(r, 'openQuotes')}',
+                          onTap: () => _drillCare(r, 'Báo giá đang theo', (_) => true)),
+                      _stat(tr('Giá trị đang chào'), _money.format(_n(r, 'pipelineValue')),
+                          onTap: () => _drillCare(r, 'Giá trị đang chào', (_) => true,
+                              trailing: (i) => '${_money.format(_n(i, 'total'))} đ',
+                              total: 'Tổng ${_money.format(_n(r, 'pipelineValue'))} đ')),
+                      // Lần liên hệ: đếm nhật ký trên mọi báo giá của người này — chưa có danh sách theo người lập.
                       _stat(tr('Lần liên hệ'), '${_n(r, 'contacts')}'),
-                      _stat(tr('Quá hẹn'), '${_n(r, 'overdue')}', color: _n(r, 'overdue') > 0 ? Colors.red : null),
+                      _stat(tr('Quá hẹn'), '${_n(r, 'overdue')}', color: _n(r, 'overdue') > 0 ? Colors.red : null,
+                          onTap: () => _drillCare(r, 'Quá hạn hẹn', (i) => i['followUp'] == 'overdue')),
                       _stat(tr('Bỏ quên'), '${_n(r, 'stale')}',
-                          color: _n(r, 'stale') > 0 ? Colors.orange.shade800 : null),
-                      _stat(tr('BG lập'), '${_n(r, 'createdQuotes')}'),
-                      _stat(tr('Đã chốt'), '${_n(r, 'accepted')}'),
-                      _stat(tr('Tỉ lệ chốt'), r['conversionRate'] == null ? '—' : '${r['conversionRate']}%'),
-                      _stat(tr('Doanh số chốt'), _money.format(_n(r, 'acceptedValue'))),
-                      _stat(tr('Điểm TB'), r['averageScore'] == null ? '—' : '${r['averageScore']}/10'),
+                          color: _n(r, 'stale') > 0 ? Colors.orange.shade800 : null,
+                          onTap: () => _drillCare(r, 'Lâu chưa liên hệ', (i) => i['stale'] == true,
+                              trailing: (i) => i['daysSinceContact'] == null ? 'chưa liên hệ' : '${i['daysSinceContact']} ngày')),
+                      _stat(tr('BG lập'), '${_n(r, 'createdQuotes')}',
+                          onTap: () => _drillCreated(r, 'Báo giá lập trong $_days ngày')),
+                      _stat(tr('Đã chốt'), '${_n(r, 'accepted')}',
+                          onTap: () => _drillCreated(r, 'Báo giá đã chốt', statuses: const {'Accepted'})),
+                      _stat(tr('Tỉ lệ chốt'), r['conversionRate'] == null ? '—' : '${r['conversionRate']}%',
+                          onTap: () => _drillCreated(r, 'Tỉ lệ chốt',
+                              statuses: const {'Accepted', 'Rejected', 'Expired', 'Cancelled'},
+                              note: 'Tỉ lệ chốt = đã chốt ÷ báo giá đã có kết quả (chốt, từ chối, hết hạn, hủy) '
+                                  'lập trong $_days ngày = ${_n(r, 'accepted')} ÷ (số dòng dưới) = '
+                                  '${r['conversionRate'] == null ? '—' : '${r['conversionRate']}%'}.')),
+                      _stat(tr('Doanh số chốt'), _money.format(_n(r, 'acceptedValue')),
+                          onTap: () => _drillCreated(r, 'Doanh số chốt', statuses: const {'Accepted'}, money: true)),
+                      _stat(tr('Điểm TB'), r['averageScore'] == null ? '—' : '${r['averageScore']}/10',
+                          onTap: () => _drillCare(r, 'Điểm TB', (i) => i['score'] != null,
+                              trailing: (i) => '${i['score']}/10',
+                              note: 'Điểm TB = trung bình điểm các báo giá đang chào đã chấm = '
+                                  '${r['averageScore'] == null ? '—' : '${r['averageScore']}/10'}.')),
                     ]),
                   ]),
                 ),

@@ -8,6 +8,7 @@ import '../utils/vn_search.dart';
 import '../utils/zalo_link_print.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/sbox/sbox_ui.dart';
+import '../widgets/reports/report_drill_sheet.dart';
 
 /// Bảng liên kết Zalo cả cửa hàng: mọi nhân viên đang làm (kể cả không có tài khoản app), cấp mã 6 số hạn 7 ngày,
 /// in phiếu cắt phát riêng từng người, xuất Excel theo dõi ai đã / chưa liên kết.
@@ -170,6 +171,41 @@ class _ZaloBotLinkTableScreenState extends State<ZaloBotLinkTableScreen> {
     }
   }
 
+  /// Ô số liệu → đúng những nhân viên đã đếm (trên cả bảng, không theo bộ lọc / ô tìm).
+  void _drill(String title, bool Function(ZaloLinkRow r) where, {String? note}) {
+    final list = _rows.where(where).toList()..sort((a, b) => a.name.compareTo(b.name));
+    final dm = DateFormat('dd/MM/yyyy');
+    showReportDrillSheet(
+      context,
+      title: title,
+      note: note,
+      rows: [
+        for (final r in list)
+          ReportDrillRow(
+            title: r.name,
+            subtitle: [
+              if ((r.employeeCode ?? '').isNotEmpty) r.employeeCode!,
+              if ((r.department ?? '').isNotEmpty) r.department!,
+              if (r.linked && (r.zaloName ?? '').isNotEmpty) 'Zalo: ${r.zaloName}',
+              if (!r.linked && r.codeExpiresAt != null) 'Mã hết hạn ${dm.format(r.codeExpiresAt!.toLocal())}',
+              if (!r.hasAccount) 'Chưa có tài khoản app',
+            ].join(' · '),
+            trailing: r.linked
+                ? (r.linkedAt == null ? 'Đã liên kết' : dm.format(r.linkedAt!.toLocal()))
+                : (r.codeDisplay ?? 'Chưa liên kết'),
+            trailingColor: r.linked ? SboxColors.successText : null,
+          ),
+      ],
+    );
+  }
+
+  void _drillLinked() => _drill('Đã liên kết Zalo', (r) => r.linked);
+  void _drillUnlinked() => _drill('Chưa liên kết Zalo', (r) => !r.linked);
+  void _drillWithCode() => _drill('Có mã chờ gửi', (r) => !r.linked && r.code != null,
+      note: 'Chưa liên kết và đã có mã liên kết (mã dùng 7 ngày).');
+  void _drillNoAccount() => _drill('Không có tài khoản app', (r) => !r.hasAccount && r.employeeId != null,
+      note: 'Nhân viên chưa có tài khoản đăng nhập app — vẫn nhận tin qua Zalo nếu đã liên kết.');
+
   @override
   Widget build(BuildContext context) {
     final linked = _rows.where((r) => r.linked).length;
@@ -203,22 +239,25 @@ class _ZaloBotLinkTableScreenState extends State<ZaloBotLinkTableScreen> {
                     children: [
                       if (short)
                         Wrap(spacing: 8, runSpacing: 8, children: [
-                          _stat(Icons.verified_user_outlined, 'Đã liên kết', '$linked/${_rows.length}', SboxTone.success),
+                          _stat(Icons.verified_user_outlined, 'Đã liên kết', '$linked/${_rows.length}', SboxTone.success,
+                              onTap: _drillLinked),
                           _stat(Icons.link_off_rounded, 'Chưa liên kết', '$unlinked',
-                              unlinked > 0 ? SboxTone.warning : SboxTone.success),
-                          _stat(Icons.pin_outlined, 'Có mã chờ gửi', '$withCode', SboxTone.brand),
-                          _stat(Icons.person_off_outlined, 'Không có tài khoản app', '$noAccount', SboxTone.neutral),
+                              unlinked > 0 ? SboxTone.warning : SboxTone.success,
+                              onTap: _drillUnlinked),
+                          _stat(Icons.pin_outlined, 'Có mã chờ gửi', '$withCode', SboxTone.brand, onTap: _drillWithCode),
+                          _stat(Icons.person_off_outlined, 'Không có tài khoản app', '$noAccount', SboxTone.neutral,
+                              onTap: _drillNoAccount),
                         ])
                       else
                         SboxKpiStrip(maxColumns: 4, items: [
                           SboxKpi(label: 'Đã liên kết', value: '$linked/${_rows.length}', icon: Icons.verified_user_outlined,
-                              tone: SboxTone.success, note: 'Nhận tin qua Zalo'),
+                              tone: SboxTone.success, note: 'Nhận tin qua Zalo', onTap: _drillLinked),
                           SboxKpi(label: 'Chưa liên kết', value: '$unlinked', icon: Icons.link_off_rounded,
-                              tone: unlinked > 0 ? SboxTone.warning : SboxTone.success),
+                              tone: unlinked > 0 ? SboxTone.warning : SboxTone.success, onTap: _drillUnlinked),
                           SboxKpi(label: 'Có mã chờ gửi', value: '$withCode', icon: Icons.pin_outlined, tone: SboxTone.brand,
-                              note: 'Mã dùng 7 ngày'),
+                              note: 'Mã dùng 7 ngày', onTap: _drillWithCode),
                           SboxKpi(label: 'Không có tài khoản app', value: '$noAccount', icon: Icons.person_off_outlined,
-                              tone: SboxTone.neutral, note: 'Vẫn nhận qua Zalo'),
+                              tone: SboxTone.neutral, note: 'Vẫn nhận qua Zalo', onTap: _drillNoAccount),
                         ]),
                       const SizedBox(height: 12),
                       _howTo(),
@@ -247,7 +286,13 @@ class _ZaloBotLinkTableScreenState extends State<ZaloBotLinkTableScreen> {
     );
   }
 
-  Widget _stat(IconData icon, String label, String value, SboxTone tone) => Container(
+  Widget _stat(IconData icon, String label, String value, SboxTone tone, {VoidCallback? onTap}) => InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: onTap,
+        child: _statBody(icon, label, value, tone),
+      );
+
+  Widget _statBody(IconData icon, String label, String value, SboxTone tone) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(color: tone.bg, borderRadius: BorderRadius.circular(999)),
         child: Row(mainAxisSize: MainAxisSize.min, children: [

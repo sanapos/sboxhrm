@@ -10,6 +10,7 @@ import '../../utils/pos_report_export.dart';
 import '../../utils/pos_report_open.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
@@ -73,6 +74,123 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
     if (d == null) return '—';
     return _dt.format((d.isUtc ? d : DateTime.utc(d.year, d.month, d.day, d.hour, d.minute)).toLocal());
   }
+
+  // ───────── Chip số liệu → vận đơn tạo ra số đó ─────────
+  // Lọc tại chỗ danh sách «all» (mọi vận đơn trong kỳ, ≤ 5.000) theo đúng điều kiện
+  // PosShippingService.Summarize ở máy chủ, nên tổng các dòng khớp số trên chip.
+
+  List<Map<String, dynamic>> get _all => _maps(_data?['all']);
+  String _st(Map<String, dynamic> r) => '${r['statusCode'] ?? ''}';
+  bool _shopPays(Map<String, dynamic> r) => '${r['feePayer'] ?? ''}' != 'customer';
+  num _cost(Map<String, dynamic> r) => _n(r['carrierFee']) + _n(r['returnFee']);
+  num _fee(Map<String, dynamic> r) =>
+      _st(r) != 'cancelled' && _st(r) != 'returned' && _shopPays(r) ? _n(r['deliveryFee']) : 0;
+
+  void _drillShip(
+    String title,
+    List<Map<String, dynamic>> rows, {
+    String Function(Map<String, dynamic> r)? trailing,
+    num Function(Map<String, dynamic> r)? amount,
+    String? note,
+  }) {
+    final sum = amount == null ? null : rows.fold<num>(0, (s, r) => s + amount(r));
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: [_time.displayLabel, if (_carrier != null) 'hãng $_carrier'].join(' · '),
+      note: note,
+      total: sum == null ? null : 'Tổng ${_money.format(sum)}',
+      footer: _data?['truncated'] == true ? 'Kỳ có hơn 5.000 vận đơn — chỉ tính 5.000 vận đơn mới nhất.' : null,
+      emptyText: 'Không có vận đơn',
+      rows: [
+        for (final r in rows)
+          ReportDrillRow(
+            title: '${r['orderNo']} · ${r['customerName'] ?? 'Khách'}',
+            subtitle: [
+              '${r['carrierName'] ?? ''}',
+              if ('${r['trackingCode'] ?? ''}'.isNotEmpty) '${r['trackingCode']}',
+              '${r['statusLabel'] ?? ''}',
+              _t(r['shippedAt']),
+            ].where((e) => e.trim().isNotEmpty).join(' · '),
+            trailing: trailing?.call(r) ?? (amount == null ? null : _money.format(amount(r))),
+            trailingColor: amount != null && amount(r) < 0 ? SboxColors.danger : null,
+            icon: Icons.local_shipping_outlined,
+            onTap: () => unawaited(PosReportOpen.sale(context, '${r['orderId']}')),
+          ),
+      ],
+    );
+  }
+
+  void _drillShipments() => _drillShip('Vận đơn', _all);
+
+  void _drillDelivered(Map<String, dynamic> t) => _drillShip(
+        'Giao thành công',
+        _all.where((r) => _st(r) == 'delivered').toList(),
+        note: 'Tỷ lệ = đã giao ÷ (đã giao + đã hoàn) = ${_n(t['delivered'])} ÷ '
+            '(${_n(t['delivered'])} + ${_n(t['returned'])}) = ${_n(t['successRate'])}%. '
+            'Không tính vận đơn hủy và vận đơn đang đi.',
+      );
+
+  void _drillFailed() => _drillShip(
+        'Giao thất bại',
+        _maps(_data?['failed']),
+        trailing: (r) => '${_n(r['failCount']) > 0 ? _n(r['failCount']) : 1} lượt',
+        note: 'Vận đơn có ít nhất một lần giao thất bại hoặc đang ở trạng thái giao thất bại. '
+            'Số lượt = cộng cột bên phải.',
+      );
+
+  void _drillReturns() => _drillShip('Hoàn hàng', _maps(_data?['returns']));
+
+  void _drillFailedOrReturned(Map<String, dynamic> t) => _drillShip(
+        'Thất bại / hoàn',
+        [..._maps(_data?['failed']), ..._maps(_data?['returns'])],
+        note: 'Giao thất bại ${_n(t['failedOrders'])} + đang hoàn ${_n(t['returning'])} + đã hoàn ${_n(t['returned'])}. '
+            'Vận đơn vừa thất bại vừa hoàn được tính ở cả hai nhóm (hiện 2 dòng).',
+      );
+
+  void _drillCancelled() => _drillShip('Hủy vận đơn', _maps(_data?['cancelled']));
+
+  void _drillHours(Map<String, dynamic> t) {
+    final rows = _all.where((r) => _n(r['deliveryHours']) > 0).toList()
+      ..sort((a, b) => _n(b['deliveryHours']).compareTo(_n(a['deliveryHours'])));
+    _drillShip(
+      'Thời gian giao trung bình',
+      rows,
+      trailing: (r) => '${_n(r['deliveryHours'])} giờ',
+      note: 'TB = tổng giờ (tạo vận đơn → giao xong) ÷ số vận đơn có giờ giao = '
+          '${t['avgDeliveryHours'] == null ? '—' : '${_n(t['avgDeliveryHours'])} giờ'} trên ${rows.length} vận đơn.',
+    );
+  }
+
+  void _drillFeeCharged() => _drillShip(
+        'Phí ship thu khách',
+        _all.where((r) => _fee(r) != 0).toList(),
+        amount: _fee,
+        note: 'Phí giao trên đơn của vận đơn không hủy / không hoàn, shop trả cước cho hãng. '
+            'Khách trả cước thẳng cho hãng thì không tính.',
+      );
+
+  void _drillCarrierCost() => _drillShip(
+        'Cước shop chịu',
+        _all.where((r) => _st(r) != 'cancelled' && _shopPays(r) && _cost(r) != 0).toList(),
+        amount: _cost,
+        note: 'Cước hãng + cước hoàn của vận đơn không hủy, shop trả cước.',
+      );
+
+  void _drillShipProfit(Map<String, dynamic> t) => _drillShip(
+        'Lãi / lỗ phí ship',
+        _all.where((r) => _st(r) != 'cancelled' && _shopPays(r) && (_fee(r) - _cost(r)) != 0).toList(),
+        amount: (r) => _fee(r) - _cost(r),
+        note: 'Lãi / lỗ = Phí thu khách − Cước shop chịu = ${_money.format(_n(t['feeCharged']))} − '
+            '${_money.format(_n(t['carrierCost']))} = ${_money.format(_n(t['shipProfit']))}.',
+      );
+
+  void _drillCodPending() => _drillShip(
+        'COD chưa đối soát',
+        _all.where((r) => _st(r) == 'delivered' && r['codSettledAt'] == null && _n(r['codAmount']) != 0).toList(),
+        amount: (r) => _n(r['codAmount']),
+        note: 'Vận đơn đã giao, hãng chưa chuyển tiền thu hộ. Đối soát ở thẻ «Đối soát COD».',
+      );
 
   Future<void> _confirmReturn(Map<String, dynamic> r) async {
     final feeCtrl = TextEditingController();
@@ -189,14 +307,23 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
 
   /// Cảnh báo: danh sách bị cắt, COD quá hạn đối soát, vận đơn treo, đơn chưa tạo vận đơn.
   List<Widget> _alerts() {
-    final msgs = <String>[
-      if (_data?['truncated'] == true) 'Kỳ này có hơn 5.000 vận đơn — danh sách bị cắt, hãy thu hẹp khoảng ngày.',
+    // Bấm dòng cảnh báo → danh sách tạo ra số đó (COD quá hạn: sheet; treo / chưa tạo: chuyển thẻ).
+    final msgs = <(String, VoidCallback?)>[
+      if (_data?['truncated'] == true) ('Kỳ này có hơn 5.000 vận đơn — danh sách bị cắt, hãy thu hẹp khoảng ngày.', null),
       if (_n(_data?['codOverdueCount']) > 0)
-        'COD quá 7 ngày chưa đối soát: ${_n(_data?['codOverdueCount'])} đơn · ${_money.format(_n(_data?['codOverdueAmount']))} đ',
+        (
+          'COD quá 7 ngày chưa đối soát: ${_n(_data?['codOverdueCount'])} đơn · ${_money.format(_n(_data?['codOverdueAmount']))} đ',
+          () => _drillShip(
+                'COD quá hạn đối soát',
+                _maps(_data?['cod']).where(_overdue).toList(),
+                amount: (r) => _n(r['codAmount']),
+                note: 'Vận đơn giao xong từ 7 ngày trước, hãng chưa chuyển tiền thu hộ.',
+              ),
+        ),
       if (_maps(_data?['stale']).isNotEmpty)
-        '${_maps(_data?['stale']).length} vận đơn quá 3 ngày không có cập nhật từ hãng',
+        ('${_maps(_data?['stale']).length} vận đơn quá 3 ngày không có cập nhật từ hãng', () => setState(() => _tab = 5)),
       if (_maps(_data?['unshipped']).isNotEmpty)
-        '${_maps(_data?['unshipped']).length} đơn giao hàng chưa tạo vận đơn',
+        ('${_maps(_data?['unshipped']).length} đơn giao hàng chưa tạo vận đơn', () => setState(() => _tab = 6)),
     ];
     if (msgs.isEmpty) return const [];
     return [
@@ -210,13 +337,17 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           for (final m in msgs)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 1),
-              child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade800),
-                const SizedBox(width: 6),
-                Expanded(child: Text(tr(m), style: TextStyle(fontSize: 12.5, color: Colors.orange.shade900))),
-              ]),
+            InkWell(
+              onTap: m.$2,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 1),
+                child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Icon(Icons.warning_amber_rounded, size: 16, color: Colors.orange.shade800),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(tr(m.$1), style: TextStyle(fontSize: 12.5, color: Colors.orange.shade900))),
+                  if (m.$2 != null) Icon(Icons.chevron_right, size: 16, color: Colors.orange.shade800),
+                ]),
+              ),
             ),
         ]),
       ),
@@ -261,14 +392,18 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
         .toDouble();
     return SboxInsightPanel(
       kpis: [
-        SboxKpi(label: 'Vận đơn', value: SboxFmt.number(n(t['shipments'])), icon: Icons.local_shipping_outlined, note: _time.displayLabel),
+        SboxKpi(label: 'Vận đơn', value: SboxFmt.number(n(t['shipments'])), icon: Icons.local_shipping_outlined, note: _time.displayLabel,
+            onTap: _drillShipments),
         SboxKpi(label: 'Giao thành công', value: SboxFmt.pct(n(t['successRate'])), icon: Icons.task_alt_rounded, tone: SboxTone.success,
-            note: '${SboxFmt.number(n(t['delivered']))} đơn đã giao'),
+            note: '${SboxFmt.number(n(t['delivered']))} đơn đã giao', onTap: () => _drillDelivered(t)),
         SboxKpi(label: 'Thất bại / hoàn', value: SboxFmt.number(n(t['failedOrders']) + n(t['returning']) + n(t['returned'])),
-            icon: Icons.assignment_return_outlined, tone: SboxTone.danger, note: 'Cần gọi khách / nhận hàng hoàn'),
+            icon: Icons.assignment_return_outlined, tone: SboxTone.danger, note: 'Cần gọi khách / nhận hàng hoàn',
+            onTap: () => _drillFailedOrReturned(t)),
         SboxKpi(label: 'Lãi / lỗ phí ship', value: SboxFmt.money(profit), icon: Icons.savings_outlined,
-            tone: profit < 0 ? SboxTone.danger : SboxTone.brand, note: 'Phí thu khách − cước hãng'),
-        SboxKpi(label: 'COD chưa đối soát', value: SboxFmt.money(n(t['codPending'])), icon: Icons.account_balance_wallet_outlined, tone: SboxTone.warning),
+            tone: profit < 0 ? SboxTone.danger : SboxTone.brand, note: 'Phí thu khách − cước hãng',
+            onTap: () => _drillShipProfit(t)),
+        SboxKpi(label: 'COD chưa đối soát', value: SboxFmt.money(n(t['codPending'])), icon: Icons.account_balance_wallet_outlined, tone: SboxTone.warning,
+            onTap: _drillCodPending),
       ],
       charts: [
         SboxChartCard(
@@ -307,7 +442,10 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
   }
 
   Widget _summary(Map<String, dynamic> t) {
-    Widget cell(String label, String value, {Color? color}) => Container(
+    Widget cell(String label, String value, {Color? color, VoidCallback? onTap}) => InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(SboxRadius.md),
+        child: Container(
           width: 150,
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
@@ -320,19 +458,25 @@ class _PosShippingReportScreenState extends State<PosShippingReportScreen> {
             const SizedBox(height: 2),
             Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color ?? SboxColors.text)),
           ]),
-        );
+        ));
     final profit = _n(t['shipProfit']);
     return Wrap(spacing: 8, runSpacing: 8, children: [
-      cell('Vận đơn', '${_n(t['shipments'])}'),
-      cell('Đã giao', '${_n(t['delivered'])} · ${_n(t['successRate'])}%', color: SboxColors.success),
-      cell('Giao thất bại', '${_n(t['failedOrders'])} đơn / ${_n(t['failedAttempts'])} lượt', color: SboxColors.warning),
-      cell('Hoàn hàng', '${_n(t['returning'])} đang · ${_n(t['returned'])} đã về', color: SboxColors.danger),
-      cell('Hủy vận đơn', '${_n(t['cancelled'])}'),
-      cell('TG giao TB', t['avgDeliveryHours'] == null ? '—' : '${_n(t['avgDeliveryHours'])} giờ'),
-      cell('Phí thu khách', _money.format(_n(t['feeCharged']))),
-      cell('Cước shop chịu', _money.format(_n(t['carrierCost']))),
-      cell('Lãi/lỗ ship', _money.format(profit), color: profit < 0 ? SboxColors.danger : SboxColors.success),
-      cell('COD chưa đối soát', _money.format(_n(t['codPending'])), color: SboxColors.warningText),
+      cell('Vận đơn', '${_n(t['shipments'])}', onTap: _drillShipments),
+      cell('Đã giao', '${_n(t['delivered'])} · ${_n(t['successRate'])}%', color: SboxColors.success,
+          onTap: () => _drillDelivered(t)),
+      cell('Giao thất bại', '${_n(t['failedOrders'])} đơn / ${_n(t['failedAttempts'])} lượt', color: SboxColors.warning,
+          onTap: _drillFailed),
+      cell('Hoàn hàng', '${_n(t['returning'])} đang · ${_n(t['returned'])} đã về', color: SboxColors.danger,
+          onTap: _drillReturns),
+      cell('Hủy vận đơn', '${_n(t['cancelled'])}', onTap: _drillCancelled),
+      cell('TG giao TB', t['avgDeliveryHours'] == null ? '—' : '${_n(t['avgDeliveryHours'])} giờ',
+          onTap: () => _drillHours(t)),
+      cell('Phí thu khách', _money.format(_n(t['feeCharged'])), onTap: _drillFeeCharged),
+      cell('Cước shop chịu', _money.format(_n(t['carrierCost'])), onTap: _drillCarrierCost),
+      cell('Lãi/lỗ ship', _money.format(profit), color: profit < 0 ? SboxColors.danger : SboxColors.success,
+          onTap: () => _drillShipProfit(t)),
+      cell('COD chưa đối soát', _money.format(_n(t['codPending'])), color: SboxColors.warningText,
+          onTap: _drillCodPending),
     ]);
   }
 

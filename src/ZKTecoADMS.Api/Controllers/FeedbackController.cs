@@ -23,7 +23,7 @@ namespace ZKTecoADMS.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Authorize]
-public class FeedbackController(
+public partial class FeedbackController(
     ZKTecoDbContext dbContext,
     ISystemNotificationService notificationService,
     IFileStorageService fileStorageService) : AuthenticatedControllerBase

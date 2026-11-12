@@ -9,6 +9,7 @@ import '../../utils/pos_report_export.dart';
 import '../../utils/pos_report_open.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../widgets/sbox/sbox_ui.dart';
@@ -118,6 +119,50 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
     ));
   }
 
+  static const _dimNames = {'product': 'hàng', 'category': 'nhóm hàng', 'channel': 'kênh bán', 'staff': 'nhân viên'};
+
+  String _nameOf(Map<String, dynamic> r) =>
+      r['productName']?.toString() ?? r['displayName']?.toString() ?? r['label']?.toString() ?? '—';
+
+  /// Chip tổng → từng dòng của bảng chi tiết (theo hàng / nhóm / kênh / NV) cộng lại ra số chip.
+  /// [field]: revenue / cogs / profit. [onlyLosing]: chỉ mục có lợi nhuận âm.
+  void _drill(String title, String field, {bool onlyLosing = false, String? note}) {
+    final items = _items().where((r) => !onlyLosing || _n(r['profit']) < 0).toList()
+      ..sort((a, b) => onlyLosing
+          ? _n(a['profit']).compareTo(_n(b['profit']))
+          : _n(b[field]).compareTo(_n(a[field])));
+    final sum = items.fold<double>(0, (s, r) => s + _n(r[field]));
+    final dimName = _dimNames[_dim] ?? _dim;
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: 'Theo $dimName · ${_time.displayLabel}',
+      note: note,
+      total: 'Tổng ${_moneyFmt.format(sum)}',
+      footer: _dim == 'product' && _items().length >= 500
+          ? 'Chỉ hiện 500 mặt hàng đầu — tổng dòng có thể nhỏ hơn số trên chip.'
+          : null,
+      rows: [
+        for (final r in items)
+          ReportDrillRow(
+            title: _nameOf(r),
+            subtitle: [
+              if ((r['productCode'] ?? '').toString().isNotEmpty) r['productCode'].toString(),
+              if (_dim == 'product') 'SL ${SboxFmt.qty(_n(r['qty']))}',
+              if (r['orderCount'] != null) '${_n(r['orderCount']).toInt()} đơn',
+              'DT ${_moneyFmt.format(_n(r['revenue']))}',
+              'vốn ${_moneyFmt.format(_n(r['cogs']))}',
+              'biên ${SboxFmt.pct(_n(r['marginPct']))}',
+            ].join(' · '),
+            trailing: _moneyFmt.format(_n(r[field])),
+            trailingColor: field == 'profit' && _n(r['profit']) < 0 ? const Color(0xFFB42318) : null,
+            icon: _dim == 'product' ? Icons.inventory_2_outlined : null,
+            onTap: () => _openRow(r),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = _items();
@@ -131,12 +176,20 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
     final dimLabel = const {'product': 'hàng', 'category': 'nhóm', 'channel': 'kênh', 'staff': 'nhân viên'}[_dim] ?? 'mục';
     final insight = SboxInsightPanel(
       kpis: [
-        SboxKpi(label: 'Doanh thu', value: SboxFmt.money(rev), icon: Icons.payments_outlined, note: _time.displayLabel),
-        SboxKpi(label: 'Giá vốn', value: SboxFmt.money(_n(_data?['totalCogs'])), icon: Icons.inventory_2_outlined, tone: SboxTone.warning),
+        SboxKpi(label: 'Doanh thu', value: SboxFmt.money(rev), icon: Icons.payments_outlined, note: _time.displayLabel,
+            onTap: () => _drill('Doanh thu', 'revenue')),
+        SboxKpi(label: 'Giá vốn', value: SboxFmt.money(_n(_data?['totalCogs'])), icon: Icons.inventory_2_outlined, tone: SboxTone.warning,
+            onTap: () => _drill('Giá vốn', 'cogs')),
         SboxKpi(label: 'Lợi nhuận gộp', value: SboxFmt.money(profit), icon: Icons.trending_up_rounded, tone: profit < 0 ? SboxTone.danger : SboxTone.success,
-            note: 'Biên ${SboxFmt.pct(rev > 0 ? profit / rev * 100 : 0)}'),
+            note: 'Biên ${SboxFmt.pct(rev > 0 ? profit / rev * 100 : 0)}',
+            onTap: () => _drill('Lợi nhuận gộp', 'profit',
+                note: 'Lợi nhuận gộp = Doanh thu − Giá vốn = ${_moneyFmt.format(rev)} − '
+                    '${_moneyFmt.format(_n(_data?['totalCogs']))} = ${_moneyFmt.format(profit)}.\n'
+                    'Biên = Lợi nhuận ÷ Doanh thu = ${SboxFmt.pct(rev > 0 ? profit / rev * 100 : 0)}.')),
         SboxKpi(label: 'Mục bị lỗ', value: SboxFmt.number(losing), icon: Icons.report_gmailerrorred_outlined,
-            tone: losing > 0 ? SboxTone.danger : SboxTone.neutral, note: 'Bán dưới giá vốn'),
+            tone: losing > 0 ? SboxTone.danger : SboxTone.neutral, note: 'Bán dưới giá vốn',
+            onTap: () => _drill('Mục bị lỗ', 'profit', onlyLosing: true,
+                note: 'Các ${_dimNames[_dim] ?? 'mục'} có lợi nhuận âm (doanh thu thấp hơn giá vốn) trong kỳ.')),
       ],
       charts: [
         SboxChartCard(
@@ -211,11 +264,11 @@ class _PosProfitReportScreenState extends State<PosProfitReportScreen> {
                   subtitle: _time.displayLabel,
                   child: PosReportMetricTiles(
                     moneyFmt: _moneyFmt,
-                    onTileTap: (_) => unawaited(PosReportOpen.sales(
-                      context,
-                      from: _time.from,
-                      to: _time.to,
-                    )),
+                    onTileTap: (i) => switch (i) {
+                      0 => _drill('Doanh thu', 'revenue'),
+                      1 => _drill('Giá vốn', 'cogs'),
+                      _ => _drill('Lợi nhuận', 'profit'),
+                    },
                     tiles: [
                       (
                         label: 'DT',

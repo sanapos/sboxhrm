@@ -5,6 +5,7 @@ import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/sbox/sbox_charts.dart';
 import '../feedback_detail_screen.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import 'feedback_ui.dart';
 
 /// Báo cáo kiến nghị / khiếu nại: tổng quan, tỷ lệ đúng hạn, thời gian phản hồi / giải quyết,
@@ -59,6 +60,57 @@ class _FeedbackReportViewState extends State<FeedbackReportView> {
     return h >= 48 ? '${(h / 24).toStringAsFixed(1)} ngày' : '${h.toStringAsFixed(1)} giờ';
   }
 
+  /// Ô số liệu → danh sách phiếu (GET /api/feedback/stats/drill, cùng khoảng ngày và phạm vi với stats).
+  void _drill(String title, String kind, {String? note, String Function(Map<String, dynamic> r)? trailing,
+      Color? Function(Map<String, dynamic> r)? color, int Function(Map<String, dynamic> a, Map<String, dynamic> b)? sort}) {
+    final now = DateTime.now();
+    final from = DateTime(now.year, now.month - (_months - 1), 1);
+    String ymd(DateTime d) => d.toIso8601String().split('T').first;
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: _months == 1 ? 'Tháng này' : '$_months tháng gần nhất',
+      note: note,
+      load: () async {
+        final r = await _api.getReportJson('/api/feedback/stats/drill',
+            query: {'kind': kind, 'fromDate': ymd(from), 'toDate': ymd(now)});
+        if (r['isSuccess'] != true) throw Exception(r['message'] ?? 'Không tải được danh sách phiếu');
+        final list = [
+          for (final x in (r['data'] as List? ?? const []))
+            if (x is Map) Map<String, dynamic>.from(x),
+        ];
+        if (sort != null) list.sort(sort);
+        return [
+          for (final f in list)
+            ReportDrillRow(
+              title: '${f['title'] ?? ''}',
+              subtitle: [
+                if ((f['code'] ?? '').toString().isNotEmpty) '${f['code']}',
+                '${f['statusName'] ?? ''}',
+                '${f['priorityName'] ?? ''}',
+                if ((f['assignee'] ?? '').toString().isNotEmpty) 'Xử lý: ${f['assignee']}',
+              ].where((s) => s.isNotEmpty).join(' · '),
+              trailing: trailing?.call(f) ?? (f['overdue'] == true ? 'Quá hạn' : '${f['categoryName'] ?? ''}'),
+              trailingColor: color?.call(f) ?? (f['overdue'] == true ? SboxColors.danger : null),
+              icon: Icons.feedback_outlined,
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(
+                  builder: (_) => FeedbackDetailScreen(feedbackId: f['id'].toString(), isMine: false))),
+            ),
+        ];
+      },
+    );
+  }
+
+  Widget _tap(Widget child, VoidCallback onTap) => Material(
+        color: Colors.transparent,
+        child: InkWell(borderRadius: BorderRadius.circular(16), onTap: onTap, child: child),
+      );
+
+  int _byNum(Map<String, dynamic> a, Map<String, dynamic> b, String k, {bool desc = true}) {
+    final x = _num(a[k]), y = _num(b[k]);
+    return desc ? y.compareTo(x) : x.compareTo(y);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading && _d == null) return const Center(child: CircularProgressIndicator());
@@ -94,18 +146,46 @@ class _FeedbackReportViewState extends State<FeedbackReportView> {
             ]),
             const SizedBox(height: 14),
             _statGrid([
-              _stat('Tổng phiếu', '${_num(t['total'])}', Icons.all_inbox_rounded, SboxColors.brand600,
-                  note: '${_num(t['complaints'])} khiếu nại · ${_num(t['anonymous'])} ẩn danh'),
-              _stat('Đang mở', '${_num(t['open'])}', Icons.pending_actions_rounded, SboxColors.warning,
-                  note: '${_num(t['pending'])} chờ tiếp nhận'),
-              _stat('Quá hạn', '${_num(t['overdue'])}', Icons.alarm_rounded,
-                  _num(t['overdue']) > 0 ? SboxColors.danger : SboxColors.success),
-              _stat('Đúng hạn', t['onTimePct'] == null ? '—' : '${t['onTimePct']}%', Icons.verified_rounded,
-                  SboxColors.success, note: 'trên số phiếu đã giải quyết'),
-              _stat('Phản hồi đầu TB', _hours(t['avgFirstResponseHours']), Icons.reply_rounded, SboxColors.violet),
-              _stat('Giải quyết TB', _hours(t['avgResolveHours']), Icons.timelapse_rounded, SboxColors.brand500),
-              _stat('Hài lòng', t['avgRating'] == null ? '—' : '${t['avgRating']}/5', Icons.star_rounded,
-                  const Color(0xFFF5A524), note: '${_num(t['rated'])} lượt đánh giá · ${_num(t['reopened'])} mở lại'),
+              _tap(
+                  _stat('Tổng phiếu', '${_num(t['total'])}', Icons.all_inbox_rounded, SboxColors.brand600,
+                      note: '${_num(t['complaints'])} khiếu nại · ${_num(t['anonymous'])} ẩn danh'),
+                  () => _drill('Tất cả phiếu', 'total')),
+              _tap(
+                  _stat('Đang mở', '${_num(t['open'])}', Icons.pending_actions_rounded, SboxColors.warning,
+                      note: '${_num(t['pending'])} chờ tiếp nhận'),
+                  () => _drill('Phiếu đang mở', 'open', note: 'Chờ tiếp nhận hoặc đang xử lý.')),
+              _tap(
+                  _stat('Quá hạn', '${_num(t['overdue'])}', Icons.alarm_rounded,
+                      _num(t['overdue']) > 0 ? SboxColors.danger : SboxColors.success),
+                  () => _drill('Phiếu quá hạn', 'overdue')),
+              _tap(
+                  _stat('Đúng hạn', t['onTimePct'] == null ? '—' : '${t['onTimePct']}%', Icons.verified_rounded,
+                      SboxColors.success, note: 'trên số phiếu đã giải quyết'),
+                  () => _drill('Đúng hạn / trễ hạn', 'onTime',
+                      note: 'Đúng hạn = phiếu giải quyết trước hạn (không có hạn tính đúng hạn) ÷ số phiếu đã giải quyết. Trễ hạn lên đầu.',
+                      sort: (a, b) => (a['onTime'] == true ? 1 : 0).compareTo(b['onTime'] == true ? 1 : 0),
+                      trailing: (f) => f['onTime'] == true ? 'Đúng hạn' : 'Trễ hạn',
+                      color: (f) => f['onTime'] == true ? SboxColors.success : SboxColors.danger)),
+              _tap(
+                  _stat('Phản hồi đầu TB', _hours(t['avgFirstResponseHours']), Icons.reply_rounded, SboxColors.violet),
+                  () => _drill('Thời gian phản hồi đầu', 'firstResponse',
+                      note: 'TB = trung bình (lúc phản hồi đầu − lúc gửi) của các phiếu đã có phản hồi. Lâu nhất lên đầu.',
+                      sort: (a, b) => _byNum(a, b, 'firstResponseHours'),
+                      trailing: (f) => _hours(f['firstResponseHours']))),
+              _tap(
+                  _stat('Giải quyết TB', _hours(t['avgResolveHours']), Icons.timelapse_rounded, SboxColors.brand500),
+                  () => _drill('Thời gian giải quyết', 'resolve',
+                      note: 'TB = trung bình (lúc giải quyết − lúc gửi) của các phiếu đã giải quyết. Lâu nhất lên đầu.',
+                      sort: (a, b) => _byNum(a, b, 'resolveHours'),
+                      trailing: (f) => _hours(f['resolveHours']))),
+              _tap(
+                  _stat('Hài lòng', t['avgRating'] == null ? '—' : '${t['avgRating']}/5', Icons.star_rounded,
+                      const Color(0xFFF5A524), note: '${_num(t['rated'])} lượt đánh giá · ${_num(t['reopened'])} mở lại'),
+                  () => _drill('Đánh giá hài lòng', 'rating',
+                      note: 'Hài lòng = trung bình số sao của ${_num(t['rated'])} phiếu đã đánh giá. Thấp nhất lên đầu.',
+                      sort: (a, b) => _byNum(a, b, 'rating', desc: false),
+                      trailing: (f) => '${f['rating']}/5',
+                      color: (f) => _num(f['rating']) <= 2 ? SboxColors.danger : null)),
             ]),
             const SizedBox(height: 16),
             _card('Xu hướng theo tháng', Icons.show_chart_rounded, _trend()),

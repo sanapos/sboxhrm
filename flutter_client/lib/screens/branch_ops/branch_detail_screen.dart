@@ -3,9 +3,13 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
+import '../../widgets/pos/pos_hub_scope.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import '../../widgets/sbox/sbox_basics.dart' show SboxTone;
 import '../../widgets/sbox/sbox_charts.dart';
 import '../../widgets/sbox/sbox_report.dart';
+import '../pos_sale_order_editor_screen.dart';
+import '../staff/staff_nav.dart';
 import 'branch_ops_ui.dart';
 import 'branch_stock_view.dart';
 import 'stock_transfer_screen.dart';
@@ -139,7 +143,9 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
   Widget _kpis() {
     final c = _map('current');
     final p = _map('previous');
-    SboxKpi k(String label, String key, IconData icon, SboxTone tone, {bool higherIsBetter = true, String? note}) => SboxKpi(
+    SboxKpi k(String label, String key, IconData icon, SboxTone tone,
+            {bool higherIsBetter = true, String? note, VoidCallback? onTap}) =>
+        SboxKpi(
           label: label,
           value: key == 'orders' || key == 'employees' ? bQty(c[key]) : bMoneyShort(c[key]),
           icon: icon,
@@ -149,23 +155,230 @@ class _BranchDetailScreenState extends State<BranchDetailScreen> {
           higherIsBetter: higherIsBetter,
           compareLabel: 'kỳ trước',
           note: note,
+          onTap: onTap,
         );
     final net = bNum(c['netProfit']);
+    String prevOf(String key, {bool qty = false}) =>
+        p.isEmpty ? '' : ' Kỳ trước (cùng số ngày, ngay trước kỳ này): ${qty ? bQty(p[key]) : bMoney(bNum(p[key]))}.';
     return SboxKpiStrip(maxColumns: 6, items: [
-      k('Doanh thu', 'revenue', Icons.payments_outlined, SboxTone.brand),
-      k('Số đơn', 'orders', Icons.receipt_outlined, SboxTone.neutral),
-      k('Lãi gộp', 'grossProfit', Icons.trending_up_rounded, SboxTone.success),
+      k('Doanh thu', 'revenue', Icons.payments_outlined, SboxTone.brand,
+          onTap: () => _ordersDrill('Doanh thu',
+              note: 'Doanh thu = Σ tiền hàng các đơn hoàn tất của chi nhánh (đã trừ giảm giá, hàng khách trả; chưa VAT).'
+                  '${prevOf('revenue')}')),
+      k('Số đơn', 'orders', Icons.receipt_outlined, SboxTone.neutral,
+          onTap: () => _ordersDrill('Số đơn', note: 'Đơn hoàn tất của chi nhánh trong kỳ.${prevOf('orders', qty: true)}')),
+      k('Lãi gộp', 'grossProfit', Icons.trending_up_rounded, SboxTone.success,
+          onTap: () => _ordersDrill('Lãi gộp',
+              profit: true,
+              note: 'Lãi gộp = Doanh thu ${bMoney(bNum(c['revenue']))} − Giá vốn ${bMoney(bNum(c['cogs']))} = '
+                  '${bMoney(bNum(c['grossProfit']))} (biên ${bNum(c['grossMarginPct']).toStringAsFixed(1).replaceAll('.', ',')}%). '
+                  'Mỗi dòng: tiền đơn − giá vốn đơn.${prevOf('grossProfit')}')),
       k('Chi phí', 'expenses', Icons.receipt_long_outlined, SboxTone.warning,
-          higherIsBetter: false, note: 'Lương ${bMoneyShort(c['payroll'])}'),
-      k('Lãi ròng', 'netProfit', Icons.savings_outlined, net >= 0 ? SboxTone.success : SboxTone.danger),
+          higherIsBetter: false,
+          note: 'Lương ${bMoneyShort(c['payroll'])}',
+          onTap: () => _cashDrill('Chi phí', 'expense',
+              note: 'Phiếu chi không thuộc bán / nhập / trả hàng, không gồm chi lương, ứng lương, mua tài sản. '
+                  'Phiếu thu hoàn ứng công tác ghi số âm. Lương (${bMoney(bNum(c['payroll']))}) tính riêng — xem trong «Lãi ròng».'
+                  '${prevOf('expenses')}')),
+      k('Lãi ròng', 'netProfit', Icons.savings_outlined, net >= 0 ? SboxTone.success : SboxTone.danger,
+          onTap: () => _netDrill(c, prevOf('netProfit'))),
       SboxKpi(
         label: 'Giá trị tồn kho',
         value: bMoneyShort(c['stockValue']),
         icon: Icons.inventory_2_outlined,
         tone: SboxTone.violet,
         note: '${bQty(_data['outOfStock'])} mặt hàng hết',
+        onTap: () => _stockDrill(false),
       ),
     ]);
+  }
+
+  // ─────────────── Chi tiết số liệu («số này từ đâu ra») ───────────────
+
+  Map<String, String> get _q => {
+        'from': '${_period.from.year}-${_period.from.month.toString().padLeft(2, '0')}-${_period.from.day.toString().padLeft(2, '0')}',
+        'to': '${_period.to.year}-${_period.to.month.toString().padLeft(2, '0')}-${_period.to.day.toString().padLeft(2, '0')}',
+      };
+
+  /// Tải trước rồi mở sheet — để dòng tổng / ghi chú cắt bớt lấy đúng số API.
+  Future<Map<String, dynamic>?> _fetch(String path, [Map<String, String> query = const {}]) async {
+    final nav = Navigator.of(context, rootNavigator: true);
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+    final r = await ApiService().getReportJson('/api/branch-ops/$path', query: query);
+    nav.pop();
+    if (r['isSuccess'] == true && r['data'] is Map) return Map<String, dynamic>.from(r['data'] as Map);
+    messenger?.showSnackBar(SnackBar(content: Text(tr(r['message']?.toString() ?? 'Không tải được dữ liệu'))));
+    return null;
+  }
+
+  List<Map<String, dynamic>> _items(Map<String, dynamic> d) =>
+      [for (final x in (d['items'] as List? ?? const [])) if (x is Map) Map<String, dynamic>.from(x)];
+
+  String? _cut(Map<String, dynamic> d, int shown, String unit) =>
+      d['truncated'] == true ? 'Hiện $shown / ${bQty(d['count'])} $unit mới nhất; tổng tính trên tất cả.' : null;
+
+  static String _when(Object? raw) {
+    var t = DateTime.tryParse('${raw ?? ''}');
+    if (t == null) return '';
+    if (t.isUtc) t = t.toLocal();
+    String two(int x) => x.toString().padLeft(2, '0');
+    return '${two(t.day)}/${two(t.month)} ${two(t.hour)}:${two(t.minute)}';
+  }
+
+  Future<void> _ordersDrill(String title, {String? note, bool profit = false}) async {
+    final d = await _fetch('drill/orders/${widget.branchId}', _q);
+    if (d == null || !mounted) return;
+    final canOpen = staffCanOpen(context, 'PosSaleOrders', listen: false);
+    final items = _items(d);
+    await showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: '${_map('branch')['name'] ?? widget.branchName} · ${_period.rangeText}',
+      note: note,
+      countLabel: bQty(d['count']),
+      total: profit
+          ? 'Lãi gộp ${bMoney(bNum(d['grossProfit']))}'
+          : 'Tổng ${bMoney(bNum(d['revenue']))} · ${bQty(d['count'])} đơn',
+      footer: _cut(d, items.length, 'đơn'),
+      emptyText: 'Không có đơn trong kỳ',
+      rows: [
+        for (final o in items)
+          ReportDrillRow(
+            title: '${o['orderNo'] ?? ''}',
+            icon: Icons.receipt_long_rounded,
+            subtitle: [
+              _when(o['saleAt']),
+              if ('${o['customerName'] ?? ''}'.isNotEmpty) '${o['customerName']}',
+              if ('${o['soldBy'] ?? ''}'.isNotEmpty) 'NV: ${o['soldBy']}',
+              if (profit) 'tiền ${bMoney(bNum(o['total']))} · giá vốn ${bMoney(bNum(o['cogs']))}',
+            ].where((s) => s.isNotEmpty).join(' · '),
+            trailing: bMoney(bNum(profit ? o['profit'] : o['total'])),
+            trailingColor: profit && bNum(o['profit']) < 0 ? SboxColors.dangerText : null,
+            onTap: !canOpen || '${o['id'] ?? ''}'.isEmpty
+                ? null
+                : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => PosHubScope.pushed(child: PosSaleOrderEditorScreen(orderId: '${o['id']}')),
+                    )),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _cashDrill(String title, String kind, {String? note}) async {
+    final d = await _fetch('drill/cash/${widget.branchId}', {..._q, 'kind': kind});
+    if (d == null || !mounted) return;
+    final items = _items(d);
+    await showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: '${_map('branch')['name'] ?? widget.branchName} · ${_period.rangeText}',
+      note: note,
+      countLabel: bQty(d['count']),
+      total: 'Tổng ${bMoney(bNum(d['total']))}',
+      footer: _cut(d, items.length, 'phiếu'),
+      emptyText: 'Không có phiếu trong kỳ',
+      rows: [
+        for (final x in items)
+          ReportDrillRow(
+            title: '${x['description'] ?? ''}'.trim().isEmpty ? '${x['transactionCode'] ?? ''}' : '${x['description']}',
+            icon: '${x['type']}' == 'Income' ? Icons.south_west_rounded : Icons.north_east_rounded,
+            subtitle: [
+              '${x['transactionCode'] ?? ''}',
+              _when(x['transactionDate']),
+              if ('${x['category'] ?? ''}'.isNotEmpty) '${x['category']}',
+              if ('${x['contactName'] ?? ''}'.isNotEmpty) '${x['contactName']}',
+            ].where((s) => s.isNotEmpty).join(' · '),
+            trailing: bMoney(bNum(x['amount'])),
+            trailingColor: bNum(x['amount']) < 0 ? SboxColors.successText : null,
+          ),
+      ],
+    );
+  }
+
+  Future<void> _payrollDrill() async {
+    final d = await _fetch('drill/payroll/${widget.branchId}', _q);
+    if (d == null || !mounted) return;
+    final items = _items(d);
+    await showReportDrillSheet(
+      context,
+      title: 'Lương',
+      subtitle: '${_map('branch')['name'] ?? widget.branchName} · ${_period.rangeText}',
+      note: 'Lương gộp các phiếu lương (không hủy) của nhân viên thuộc chi nhánh × phần ngày của tháng nằm trong kỳ.',
+      countLabel: bQty(d['count']),
+      total: 'Tổng ${bMoney(bNum(d['total']))}',
+      footer: _cut(d, items.length, 'phiếu lương'),
+      emptyText: 'Không có phiếu lương',
+      rows: [
+        for (final s in items)
+          ReportDrillRow(
+            title: '${s['employeeName'] ?? ''}',
+            subtitle: 'Tháng ${s['month']}/${s['year']} · lương gộp ${bMoney(bNum(s['grossSalary']))}'
+                '${bNum(s['sharePct']) < 100 ? ' × ${bNum(s['sharePct']).toStringAsFixed(1).replaceAll('.', ',')}%' : ''}',
+            trailing: bMoney(bNum(s['amount'])),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _stockDrill(bool outOfStock) async {
+    final d = await _fetch('drill/stock/${widget.branchId}', {'outOfStock': '$outOfStock'});
+    if (d == null || !mounted) return;
+    final items = _items(d);
+    await showReportDrillSheet(
+      context,
+      title: outOfStock ? 'Mặt hàng hết' : 'Giá trị tồn kho',
+      subtitle: '${_map('branch')['name'] ?? widget.branchName}',
+      note: outOfStock
+          ? 'Hàng hóa có tồn tại chi nhánh ≤ 0.'
+          : 'Giá trị tồn = Σ tồn tại chi nhánh (số âm tính 0) × giá vốn, chỉ hàng hóa.',
+      countLabel: bQty(d['count']),
+      total: outOfStock ? null : 'Tổng ${bMoney(bNum(d['total']))}',
+      footer: d['truncated'] == true ? 'Hiện ${items.length} / ${bQty(d['count'])} mặt hàng.' : null,
+      rows: [
+        for (final s in items)
+          ReportDrillRow(
+            title: '${s['name'] ?? ''}',
+            icon: Icons.inventory_2_outlined,
+            subtitle: '${s['productCode'] ?? ''} · tồn ${bQty(s['qty'])} ${s['unitName'] ?? ''} × ${bMoney(bNum(s['costPrice']))}',
+            trailing: outOfStock ? bQty(s['qty']) : bMoney(bNum(s['stockValue'])),
+            trailingColor: bNum(s['qty']) <= 0 ? SboxColors.dangerText : null,
+          ),
+      ],
+    );
+  }
+
+  void _netDrill(Map<String, dynamic> c, String prevNote) {
+    ReportDrillRow row(String label, num v, {IconData icon = Icons.add_rounded, VoidCallback? onTap}) => ReportDrillRow(
+          title: label,
+          icon: v < 0 ? Icons.remove_rounded : icon,
+          trailing: bMoney(v),
+          trailingColor: v < 0 ? SboxColors.dangerText : null,
+          onTap: onTap,
+        );
+    final shipping = bNum(c['surchargeIncome']) + bNum(c['deliveryFeeIncome']);
+    showReportDrillSheet(
+      context,
+      title: 'Lãi ròng',
+      subtitle: '${_map('branch')['name'] ?? widget.branchName} · ${_period.rangeText}',
+      note: 'Lãi ròng = lãi gộp + phụ thu, phí GH − cước hãng − khấu hao + cọc khách bỏ + thu khác − chi phí − lương.$prevNote',
+      showCount: false,
+      total: 'Lãi ròng ${bMoney(bNum(c['netProfit']))}',
+      rows: [
+        row('Lãi gộp', bNum(c['grossProfit']), onTap: () => _ordersDrill('Lãi gộp', profit: true)),
+        if (shipping != 0) row('Phụ thu, phí giao hàng thu khách', shipping),
+        if (bNum(c['carrierCost']) != 0) row('Cước hãng vận chuyển', -bNum(c['carrierCost'])),
+        if (bNum(c['depreciation']) != 0) row('Khấu hao tài sản', -bNum(c['depreciation'])),
+        if (bNum(c['forfeitedDeposits']) != 0) row('Cọc khách bỏ', bNum(c['forfeitedDeposits'])),
+        row('Thu khác', bNum(c['otherIncome']), onTap: () => _cashDrill('Thu khác', 'otherIncome')),
+        row('Chi phí', -bNum(c['expenses']), onTap: () => _cashDrill('Chi phí', 'expense')),
+        row('Lương', -bNum(c['payroll']), onTap: _payrollDrill),
+      ],
+    );
   }
 
   Widget _charts() {

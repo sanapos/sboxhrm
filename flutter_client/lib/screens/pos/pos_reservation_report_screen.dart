@@ -10,6 +10,7 @@ import '../../services/api_service.dart';
 import '../../utils/pos_kiot_time_range.dart';
 import '../../widgets/pos/pos_theme.dart';
 import '../../widgets/pos/reports/pos_report_widgets.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';
@@ -76,6 +77,79 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
     return p.resourceNoun.isEmpty ? 'bàn' : p.resourceNoun;
   }
 
+  List<Map<String, dynamic>> _items() => ((_data?['items'] as List?) ?? [])
+      .whereType<Map>()
+      .map((e) => Map<String, dynamic>.from(e))
+      .toList();
+
+  /// Chip → các lịch trong danh sách đã tải (cùng kỳ, mốc ngày, trạng thái) khớp điều kiện máy chủ.
+  /// [money] = cột tiền cọc đã thu (DepositPaid) — tổng khớp số trên chip.
+  void _drill(String title, bool Function(Map<String, dynamic> r) where, {bool money = false, String? note}) {
+    final rows = _items().where(where).toList();
+    final sum = rows.fold<double>(0, (s, r) => s + _n(r['depositPaid']));
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: _time.displayLabel,
+      note: note,
+      total: money ? 'Tổng ${_moneyFmt.format(sum)}' : null,
+      emptyText: 'Không có lịch',
+      rows: [
+        for (final r in rows)
+          () {
+            final at = parseApiUtcDateTime(r['reservedAt']);
+            final orderId = '${r['depositAppliedOrderId'] ?? ''}';
+            return ReportDrillRow(
+              title: '${r['resourceName'] ?? r['resourceCode'] ?? ''} · ${r['customerName'] ?? ''}'
+                  .replaceFirst(RegExp(r'^ · '), ''),
+              subtitle: [
+                if (at != null) 'Dùng ${_dateFmt.format(at.toLocal())}',
+                '${r['guestCount'] ?? 1} khách',
+                '${r['statusLabel'] ?? r['status'] ?? ''}',
+                '${r['depositStatusLabel'] ?? r['depositStatus'] ?? ''}',
+              ].where((e) => e.trim().isNotEmpty).join(' · '),
+              trailing: money ? _moneyFmt.format(_n(r['depositPaid'])) : null,
+              icon: Icons.event_seat_outlined,
+              onTap: orderId.isEmpty || orderId.startsWith('0000')
+                  ? null
+                  : () => PosReportOpen.sale(context, orderId),
+            );
+          }(),
+      ],
+    );
+  }
+
+  static DateTime? _vnDate(dynamic v) {
+    final d = parseApiUtcDateTime(v);
+    if (d == null) return null;
+    final x = d.toUtc().add(const Duration(hours: 7));
+    return DateTime.utc(x.year, x.month, x.day);
+  }
+
+  void _drillBasisNote() {
+    if (_dateBasis == 'created') {
+      final to = _time.to;
+      _drill(
+        'Lịch dùng sau kỳ',
+        (r) {
+          final at = parseApiUtcDateTime(r['reservedAt']);
+          return r['status'] == 'Booked' && at != null && to != null && !at.toLocal().isBefore(to);
+        },
+        note: 'Lịch nhận trong kỳ, còn «Đã đặt», ngày dùng sau ngày cuối kỳ.',
+      );
+    } else {
+      _drill(
+        'Đặt trước từ ngày khác',
+        (r) {
+          final c = _vnDate(r['createdAt']);
+          final u = _vnDate(r['reservedAt']);
+          return c != null && u != null && c.isBefore(u);
+        },
+        note: 'Lịch dùng trong kỳ nhưng được nhận từ một ngày trước đó.',
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final items = ((_data?['items'] as List?) ?? [])
@@ -127,7 +201,9 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
                     ),
                   ],
                 ),
-                Padding(
+                InkWell(
+                  onTap: _drillBasisNote,
+                  child: Padding(
                   padding: const EdgeInsets.only(top: 6, bottom: 8),
                   child: Text(
                     tr(_dateBasis == 'created'
@@ -136,6 +212,7 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
                     style: const TextStyle(
                         fontSize: 12, color: PosTheme.textSecondary),
                   ),
+                ),
                 ),
                 Wrap(
                   spacing: 8,
@@ -160,10 +237,15 @@ class _PosReservationReportScreenState extends State<PosReservationReportScreen>
                 const SizedBox(height: 10),
                 SboxInsightPanel(
                   kpis: [
-                    SboxKpi(label: 'Cọc đang giữ', value: SboxFmt.money(_n(_data?['depositHeld'])), icon: Icons.lock_clock_outlined),
-                    SboxKpi(label: 'Đã trừ vào HĐ', value: SboxFmt.money(_n(_data?['depositApplied'])), icon: Icons.receipt_long_outlined, tone: SboxTone.success),
-                    SboxKpi(label: 'Hoàn cọc', value: SboxFmt.money(_n(_data?['depositRefunded'])), icon: Icons.undo_rounded, tone: SboxTone.violet),
-                    SboxKpi(label: 'Phạt / mất cọc', value: SboxFmt.money(_n(_data?['depositForfeited'])), icon: Icons.money_off_outlined, tone: SboxTone.danger),
+                    SboxKpi(label: 'Cọc đang giữ', value: SboxFmt.money(_n(_data?['depositHeld'])), icon: Icons.lock_clock_outlined,
+                        onTap: () => _drill('Cọc đang giữ', (r) => r['depositStatus'] == 'Held', money: true)),
+                    SboxKpi(label: 'Đã trừ vào HĐ', value: SboxFmt.money(_n(_data?['depositApplied'])), icon: Icons.receipt_long_outlined, tone: SboxTone.success,
+                        onTap: () => _drill('Cọc đã trừ vào hóa đơn', (r) => r['depositStatus'] == 'Applied', money: true,
+                            note: 'Bấm dòng để mở hóa đơn đã trừ cọc.')),
+                    SboxKpi(label: 'Hoàn cọc', value: SboxFmt.money(_n(_data?['depositRefunded'])), icon: Icons.undo_rounded, tone: SboxTone.violet,
+                        onTap: () => _drill('Hoàn cọc', (r) => r['depositStatus'] == 'Refunded', money: true)),
+                    SboxKpi(label: 'Phạt / mất cọc', value: SboxFmt.money(_n(_data?['depositForfeited'])), icon: Icons.money_off_outlined, tone: SboxTone.danger,
+                        onTap: () => _drill('Phạt / mất cọc', (r) => r['depositStatus'] == 'Forfeited', money: true)),
                   ],
                   charts: [
                     SboxChartCard(

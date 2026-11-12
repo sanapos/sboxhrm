@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_tr.dart';
 import '../../models/task.dart';
 import '../../models/task_v2.dart';
+import '../../services/api_service.dart';
+import '../../widgets/reports/report_drill_sheet.dart';
 import '../../widgets/sbox/sbox_ui.dart';
 import 'work_common.dart';
 
@@ -21,7 +23,11 @@ class WorkOverviewView extends StatelessWidget {
     required this.onOpenTask,
     required this.onOpenProject,
     this.selectedProject,
+    this.onlyMine = false,
   });
+
+  /// Phạm vi «Việc của tôi» — phải khớp tham số onlyMine đã gọi insights.
+  final bool onlyMine;
 
   final TaskInsightsV2? insights;
   final List<WorkTask> tasks;
@@ -31,6 +37,74 @@ class WorkOverviewView extends StatelessWidget {
   final TaskProjectV2? selectedProject;
   final ValueChanged<WorkTask> onOpenTask;
   final ValueChanged<TaskProjectV2> onOpenProject;
+
+  /// Chip tổng quan → danh sách việc (GET /api/Tasks/insights/drill, cùng điều kiện với insights).
+  void _drill(BuildContext context, String title, String kind, {String? note, bool onTimeView = false, bool cycleView = false}) {
+    String iso(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+    final now = DateTime.now();
+    showReportDrillSheet(
+      context,
+      title: title,
+      subtitle: selectedProject?.name,
+      note: note,
+      load: () async {
+        final r = await ApiService().getReportJson('/api/Tasks/insights/drill', query: {
+          'kind': kind,
+          'from': iso(now.subtract(const Duration(days: 13))),
+          'to': iso(now),
+          if (selectedProject != null) 'projectId': selectedProject!.id,
+          if (onlyMine) 'onlyMine': 'true',
+        });
+        if (r['isSuccess'] != true) throw Exception(r['message'] ?? 'Không tải được danh sách');
+        final list = (r['data'] is List ? r['data'] as List : const [])
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+        double hours(Map<String, dynamic> m) => (m['cycleHours'] as num?)?.toDouble() ?? 0;
+        if (onTimeView) {
+          list.sort((a, b) => (a['onTime'] == true ? 1 : 0).compareTo(b['onTime'] == true ? 1 : 0));
+        } else if (cycleView) {
+          list.sort((a, b) => hours(b).compareTo(hours(a)));
+        }
+        return [
+          for (final m in list)
+            () {
+              final t = WorkTask.fromJson(m);
+              final String trailing;
+              Color? color;
+              if (onTimeView) {
+                final ok = m['onTime'] == true;
+                trailing = ok ? 'Đúng hạn' : 'Trễ';
+                color = ok ? SboxColors.successText : SboxColors.dangerText;
+              } else if (cycleView) {
+                final h = hours(m);
+                trailing = h >= 48 ? '${SboxFmt.number(h / 24)} ngày' : '${SboxFmt.number(h)} giờ';
+              } else if (t.isDone) {
+                trailing = 'Xong ${workDate(t.completedDate)}';
+              } else {
+                final d = workDueLabel(t);
+                trailing = kind == 'pending' ? getTaskStatusLabel(t.status) : d.text;
+                if (kind != 'pending' && d.tone == SboxTone.danger) color = SboxColors.dangerText;
+              }
+              return ReportDrillRow(
+                title: t.title,
+                subtitle: [
+                  if ((m['taskCode'] ?? '').toString().isNotEmpty) m['taskCode'].toString(),
+                  (m['assigneeName'] ?? '').toString().trim().isEmpty ? 'Chưa giao' : m['assigneeName'].toString().trim(),
+                  if (t.dueDate != null) 'Hạn ${workDate(t.dueDate, withTime: true)}',
+                  if ((m['projectName'] ?? '').toString().isNotEmpty && selectedProject == null) m['projectName'].toString(),
+                ].join(' · '),
+                trailing: trailing,
+                trailingColor: color,
+                icon: Icons.assignment_outlined,
+                onTap: () => onOpenTask(t),
+              );
+            }(),
+        ];
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,16 +116,24 @@ class WorkOverviewView extends StatelessWidget {
     final noDone = (i?.completedInRange ?? 0) == 0;
     final kpis = <SboxKpi>[
       SboxKpi(label: 'Việc đang mở', value: SboxFmt.number(i?.open ?? 0), icon: Icons.assignment_outlined,
-          note: '${SboxFmt.number(i?.inProgress ?? 0)} đang làm'),
+          note: '${SboxFmt.number(i?.inProgress ?? 0)} đang làm',
+          onTap: () => _drill(context, 'Việc đang mở', 'open')),
       SboxKpi(label: 'Quá hạn', value: SboxFmt.number(i?.overdue ?? 0), icon: Icons.schedule_rounded, tone: SboxTone.danger,
-          note: '${SboxFmt.number(i?.dueToday ?? 0)} việc đến hạn hôm nay'),
+          note: '${SboxFmt.number(i?.dueToday ?? 0)} việc đến hạn hôm nay',
+          onTap: () => _drill(context, 'Việc quá hạn', 'overdue', note: 'Việc chưa xong, đã qua hạn.')),
       SboxKpi(label: 'Xong 14 ngày', value: SboxFmt.number(i?.completedInRange ?? 0), icon: Icons.task_alt_rounded,
-          tone: SboxTone.success, current: i?.completedInRange, previous: i?.completedPrevRange, compareLabel: 'kỳ trước'),
+          tone: SboxTone.success, current: i?.completedInRange, previous: i?.completedPrevRange, compareLabel: 'kỳ trước',
+          onTap: () => _drill(context, 'Việc xong 14 ngày', 'completed')),
       SboxKpi(label: 'Đúng hạn', value: noDone ? '—' : SboxFmt.pct(i?.onTimeRate ?? 0), icon: Icons.verified_outlined, tone: SboxTone.violet,
-          note: '${SboxFmt.number(i?.completedOnTime ?? 0)}/${SboxFmt.number(i?.completedInRange ?? 0)} việc xong'),
+          note: '${SboxFmt.number(i?.completedOnTime ?? 0)}/${SboxFmt.number(i?.completedInRange ?? 0)} việc xong',
+          onTap: () => _drill(context, 'Đúng hạn / trễ hạn', 'onTime',
+              onTimeView: true,
+              note: 'Đúng hạn = ${SboxFmt.number(i?.completedOnTime ?? 0)} việc xong trước hạn ÷ '
+                  '${SboxFmt.number(i?.completedInRange ?? 0)} việc xong trong 14 ngày (việc không có hạn tính đúng hạn). Việc trễ lên đầu.')),
       if (isManager)
         SboxKpi(label: 'Chờ nhận, duyệt', value: SboxFmt.number((i?.pendingAcceptance ?? 0) + (i?.inReview ?? 0)),
-            icon: Icons.pending_actions_rounded, tone: SboxTone.warning),
+            icon: Icons.pending_actions_rounded, tone: SboxTone.warning,
+            onTap: () => _drill(context, 'Chờ nhận, chờ duyệt', 'pending')),
       SboxKpi(
           label: 'Thời gian xong TB',
           value: noDone
@@ -59,7 +141,10 @@ class WorkOverviewView extends StatelessWidget {
               : (i?.avgCycleHours ?? 0) >= 48 ? '${SboxFmt.number((i!.avgCycleHours / 24))} ngày' : '${SboxFmt.number(i?.avgCycleHours ?? 0)} giờ',
           icon: Icons.timer_outlined,
           tone: SboxTone.neutral,
-          note: 'Từ lúc tạo đến lúc xong'),
+          note: 'Từ lúc tạo đến lúc xong',
+          onTap: () => _drill(context, 'Thời gian xong từng việc', 'completed',
+              cycleView: true,
+              note: 'TB = tổng (lúc xong − lúc tạo) ÷ ${SboxFmt.number(i?.completedInRange ?? 0)} việc xong trong 14 ngày. Lâu nhất lên đầu.')),
     ];
     final statusSlices = <SboxSlice>[
       SboxSlice('Chờ nhận', (i?.pendingAcceptance ?? 0).toDouble(), color: SboxColors.warning),
@@ -801,34 +886,81 @@ class WorkWorkloadView extends StatelessWidget {
   const WorkWorkloadView({super.key, required this.rows});
   final List<TaskWorkloadV2> rows;
 
+  void _drill(BuildContext context, String title, List<TaskWorkloadV2> list,
+      {required String Function(TaskWorkloadV2 r) trailing, Color? Function(TaskWorkloadV2 r)? color, String? note, String? total}) {
+    showReportDrillSheet(
+      context,
+      title: title,
+      note: note,
+      total: total,
+      rows: [
+        for (final r in list)
+          ReportDrillRow(
+            title: r.employeeName,
+            subtitle: [
+              if ((r.employeeCode ?? '').isNotEmpty) r.employeeCode!,
+              '${r.open} đang mở',
+              if (r.overdue > 0) '${r.overdue} quá hạn',
+              '${r.completedInRange} xong / 30 ngày',
+            ].join(' · '),
+            trailing: trailing(r),
+            trailingColor: color?.call(r),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sorted = [...rows]..sort((a, b) => b.open.compareTo(a.open));
     final top = sorted.take(12).toList();
+    final late = rows.where((r) => r.overdue > 0).toList()..sort((a, b) => b.overdue.compareTo(a.overdue));
+    final doneAll = rows.fold<int>(0, (a, r) => a + r.completedInRange);
+    final okAll = rows.fold<int>(0, (a, r) => a + r.completedOnTime);
+    final openHours = rows.fold<double>(0, (a, r) => a + r.openEstimatedHours);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       SboxInsightPanel(
         kpis: [
-          SboxKpi(label: 'Nhân viên có việc', value: SboxFmt.number(rows.length), icon: Icons.groups_2_outlined),
+          SboxKpi(
+              label: 'Nhân viên có việc',
+              value: SboxFmt.number(rows.length),
+              icon: Icons.groups_2_outlined,
+              onTap: () => _drill(context, 'Nhân viên có việc', sorted, trailing: (r) => '${r.open} mở')),
           SboxKpi(
               label: 'Người có việc trễ',
-              value: SboxFmt.number(rows.where((r) => r.overdue > 0).length),
+              value: SboxFmt.number(late.length),
               icon: Icons.person_off_outlined,
-              tone: SboxTone.danger),
+              tone: SboxTone.danger,
+              onTap: () => _drill(context, 'Người có việc trễ', late,
+                  trailing: (r) => '${r.overdue} trễ', color: (_) => SboxColors.dangerText)),
           SboxKpi(
               label: 'Đúng hạn chung',
-              value: SboxFmt.pct(() {
-                final done = rows.fold<int>(0, (a, r) => a + r.completedInRange);
-                final ok = rows.fold<int>(0, (a, r) => a + r.completedOnTime);
-                return done == 0 ? 0 : ok * 100 / done;
-              }()),
+              value: SboxFmt.pct(doneAll == 0 ? 0 : okAll * 100 / doneAll),
               icon: Icons.verified_outlined,
               tone: SboxTone.success,
-              note: '30 ngày gần nhất'),
+              note: '30 ngày gần nhất',
+              onTap: () => _drill(
+                    context,
+                    'Đúng hạn theo nhân viên',
+                    rows.where((r) => r.completedInRange > 0).toList()..sort((a, b) => a.onTimeRate.compareTo(b.onTimeRate)),
+                    trailing: (r) => '${r.completedOnTime}/${r.completedInRange}',
+                    color: (r) => r.completedOnTime < r.completedInRange ? SboxColors.dangerText : SboxColors.successText,
+                    note: 'Đúng hạn chung = $okAll việc xong đúng hạn ÷ $doneAll việc xong trong 30 ngày, cộng của mọi người '
+                        '(việc giao nhiều người tính cho từng người). Thấp nhất lên đầu.',
+                  )),
           SboxKpi(
               label: 'Giờ việc đang mở',
-              value: '${SboxFmt.number(rows.fold<double>(0, (a, r) => a + r.openEstimatedHours))} giờ',
+              value: '${SboxFmt.number(openHours)} giờ',
               icon: Icons.timer_outlined,
-              tone: SboxTone.neutral),
+              tone: SboxTone.neutral,
+              onTap: () => _drill(
+                    context,
+                    'Giờ ước tính việc đang mở',
+                    rows.where((r) => r.openEstimatedHours > 0).toList()
+                      ..sort((a, b) => b.openEstimatedHours.compareTo(a.openEstimatedHours)),
+                    trailing: (r) => '${SboxFmt.number(r.openEstimatedHours)} giờ',
+                    total: 'Tổng ${SboxFmt.number(openHours)} giờ',
+                  )),
         ],
         charts: [
           SboxChartCard(
