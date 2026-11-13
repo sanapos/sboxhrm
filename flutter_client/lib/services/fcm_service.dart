@@ -21,6 +21,7 @@ import '../widgets/device_sync_progress_overlay.dart'
     show DeviceSyncProgressManager;
 import 'api_service.dart';
 import 'app_permission_service.dart';
+import 'fcm_register_guard.dart';
 import 'system_notification_service.dart';
 import '../utils/pos_notify_focus.dart';
 
@@ -232,9 +233,9 @@ class FcmService {
 
   Future<void> _registerToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
-    final accessToken = prefs.getString('access_token');
-    if (accessToken == null || accessToken.isEmpty) {
-      debugPrint('FCM register skipped: not logged in');
+    final accessToken = fcmRegisterAccessToken(prefs);
+    if (accessToken == null) {
+      debugPrint('FCM register skipped: not logged in / đang đăng nhập thay');
       return;
     }
     final platform = Platform.isIOS ? 'ios' : 'android';

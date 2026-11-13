@@ -313,6 +313,11 @@ public class NotificationsController(
             return Ok(AppResponse<bool>.Error("Token and platform are required"));
         }
 
+        // Phiên «Đăng nhập thay»: máy là của Super Admin — gắn token vào tài khoản cửa hàng sẽ làm máy
+        // Super Admin nhận thông báo chấm công của cửa hàng đó. Bỏ qua (app cũ vẫn gửi lên).
+        if (!string.IsNullOrEmpty(User.FindFirst(ZKTecoADMS.Application.Constants.ClaimTypeNames.ImpersonatedBy)?.Value))
+            return Ok(AppResponse<bool>.Success(true));
+
         var userId = CurrentUserId;
         if (CurrentStoreId is Guid sid)
         {
@@ -321,7 +326,14 @@ public class NotificationsController(
                 .FirstOrDefaultAsync(s => s.Id == sid);
             var allowFcm = store == null || ZKTecoADMS.Infrastructure.Helpers.StorePackageHelper.ResolveLimits(store).AllowFcm;
             if (!allowFcm)
+            {
+                // Gói không có thông báo đẩy: không gắn token, nhưng phải gỡ token khỏi người dùng trước
+                // trên máy này — giữ lại thì máy tiếp tục nhận thông báo của cửa hàng cũ.
+                var released = await DeviceTokenRegistry.ReleaseAsync(db, request.Token, request.DeviceKey);
+                if (released > 0)
+                    _logger.LogWarning("FCM token released: store {StoreId} không bật thông báo đẩy, gỡ {Count} token khỏi chủ cũ", sid, released);
                 return Ok(AppResponse<bool>.Success(true));
+            }
         }
 
         var previousOwner = await DeviceTokenRegistry.RegisterAsync(db, userId, request.Token, request.Platform,

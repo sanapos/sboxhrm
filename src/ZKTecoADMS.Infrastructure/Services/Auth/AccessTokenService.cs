@@ -13,7 +13,12 @@ public class AccessTokenService(
     JwtSettings jwtSettings, 
     UserManager<ApplicationUser> userManager) : IAccessTokenService
 {
-    public async Task<string> GetTokenAsync(ApplicationUser user)
+    public Task<string> GetTokenAsync(ApplicationUser user) => BuildAsync(user, null);
+
+    public Task<string> GetImpersonationTokenAsync(ApplicationUser user, Guid impersonatorId)
+        => BuildAsync(user, impersonatorId);
+
+    private async Task<string> BuildAsync(ApplicationUser user, Guid? impersonatorId)
     {
         var roles = await userManager.GetRolesAsync(user);
         var rolesClaims = roles.Select(role => new Claim(ClaimTypes.Role, role));
@@ -31,6 +36,8 @@ public class AccessTokenService(
                 new Claim(ClaimTypeNames.StoreName, user.Store?.Name ?? ""),
                 ..rolesClaims
             ];
+        if (impersonatorId is Guid by)
+            claims.Add(new Claim(ClaimTypeNames.ImpersonatedBy, by.ToString()));
 
         return tokenGenerator.Generate(jwtSettings.AccessTokenSecret, jwtSettings.AccessTokenExpirationMinutes, claims);
     }

@@ -814,7 +814,7 @@ public partial class SystemAdminV2Controller(
         if (IsProtected(u) || string.Equals(u.Role, "Agent", StringComparison.OrdinalIgnoreCase))
             return Ok(AppResponse<object>.Fail("Không đăng nhập thay tài khoản quản trị hệ thống / đại lý"));
         if (!u.IsActive) return Ok(AppResponse<object>.Fail("Tài khoản đang bị vô hiệu hóa"));
-        var token = await accessTokenService.GetTokenAsync(u);
+        var token = await accessTokenService.GetImpersonationTokenAsync(u, CurrentUserId);
         await AuditAsync("Impersonate", AuditEntityTypes.User, id.ToString(), u.Email, $"Đăng nhập thay: {req.Reason.Trim()}", u.StoreId);
         try
         {

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../services/app_icon_badge.dart';
+import '../services/fcm_register_guard.dart';
 import '../services/fcm_service_stub.dart'
     if (dart.library.io) '../services/fcm_service.dart';
 import '../utils/pending_notification_launch.dart';
@@ -53,7 +54,7 @@ class AuthProvider extends ChangeNotifier {
   // ─── Đăng nhập thay (Super Admin hỗ trợ khách) ───
   static const _impBackupAccess = 'imp_backup_access';
   static const _impBackupRefresh = 'imp_backup_refresh';
-  static const _impLabelKey = 'imp_label';
+  static const _impLabelKey = kImpersonationLabelPrefKey;
   String? _impersonationLabel;
 
   /// Đang đăng nhập thay một tài khoản cửa hàng.
@@ -86,6 +87,9 @@ class AuthProvider extends ChangeNotifier {
     final refresh = prefs.getString(_impBackupRefresh);
     await prefs.remove(_impBackupAccess);
     await prefs.remove(_impBackupRefresh);
+    // Khôi phục phiên Super Admin TRƯỚC khi gỡ nhãn: giữa hai bước, việc đăng ký FCM chạy nền
+    // không được thấy «không đăng nhập thay» + token cửa hàng → gắn máy vào tài khoản cửa hàng.
+    if (access != null) await _apiService.writeTokenPair(access, refresh);
     await prefs.remove(_impLabelKey);
     _impersonationLabel = null;
     await SessionReset.clearForAccountSwitch();
@@ -94,10 +98,12 @@ class AuthProvider extends ChangeNotifier {
       await logout();
       return;
     }
-    await _apiService.writeTokenPair(access, refresh);
     _token = access;
     _user = _decodeUserFromToken(access);
     notifyListeners();
+    // Giành lại token máy cho Super Admin (bản cũ có thể đã gắn nhầm vào tài khoản đăng nhập thay).
+    // ignore: discarded_futures
+    FcmService.instance.registerForCurrentUser();
   }
 
   final ApiService _apiService = ApiService();

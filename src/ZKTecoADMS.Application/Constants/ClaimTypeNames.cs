@@ -15,4 +15,7 @@ public static class ClaimTypeNames
     public const string StoreId = "storeId";
     
     public const string StoreName = "storeName";
+
+    /// <summary>Id Super Admin khi token là phiên «Đăng nhập thay» (không có ở phiên đăng nhập thật).</summary>
+    public const string ImpersonatedBy = "impersonatedBy";
 }

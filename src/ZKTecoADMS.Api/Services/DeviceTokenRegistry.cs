@@ -27,6 +27,26 @@ public static class DeviceTokenRegistry
         }
     }
 
+    /// <summary>
+    /// Máy này đang đăng nhập tài khoản KHÔNG được nhận thông báo đẩy (gói cửa hàng tắt FCM):
+    /// gỡ token máy (và token cũ cùng mã thiết bị) khỏi mọi tài khoản. Không gỡ thì token vẫn thuộc
+    /// người đăng nhập trước trên máy → máy nhận thông báo chấm công của cửa hàng người đó.
+    /// Trả về số dòng đã gỡ.
+    /// </summary>
+    public static async Task<int> ReleaseAsync(ZKTecoDbContext db, string token, string? deviceKey,
+        CancellationToken ct = default)
+    {
+        var key = string.IsNullOrWhiteSpace(deviceKey) ? null : deviceKey.Trim();
+        if (key is { Length: > 80 }) key = key[..80];
+        var rows = await db.UserDeviceTokens.AsTracking()
+            .Where(t => t.Token == token || (key != null && t.DeviceKey == key))
+            .ToListAsync(ct);
+        if (rows.Count == 0) return 0;
+        db.UserDeviceTokens.RemoveRange(rows);
+        await db.SaveChangesAsync(ct);
+        return rows.Count;
+    }
+
     static async Task<Guid?> RegisterOnceAsync(ZKTecoDbContext db, Guid userId, string token, string platform,
         string? deviceName, string? appVersion, string? deviceKey, CancellationToken ct)
     {
