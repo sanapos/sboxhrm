@@ -5126,6 +5126,7 @@
   "Danh sách, cây chi nhánh, trụ sở, quản lý chi nhánh": "목록, 지점 트리, 본사, 지점 관리자",
   "Danh sách: mọi lần nạp (+) và cấp cho cửa hàng (−).": "목록: 모든 충전(+) 및 매장 지급(−).",
   "Danh tính sẽ được bảo mật": "신원은 비밀로 보호됩니다",
+  "Dao cắt máy in iMin bị kẹt": "iMin 프린터 커터가 걸렸습니다",
   "Dashboard trực quan, báo cáo chuyên cần, tổng hợp lương, xuất Excel tức thì.": "직관적인 대시보드, 근태 리포트, 급여 집계, 즉시 Excel 내보내기.",
   "DeepSeek AI chưa được bật hoặc chưa cấu hình API Key": "DeepSeek AI가 켜져 있지 않거나 API Key가 설정되지 않았습니다",
   "DeepSeek đã ngừng hỗ trợ. Hệ thống chỉ dùng Google Gemini cho trợ lý ảo.": "DeepSeek 지원이 종료되었습니다. 시스템은 AI 어시스턴트에 Google Gemini만 사용합니다.",
@@ -10569,6 +10570,7 @@
   "Máy hết bảo hành lúc nhận — nhập phí sửa.": "접수 시 보증 만료 기기 — 수리비를 입력하세요.",
   "Máy hỏi máy chủ mà không có trả lời. Nhiều lỗi = order / thanh toán phải bấm lại.": "기기가 서버에 요청했지만 응답이 없습니다. 오류가 많으면 주문 / 결제를 다시 눌러야 합니다.",
   "Máy hội viên sẽ quét (cửa ra vào / quầy lễ tân):": "회원 단말기가 스캔합니다 (출입문 / 프런트 데스크):",
+  "Máy iMin: chọn kết nối «Máy in iMin» để in bằng máy in trong máy.": "iMin 기기: 내장 프린터로 인쇄하려면 «iMin 프린터» 연결을 선택하세요.",
   "Máy iMin: máy in trong nối qua USB nội bộ — chọn kết nối USB rồi chọn máy in trong danh sách. Dòng M2-202/203/Pro (SPI) chưa hỗ trợ.": "iMin 기기: 내장 프린터는 내부 USB로 연결됩니다 — USB 연결을 선택한 뒤 목록에서 프린터를 고르세요. M2-202/203/Pro (SPI) 시리즈는 아직 지원되지 않습니다.",
   "Máy in": "프린터",
   "Máy in & mẫu in": "프린터 및 인쇄 양식",
@@ -10617,6 +10619,12 @@
   "Máy in hóa đơn lỗi. Phiếu treo — không chuyển máy khác.": "영수증 프린터 오류. 전표 보류 중 — 다른 기기로 전환되지 않습니다.",
   "Máy in hóa đơn offline. Phiếu treo — không chuyển máy khác.": "영수증 프린터 오프라인. 전표 보류 중 — 다른 기기로 전환되지 않습니다.",
   "Máy in hệ thống": "시스템 프린터",
+  "Máy in iMin": "iMin 프린터",
+  "Máy in iMin (máy này)": "iMin 프린터 (이 기기)",
+  "Máy in iMin chưa kết nối / chưa bật": "iMin 프린터가 연결되지 않았거나 꺼져 있습니다",
+  "Máy in iMin hết giấy": "iMin 프린터 용지가 없습니다",
+  "Máy in iMin tích hợp": "iMin 내장 프린터",
+  "Máy in iMin đang mở nắp": "iMin 프린터 덮개가 열려 있습니다",
   "Máy in khác lớp mạng (cần đổi IP)": "프린터가 다른 네트워크 대역에 있음 (IP 변경 필요)",
   "Máy in không còn trong cấu hình cửa hàng": "프린터가 매장 설정에 더 이상 없습니다",
   "Máy in không hợp lệ": "유효하지 않은 프린터",
@@ -18001,6 +18009,7 @@
   "Tự duyệt khi chấm tại công ty": "회사에서 타각 시 자동 승인",
   "Tự duyệt máy mới": "새 기기 자동 승인",
   "Tự duyệt phạt sau kết ca": "근무 종료 후 벌금 자동 승인",
+  "Tự dùng máy in trong máy iMin — không cần Bluetooth / LAN / USB. Khổ giấy tự nhận, kiểm lại bên dưới.": "iMin 기기에 내장된 프린터를 사용합니다 — Bluetooth / LAN / USB가 필요 없습니다. 용지 폭은 자동 인식되며 아래에서 확인하세요.",
   "Tự dùng máy in trong máy — không cần BT/LAN/hãng/chế độ chữ.": "기기 내장 프린터를 자동으로 사용합니다 — BT/LAN/브랜드/문자 모드 설정이 필요 없습니다.",
   "Tự giao": "직접 배정",
   "Tự giao — tem tự in": "자동 부여 — 자체 인쇄 라벨",
@@ -19679,6 +19688,7 @@
   "hủy phiếu": "전표 취소",
   "hủy vận đơn": "운송장 취소",
   "hủy đơn": "주문 취소",
+  "iMin (máy tích hợp)": "iMin (내장형)",
   "import sản lượng": "생산량 가져오기",
   "in QR bàn": "테이블 QR 인쇄",
   "in bếp": "주방 인쇄",
@@ -22472,6 +22482,7 @@
   "Đạt ≥100%": "≥100% 달성",
   "Đầu ca": "근무 시작",
   "Đầu ca: màn bán hàng → Menu ⋮ → Ca thu ngân → Mở ca (nhập tiền đầu ca)": "근무 시작: 판매 화면 → 메뉴 ⋮ → 캐셔 근무 → 근무 시작(시재 입력)",
+  "Đầu in iMin quá nóng": "iMin 프린트 헤드가 과열되었습니다",
   "Đầu kỳ": "기초",
   "Đầu kỳ + thu − chi": "기초 + 수입 − 지출",
   "Đầu kỳ / ĐC": "기초 / 조정",
@@ -29483,6 +29494,10 @@
   [
    "Máy in cục bộ · {0}",
    "로컬 프린터 · {0}"
+  ],
+  [
+   "Máy in iMin báo lỗi ({0})",
+   "iMin 프린터 오류 ({0})"
   ],
   [
    "Máy in {0} hết giấy",

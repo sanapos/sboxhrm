@@ -154,6 +154,7 @@ public partial class PosPrintersController(
                 return string.Equals((a.BluetoothAddress ?? "").Trim(),
                     (b.BluetoothAddress ?? "").Trim(), StringComparison.OrdinalIgnoreCase);
             case PosPrinterConnectionType.Sunmi:
+            case PosPrinterConnectionType.Imin:
                 return true;
             default:
                 return false;
@@ -209,6 +210,7 @@ public partial class PosPrintersController(
                     return list.FirstOrDefault(p =>
                         string.Equals((p.BluetoothAddress ?? "").Trim(), bt, StringComparison.OrdinalIgnoreCase));
                 case PosPrinterConnectionType.Sunmi:
+                case PosPrinterConnectionType.Imin:
                     return list.FirstOrDefault();
                 default:
                     return null;
@@ -618,7 +620,7 @@ public partial class PosPrintersController(
                         (p.BluetoothAddress ?? "").Trim().ToUpperInvariant() == mac,
                     PosPrinterConnectionType.Usb => usb.Length > 0 &&
                         UsbIdentity(p.UsbDeviceName) == usb,
-                    _ => true, // Sunmi tích hợp: mỗi máy một
+                    _ => true, // Sunmi / iMin tích hợp: mỗi máy một
                 });
         }
 

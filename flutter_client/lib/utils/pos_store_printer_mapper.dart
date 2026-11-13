@@ -15,6 +15,9 @@ PosThermalPrinterSettings toThermalSettings(PosStorePrinter printer) {
     case 'Sunmi':
       conn = PosThermalConnectionType.sunmi;
       break;
+    case 'Imin':
+      conn = PosThermalConnectionType.imin;
+      break;
     default:
       conn = PosThermalConnectionType.bluetooth;
   }
@@ -73,6 +76,9 @@ PosLabelPrinterSettings toLabelSettings(PosStorePrinter printer) {
     case 'Sunmi':
       conn = PosThermalConnectionType.sunmi;
       break;
+    case 'Imin':
+      conn = PosThermalConnectionType.imin;
+      break;
     default:
       conn = PosThermalConnectionType.bluetooth;
   }
@@ -108,6 +114,9 @@ Map<String, dynamic> thermalToPrinterSaveJson(
       break;
     case PosThermalConnectionType.sunmi:
       conn = 'Sunmi';
+      break;
+    case PosThermalConnectionType.imin:
+      conn = 'Imin';
       break;
     default:
       conn = 'Bluetooth';

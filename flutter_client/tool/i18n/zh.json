@@ -5126,6 +5126,7 @@
   "Danh sách, cây chi nhánh, trụ sở, quản lý chi nhánh": "列表、分店树、总部、分店经理",
   "Danh sách: mọi lần nạp (+) và cấp cho cửa hàng (−).": "列表：所有充值(+)及发放给门店(−)的记录。",
   "Danh tính sẽ được bảo mật": "身份将被保密",
+  "Dao cắt máy in iMin bị kẹt": "iMin 打印机切刀卡住",
   "Dashboard trực quan, báo cáo chuyên cần, tổng hợp lương, xuất Excel tức thì.": "直观的仪表盘、出勤报表、工资汇总、即时导出Excel。",
   "DeepSeek AI chưa được bật hoặc chưa cấu hình API Key": "DeepSeek AI未启用或未配置API Key",
   "DeepSeek đã ngừng hỗ trợ. Hệ thống chỉ dùng Google Gemini cho trợ lý ảo.": "DeepSeek已停止支持。系统的智能助手仅使用Google Gemini。",
@@ -10569,6 +10570,7 @@
   "Máy hết bảo hành lúc nhận — nhập phí sửa.": "接收时已过保 — 请填写维修费。",
   "Máy hỏi máy chủ mà không có trả lời. Nhiều lỗi = order / thanh toán phải bấm lại.": "设备向服务器发起请求但无响应。错误多时需要重新点单/付款。",
   "Máy hội viên sẽ quét (cửa ra vào / quầy lễ tân):": "会员设备将扫描（门口 / 前台）：",
+  "Máy iMin: chọn kết nối «Máy in iMin» để in bằng máy in trong máy.": "iMin 设备：请选择«iMin 打印机»连接，使用内置打印机打印。",
   "Máy iMin: máy in trong nối qua USB nội bộ — chọn kết nối USB rồi chọn máy in trong danh sách. Dòng M2-202/203/Pro (SPI) chưa hỗ trợ.": "iMin 设备：内置打印机通过内部 USB 连接 — 请选择 USB 连接，再从列表中选择打印机。M2-202/203/Pro (SPI) 系列暂不支持。",
   "Máy in": "打印机",
   "Máy in & mẫu in": "打印机与打印模板",
@@ -10617,6 +10619,12 @@
   "Máy in hóa đơn lỗi. Phiếu treo — không chuyển máy khác.": "小票打印机出错。单据挂起 — 不会转到其他设备。",
   "Máy in hóa đơn offline. Phiếu treo — không chuyển máy khác.": "小票打印机离线。单据挂起 — 不会转到其他设备。",
   "Máy in hệ thống": "系统打印机",
+  "Máy in iMin": "iMin 打印机",
+  "Máy in iMin (máy này)": "iMin 打印机（本机）",
+  "Máy in iMin chưa kết nối / chưa bật": "iMin 打印机未连接或未开启",
+  "Máy in iMin hết giấy": "iMin 打印机缺纸",
+  "Máy in iMin tích hợp": "iMin 内置打印机",
+  "Máy in iMin đang mở nắp": "iMin 打印机盖未关",
   "Máy in khác lớp mạng (cần đổi IP)": "打印机不在同一网段（需修改 IP）",
   "Máy in không còn trong cấu hình cửa hàng": "打印机已不在门店配置中",
   "Máy in không hợp lệ": "打印机无效",
@@ -18001,6 +18009,7 @@
   "Tự duyệt khi chấm tại công ty": "在公司打卡时自动审批",
   "Tự duyệt máy mới": "自动批准新设备",
   "Tự duyệt phạt sau kết ca": "班次结束后自动审批罚款",
+  "Tự dùng máy in trong máy iMin — không cần Bluetooth / LAN / USB. Khổ giấy tự nhận, kiểm lại bên dưới.": "使用 iMin 设备内置打印机 — 无需蓝牙 / LAN / USB。纸宽自动识别，请在下方核对。",
   "Tự dùng máy in trong máy — không cần BT/LAN/hãng/chế độ chữ.": "自动使用设备内置打印机 — 无需设置蓝牙/局域网/品牌/文字模式。",
   "Tự giao": "自行分配",
   "Tự giao — tem tự in": "自动分配 — 自助打印标签",
@@ -19679,6 +19688,7 @@
   "hủy phiếu": "作废单据",
   "hủy vận đơn": "取消运单",
   "hủy đơn": "取消订单",
+  "iMin (máy tích hợp)": "iMin（内置）",
   "import sản lượng": "导入产量",
   "in QR bàn": "打印桌台QR",
   "in bếp": "厨房打印",
@@ -22472,6 +22482,7 @@
   "Đạt ≥100%": "达成 ≥100%",
   "Đầu ca": "班初",
   "Đầu ca: màn bán hàng → Menu ⋮ → Ca thu ngân → Mở ca (nhập tiền đầu ca)": "班初：销售界面 → 菜单 ⋮ → 收银班次 → 开班（录入备用金）",
+  "Đầu in iMin quá nóng": "iMin 打印头过热",
   "Đầu kỳ": "期初",
   "Đầu kỳ + thu − chi": "期初 + 收入 − 支出",
   "Đầu kỳ / ĐC": "期初 / 调整",
@@ -29483,6 +29494,10 @@
   [
    "Máy in cục bộ · {0}",
    "本地打印机 · {0}"
+  ],
+  [
+   "Máy in iMin báo lỗi ({0})",
+   "iMin 打印机报错（{0}）"
   ],
   [
    "Máy in {0} hết giấy",

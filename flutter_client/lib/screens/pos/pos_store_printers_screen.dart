@@ -1032,6 +1032,7 @@ class _PosStorePrintersScreenState extends State<PosStorePrintersScreen> {
         PosThermalConnectionType.lan => 'Lan',
         PosThermalConnectionType.usb => 'Usb',
         PosThermalConnectionType.sunmi => 'Sunmi',
+        PosThermalConnectionType.imin => 'Imin',
       };
 
   /// usbDeviceName = «VID:PID:serial|/dev/bus/usb/001/007». Phần sau dấu «|»
@@ -2179,7 +2180,11 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
         'connectionType': _connection,
         'printerBrand': _isLabel
             ? 'label'
-            : (_connection == 'Sunmi' ? 'sunmi' : _brand),
+            : (_connection == 'Sunmi'
+                ? 'sunmi'
+                : _connection == 'Imin'
+                    ? 'imin'
+                    : _brand),
         'paperSize': _isLabel ? _templateId : _paper,
         'textMode': _isLabel
             ? _protocol
@@ -2241,6 +2246,8 @@ class _PrinterEditorSheetState extends State<_PrinterEditorSheet> {
       'Bluetooth': 'Bluetooth',
       'Usb': 'USB',
       if (_isSunmi) 'Sunmi': 'Sunmi (máy tích hợp)',
+      // Máy in iMin là máy nội bộ của từng thiết bị — chỉ hiện để mở được hồ sơ đã có.
+      if (_connection == 'Imin') 'Imin': 'iMin (máy tích hợp)',
     };
 
     return Padding(

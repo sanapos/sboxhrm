@@ -2642,6 +2642,7 @@
   "Danh sách đã lọc theo ngành cửa hàng. Chọn món mẫu — xác nhận loại hàng, ĐVT, thuế. Ảnh dùng chung.": "List filtered by the store's business type. Pick sample items and confirm the product type, unit and tax. Photos are shared.",
   "Danh sách, cây chi nhánh, trụ sở, quản lý chi nhánh": "List, branch tree, head office, branch managers",
   "Danh sách: mọi lần nạp (+) và cấp cho cửa hàng (−).": "List: every top-up (+) and grant to stores (−).",
+  "Dao cắt máy in iMin bị kẹt": "iMin printer cutter is jammed",
   "Di chuyển": "Move",
   "Di chuyển nhiều nhất": "Most movement",
   "Di chuột": "Hover",
@@ -5295,6 +5296,7 @@
   "Máy hết bảo hành lúc nhận — nhập phí sửa.": "Device was out of warranty at intake — enter the repair fee.",
   "Máy hỏi máy chủ mà không có trả lời. Nhiều lỗi = order / thanh toán phải bấm lại.": "The device asked the server but got no reply. Many errors mean you must press order / payment again.",
   "Máy hội viên sẽ quét (cửa ra vào / quầy lễ tân):": "Member device will scan (entrance / reception desk):",
+  "Máy iMin: chọn kết nối «Máy in iMin» để in bằng máy in trong máy.": "iMin device: choose the «iMin printer» connection to print with the built-in printer.",
   "Máy iMin: máy in trong nối qua USB nội bộ — chọn kết nối USB rồi chọn máy in trong danh sách. Dòng M2-202/203/Pro (SPI) chưa hỗ trợ.": "iMin device: the built-in printer connects over internal USB — choose a USB connection, then pick the printer from the list. M2-202/203/Pro (SPI) models are not supported yet.",
   "Máy in & mẫu in (K80 / tem)": "Printers & print templates (K80 / labels)",
   "Máy in A4 (Agent)": "A4 printer (Agent)",
@@ -5321,6 +5323,12 @@
   "Máy in hóa đơn lỗi. Phiếu treo — không chuyển máy khác.": "Receipt printer error. Ticket on hold — not switched to another device.",
   "Máy in hóa đơn offline. Phiếu treo — không chuyển máy khác.": "Receipt printer offline. Ticket on hold — not switched to another device.",
   "Máy in hệ thống": "System printer",
+  "Máy in iMin": "iMin printer",
+  "Máy in iMin (máy này)": "iMin printer (this device)",
+  "Máy in iMin chưa kết nối / chưa bật": "iMin printer is not connected / not turned on",
+  "Máy in iMin hết giấy": "iMin printer is out of paper",
+  "Máy in iMin tích hợp": "Built-in iMin printer",
+  "Máy in iMin đang mở nắp": "iMin printer cover is open",
   "Máy in khác lớp mạng (cần đổi IP)": "Printer on a different subnet (IP change needed)",
   "Máy in kim (TM-U220…)": "Dot-matrix printer (TM-U220…)",
   "Máy in laser A4": "A4 laser printer",
@@ -8856,6 +8864,7 @@
   "Tự duyệt khi chấm tại công ty": "Auto-approve when punched at the company",
   "Tự duyệt máy mới": "Auto-approve new devices",
   "Tự duyệt phạt sau kết ca": "Auto-approve penalties after shift end",
+  "Tự dùng máy in trong máy iMin — không cần Bluetooth / LAN / USB. Khổ giấy tự nhận, kiểm lại bên dưới.": "Uses the printer built into the iMin device — no Bluetooth / LAN / USB needed. Paper width is detected automatically; check it below.",
   "Tự giao — tem tự in": "Auto-assigned — self-printed label",
   "Tự gợi ý theo tên": "Auto-suggest from name",
   "Tự gửi lên máy chủ khi có mạng": "Automatically sent to the server when online",
@@ -9591,6 +9600,7 @@
   "hủy phiếu": "void slip",
   "hủy vận đơn": "cancel waybill",
   "hủy đơn": "cancel order",
+  "iMin (máy tích hợp)": "iMin (built-in)",
   "in QR bàn": "print table QR",
   "in bếp": "kitchen print",
   "in hóa đơn": "print invoice",
@@ -10919,6 +10929,7 @@
   "Đạt dưới 70%": "Reached under 70%",
   "Đầu ca": "Start of shift",
   "Đầu ca: màn bán hàng → Menu ⋮ → Ca thu ngân → Mở ca (nhập tiền đầu ca)": "Start of shift: sales screen → Menu ⋮ → Cashier shift → Open shift (enter opening cash)",
+  "Đầu in iMin quá nóng": "iMin print head is overheated",
   "Đầu kỳ": "Opening",
   "Đầu kỳ + thu − chi": "Opening + income − expense",
   "Đầu kỳ / ĐC": "Opening / adj.",
@@ -17312,6 +17323,10 @@
   [
    "Máy in cục bộ · {0}",
    "Local printer · {0}"
+  ],
+  [
+   "Máy in iMin báo lỗi ({0})",
+   "iMin printer reported an error ({0})"
   ],
   [
    "Máy in {0} hết giấy",

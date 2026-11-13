@@ -71,6 +71,8 @@ class PosStorePrinter {
   bool get isLan => connectionType == 'Lan';
   bool get isBluetooth => connectionType == 'Bluetooth';
   bool get isSunmi => connectionType == 'Sunmi';
+  /// Máy in tích hợp máy POS iMin (máy nội bộ của một thiết bị, giống Sunmi).
+  bool get isImin => connectionType == 'Imin';
   bool get isUsb => connectionType == 'Usb';
   bool get isLabelPrinter => printerBrand == 'label';
   /// Agent cloud: cần Print Agent. Máy nội bộ thiết bị: không.
@@ -85,7 +87,7 @@ class PosStorePrinter {
       documentTypes.contains(PosCloudDocumentTypes.kitchenLabel);
 
   bool get looksLikeReceiptPrinter {
-    if (isSunmi) return true;
+    if (isSunmi || isImin) return true;
     final n = name.toLowerCase();
     return n.contains('sunmi') ||
         n.contains('hóa đơn') ||
@@ -98,7 +100,7 @@ class PosStorePrinter {
   /// Phiếu bếp / in lại: máy bếp + máy hóa đơn (Sunmi) khi máy bếp hỏng.
   bool get canPrintKitchenSlip {
     if (isLabelPrinter) return false;
-    if (isSunmi) return true;
+    if (isSunmi || isImin) return true;
     return documentTypes.contains(PosCloudDocumentTypes.kitchenSlip) ||
         documentTypes.contains(PosCloudDocumentTypes.kitchenVoid) ||
         documentTypes.contains(PosCloudDocumentTypes.saleInvoice);

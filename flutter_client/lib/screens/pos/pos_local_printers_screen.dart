@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../../models/pos_store_printer.dart';
 import '../../services/api_service.dart';
 import '../../services/pos_product_printer_service.dart';
+import '../../utils/pos_imin_printer.dart';
 import '../../utils/pos_printer_transport.dart';
 import '../../utils/pos_barcode_print.dart';
 import '../../utils/pos_label_printer_service.dart';
@@ -324,6 +325,8 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
         initial: existing,
         hasSunmiProfile: _items.any(
             (p) => p.connectionType == PosThermalConnectionType.sunmi),
+        hasIminProfile: _items.any(
+            (p) => p.connectionType == PosThermalConnectionType.imin),
       ),
     );
     if (result == null) return;
@@ -784,10 +787,17 @@ class _PosLocalPrintersScreenState extends State<PosLocalPrintersScreen> {
 }
 
 class _LocalPrinterEditorSheet extends StatefulWidget {
-  const _LocalPrinterEditorSheet({this.initial, this.hasSunmiProfile = false});
+  const _LocalPrinterEditorSheet({
+    this.initial,
+    this.hasSunmiProfile = false,
+    this.hasIminProfile = false,
+  });
   final PosLocalPrinterProfile? initial;
   /// Máy này đã có hồ sơ máy in Sunmi — thêm mới không tự chọn Sunmi nữa.
   final bool hasSunmiProfile;
+
+  /// Máy này đã có hồ sơ máy in iMin — thêm mới không tự chọn iMin nữa.
+  final bool hasIminProfile;
 
   @override
   State<_LocalPrinterEditorSheet> createState() =>
@@ -916,7 +926,20 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
       });
     });
     PosPrinterTransport.isIminDevice().then((v) {
-      if (mounted) setState(() => _isImin = v);
+      if (!mounted) return;
+      setState(() {
+        _isImin = v;
+        // Máy iMin thêm máy mới: mặc định máy in tích hợp (giống Sunmi).
+        if (v &&
+            widget.initial == null &&
+            !widget.hasIminProfile &&
+            _kind == PosLocalPrinterKind.receipt &&
+            _type == PosThermalConnectionType.bluetooth) {
+          _type = PosThermalConnectionType.imin;
+          _applyIminDefaults();
+          _syncAutoName();
+        }
+      });
     });
     if (_type == PosThermalConnectionType.usb) {
       unawaited(_refreshUsbDevices(selectSaved: true));
@@ -950,6 +973,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
         v == 'Máy in tem nội bộ' ||
         v == 'Máy in nội bộ' ||
         v == 'Máy in Sunmi' ||
+        v == 'Máy in iMin' ||
         RegExp(r'^\S+ \d{1,3}(\.\d{1,3}){3}$').hasMatch(v);
   }
 
@@ -959,6 +983,7 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
     final host = _lanHost.text.trim();
     _name.text = switch (_type) {
       PosThermalConnectionType.sunmi => 'Máy in Sunmi',
+      PosThermalConnectionType.imin => 'Máy in iMin',
       PosThermalConnectionType.lan when host.isNotEmpty => 'LAN $host',
       _ => _isLabel ? 'Máy in tem nội bộ' : 'Máy in nhiệt nội bộ',
     };
@@ -974,10 +999,23 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
     }));
   }
 
+  void _applyIminDefaults() {
+    _brand = PosThermalPrinterBrand.imin;
+    // Khổ theo máy in iMin (SDK 2.0 báo loại giấy; đời cũ đoán theo model: M2/Swift = 58mm).
+    unawaited(PosIminPrinter.paperWidthMm().then((mm) {
+      if (mounted) setState(() => _paperSize = mm <= 58 ? 'K58' : 'K80');
+    }));
+  }
+
   void _setKind(PosLocalPrinterKind kind) {
     setState(() {
       _kind = kind;
       _roles = _defaultRoles(kind);
+      // Máy in iMin chỉ in hóa đơn / phiếu (không in tem TSPL).
+      if (kind == PosLocalPrinterKind.label &&
+          _type == PosThermalConnectionType.imin) {
+        _type = PosThermalConnectionType.bluetooth;
+      }
       if (_name.text.trim().isEmpty ||
           _name.text == 'Máy in nhiệt nội bộ' ||
           _name.text == 'Máy in tem nội bộ' ||
@@ -1271,7 +1309,8 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                             product: device.productName,
                           );
                           if (b != null &&
-                              _type != PosThermalConnectionType.sunmi) {
+                              _type != PosThermalConnectionType.sunmi &&
+                              _type != PosThermalConnectionType.imin) {
                             _brand = b;
                           }
                         });
@@ -1319,7 +1358,9 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
           ? PosThermalPrinterBrand.zywell
           : (_type == PosThermalConnectionType.sunmi
               ? PosThermalPrinterBrand.sunmi
-              : _brand),
+              : _type == PosThermalConnectionType.imin
+                  ? PosThermalPrinterBrand.imin
+                  : _brand),
       textMode: _type == PosThermalConnectionType.sunmi
           ? PosThermalTextMode.utf8
           : _textMode,
@@ -1401,9 +1442,15 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
       NotificationOverlayManager()
           .showSuccess(title: 'In thử', message: tr('Đã gửi lệnh in thử'));
     } else {
+      // Máy in iMin báo rõ lý do (hết giấy / mở nắp / quá nóng…).
+      final iminMsg = _type == PosThermalConnectionType.imin
+          ? PosIminPrinter.statusMessage(PosPrinterTransport.lastIminStatus)
+          : null;
       NotificationOverlayManager().showError(
         title: 'In thử thất bại',
-        message: tr('Kiểm tra kết nối máy in và quyền Bluetooth/USB'),
+        message: iminMsg != null
+            ? tr(iminMsg)
+            : tr('Kiểm tra kết nối máy in và quyền Bluetooth/USB'),
       );
     }
   }
@@ -1521,7 +1568,12 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
               ),
               items: [
                 for (final e in PosThermalConnectionType.values)
-                  if (e != PosThermalConnectionType.sunmi || _isSunmi)
+                  if ((e != PosThermalConnectionType.sunmi || _isSunmi) &&
+                      // iMin: chỉ trên máy iMin, chỉ máy in hóa đơn (SDK không in tem TSPL);
+                      // giữ mục đang chọn để hồ sơ cũ mở được.
+                      (e != PosThermalConnectionType.imin ||
+                          _type == PosThermalConnectionType.imin ||
+                          (_isImin && !_isLabel)))
                     DropdownMenuItem(value: e, child: Text(tr(e.label))),
               ],
               onChanged: (v) {
@@ -1531,6 +1583,9 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                   if (v == PosThermalConnectionType.sunmi) {
                     _applySunmiDefaults();
                   }
+                  if (v == PosThermalConnectionType.imin) {
+                    _applyIminDefaults();
+                  }
                   _syncAutoName();
                 });
                 if (v == PosThermalConnectionType.usb) {
@@ -1538,10 +1593,12 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                 }
               },
             ),
-            if (_isImin) ...[
+            if (_isImin &&
+                !_isLabel &&
+                _type != PosThermalConnectionType.imin) ...[
               const SizedBox(height: 8),
               Text(
-                tr('Máy iMin: máy in trong nối qua USB nội bộ — chọn kết nối USB rồi chọn máy in trong danh sách. Dòng M2-202/203/Pro (SPI) chưa hỗ trợ.'),
+                tr('Máy iMin: chọn kết nối «Máy in iMin» để in bằng máy in trong máy.'),
                 style: TextStyle(
                   fontSize: 12,
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -1634,6 +1691,15 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
                 style: TextStyle(fontSize: 12, color: PosTheme.textSecondary),
               ),
             ],
+            if (_type == PosThermalConnectionType.imin)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.print, color: PosTheme.kiotBlue),
+                title: Text(tr('Máy in iMin tích hợp')),
+                subtitle: Text(
+                  tr('Tự dùng máy in trong máy iMin — không cần Bluetooth / LAN / USB. Khổ giấy tự nhận, kiểm lại bên dưới.'),
+                ),
+              ),
             if (_type == PosThermalConnectionType.sunmi)
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -1851,23 +1917,25 @@ class _LocalPrinterEditorSheetState extends State<_LocalPrinterEditorSheet> {
               ),
             ] else ...[
               if (_type != PosThermalConnectionType.sunmi) ...[
-                const SizedBox(height: 10),
-                DropdownButtonFormField<PosThermalPrinterBrand>(
-                  value: _brand,
-                  decoration: InputDecoration(
-                    labelText: tr('Hãng máy in'),
-                    border: const OutlineInputBorder(),
+                if (_type != PosThermalConnectionType.imin) ...[
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<PosThermalPrinterBrand>(
+                    value: _brand,
+                    decoration: InputDecoration(
+                      labelText: tr('Hãng máy in'),
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: PosThermalPrinterBrand.values
+                        .map((b) => DropdownMenuItem(
+                              value: b,
+                              child: Text(tr(b.label)),
+                            ))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) setState(() => _brand = v);
+                    },
                   ),
-                  items: PosThermalPrinterBrand.values
-                      .map((b) => DropdownMenuItem(
-                            value: b,
-                            child: Text(tr(b.label)),
-                          ))
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setState(() => _brand = v);
-                  },
-                ),
+                ],
                 const SizedBox(height: 10),
                 DropdownButtonFormField<PosThermalTextMode>(
                   value: _textMode,

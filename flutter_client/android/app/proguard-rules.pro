@@ -28,3 +28,7 @@
 -dontwarn com.google.android.play.core.splitcompat.SplitCompatApplication
 -dontwarn com.google.android.play.core.splitinstall.**
 -dontwarn com.google.android.play.core.tasks.**
+
+# Máy in iMin: SDK 2.0 nối AIDL (Stub/Proxy), SDK 1.0 gọi phản chiếu SystemProperties.
+-keep class com.imin.** { *; }
+-dontwarn com.imin.**

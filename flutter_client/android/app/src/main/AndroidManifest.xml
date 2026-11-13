@@ -38,6 +38,8 @@
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
+        <!-- Dịch vụ máy in tích hợp iMin (SDK 2.0) — Android 11+ cần khai báo mới thấy / bind được. -->
+        <package android:name="com.imin.printerservice" />
     </queries>
     <application
         android:label="@string/app_name"

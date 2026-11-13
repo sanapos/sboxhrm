@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import 'package:sunmi_printer_plus/sunmi_printer_plus.dart';
 
+import 'pos_imin_printer.dart';
 import 'pos_thermal_printer_settings.dart';
 import 'pos_thermal_bitmap.dart';
 import 'pos_usb_printer.dart';
@@ -51,6 +52,8 @@ class PosPrinterTransport {
         return 'bt';
       case PosThermalConnectionType.sunmi:
         return 'sunmi';
+      case PosThermalConnectionType.imin:
+        return 'imin';
       case PosThermalConnectionType.lan:
         return 'lan:${(lanHost ?? '').trim().toLowerCase()}:$lanPort';
       case PosThermalConnectionType.usb:
@@ -61,23 +64,10 @@ class PosPrinterTransport {
     }
   }
 
-  static bool? _isIminCache;
-
-  /// Máy POS iMin (D1/D4/Swan/M2…). Phần lớn đời máy nối máy in trong qua USB nội bộ
-  /// (SDK iMin dùng kết nối USB, trừ M2-202/203/Pro dùng SPI) ⇒ in bằng cổng USB của app.
-  static Future<bool> isIminDevice() async {
-    if (kIsWeb || !Platform.isAndroid) return false;
-    final cached = _isIminCache;
-    if (cached != null) return cached;
-    var v = false;
-    try {
-      final info = await DeviceInfoPlugin().androidInfo;
-      final s = '${info.brand} ${info.manufacturer}'.toLowerCase();
-      v = s.contains('imin');
-    } catch (_) {}
-    _isIminCache = v;
-    return v;
-  }
+  /// Máy POS iMin (D1/D4/Swan/M2/Falcon…): hãng / thuộc tính `ro.neostra.imin_model` /
+  /// có dịch vụ in `com.imin.printerservice` (xem IminPrinterBridge.kt).
+  static Future<bool> isIminDevice() async =>
+      (await PosIminPrinter.info()).isImin;
 
   static Future<bool> isSunmiDevice() async {
     if (kIsWeb || !Platform.isAndroid) return false;
@@ -235,6 +225,8 @@ class PosPrinterTransport {
         return _sendLan(lanHost, lanPort, bytes);
       case PosThermalConnectionType.sunmi:
         return _sendSunmi(bytes, sunmiFeedLines);
+      case PosThermalConnectionType.imin:
+        return _sendImin(bytes);
       case PosThermalConnectionType.bluetooth:
         return _sendBluetooth(bluetoothAddress, bytes);
       case PosThermalConnectionType.usb:
@@ -676,6 +668,27 @@ class PosPrinterTransport {
       debugPrint('Sunmi print failed: $e');
       return false;
     }
+  }
+
+  /// Mã trạng thái lần in iMin gần nhất (-1 = chưa rõ) — để báo «hết giấy / mở nắp».
+  static int lastIminStatus = -1;
+
+  /// Máy in tích hợp iMin: gửi nguyên ESC/POS (cắt GS V máy tự xử lý; máy 58mm không dao bỏ qua).
+  /// ESC p cuối payload → gỡ ra, mở két bằng API iMin (SDK 1.0 mở két qua GPIO, không qua ESC p).
+  static Future<bool> _sendImin(List<int> bytes) async {
+    if (!await isIminDevice()) {
+      debugPrint('iMin print skipped: not an iMin device');
+      return false;
+    }
+    final openDrawer = hasTrailingDrawerKick(bytes);
+    final payload = openDrawer ? removeTrailingDrawerKick(bytes) : bytes;
+    final r = await PosIminPrinter.printBytes(payload, openDrawer: openDrawer);
+    lastIminStatus = r.status;
+    if (!r.ok) {
+      debugPrint('iMin print failed: status=${r.status} '
+          '${PosIminPrinter.statusMessage(r.status) ?? ''}');
+    }
+    return r.ok;
   }
 
   static Future<bool> _sendBluetooth(String? addr, List<int> bytes) async {

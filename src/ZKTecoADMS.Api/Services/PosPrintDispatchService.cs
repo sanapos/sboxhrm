@@ -284,6 +284,7 @@ public class PosPrintDispatchService(
                             StringComparison.OrdinalIgnoreCase));
                 break;
             case PosPrinterConnectionType.Sunmi:
+            case PosPrinterConnectionType.Imin:
                 twin = candidates.FirstOrDefault();
                 break;
         }

@@ -10,6 +10,8 @@ enum PosThermalPrinterBrand {
   xprinter('xprinter', 'Xprinter'),
   epson('epson', 'Epson'),
   sunmi('sunmi', 'Sunmi'),
+  /// Máy in tích hợp trên máy POS iMin (SDK iMin, nhận ESC/POS thô).
+  imin('imin', 'iMin'),
   hprt('hprt', 'HPRT'),
   rp80('rp80', 'RP80 / Rongta'),
   /// Máy in kim (Epson TM-U220…) hay dùng ở bếp: không in được ảnh raster / QR / barcode,
@@ -56,7 +58,9 @@ enum PosThermalConnectionType {
   bluetooth('bluetooth', 'Bluetooth'),
   lan('lan', 'LAN / WiFi'),
   usb('usb', 'USB'),
-  sunmi('sunmi', 'Máy in Sunmi');
+  sunmi('sunmi', 'Máy in Sunmi'),
+  /// Máy in tích hợp máy POS iMin (Android 7+, qua IminPrinterBridge.kt).
+  imin('imin', 'Máy in iMin');
 
   const PosThermalConnectionType(this.key, this._label);
   final String key;
@@ -76,9 +80,11 @@ enum PosThermalConnectionType {
     return true;
   }
 
-  /// Danh sách chọn UI — [includeSunmi] chỉ khi máy Android Sunmi.
+  /// Danh sách chọn UI — [includeSunmi] chỉ khi máy Android Sunmi,
+  /// [includeImin] chỉ khi máy Android iMin.
   static List<PosThermalConnectionType> availableOnThisDevice({
     bool includeSunmi = false,
+    bool includeImin = false,
   }) {
     if (kIsWeb) return const [lan];
     if (_isIos) return const [bluetooth, lan];
@@ -87,6 +93,7 @@ enum PosThermalConnectionType {
       lan,
       usb,
       if (includeSunmi) sunmi,
+      if (includeImin) imin,
     ];
   }
 
@@ -213,6 +220,9 @@ class PosThermalPrinterSettings {
         return PosThermalTextMode.image;
       case PosThermalPrinterBrand.sunmi:
         return PosThermalTextMode.utf8;
+      case PosThermalPrinterBrand.imin:
+        // iMin «tương thích ESC/POS nhưng hơi khác chuẩn», bảng mã tiếng Việt chưa rõ → in ảnh.
+        return PosThermalTextMode.image;
       case PosThermalPrinterBrand.impact:
         return PosThermalTextMode.ascii;
     }
@@ -237,6 +247,7 @@ class PosThermalPrinterSettings {
       case PosThermalPrinterBrand.hprt:
       case PosThermalPrinterBrand.rp80:
       case PosThermalPrinterBrand.generic:
+      case PosThermalPrinterBrand.imin:
         return n < usbFloor ? usbFloor : n;
       case PosThermalPrinterBrand.sunmi:
         // V2s không dao cắt — tôn trọng đúng số dòng (kể cả 1–3). T1 cắt

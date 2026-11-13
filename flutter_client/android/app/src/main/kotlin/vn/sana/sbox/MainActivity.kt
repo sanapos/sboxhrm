@@ -272,6 +272,12 @@ class MainActivity : FlutterFragmentActivity() {
             .setMethodCallHandler { call, result ->
                 PosPrinterHardware.handle(this, call, result)
             }
+
+        // Máy in tích hợp iMin (SDK chỉ khởi tạo khi máy là iMin và có lệnh in).
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, IminPrinterBridge.CHANNEL)
+            .setMethodCallHandler { call, result ->
+                IminPrinterBridge.handle(this, call, result)
+            }
     }
 
     /// Lấy chuỗi mã trong intent: extra tự cài → các extra quen thuộc → mảng byte → chuỗi duy nhất.

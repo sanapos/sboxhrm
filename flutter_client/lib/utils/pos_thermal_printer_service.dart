@@ -483,6 +483,12 @@ class PosThermalPrinterService {
 
         return _sendBluetooth(settings, bytes);
 
+      case PosThermalConnectionType.imin:
+        return PosPrinterTransport.send(
+          connectionType: PosThermalConnectionType.imin,
+          bytes: bytes,
+        );
+
       case PosThermalConnectionType.usb:
         return PosPrinterTransport.send(
           connectionType: PosThermalConnectionType.usb,

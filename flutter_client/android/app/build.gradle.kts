@@ -120,6 +120,12 @@ dependencies {
     implementation("androidx.core:core-ktx:1.16.0")
     // Cân điện tử qua cáp USB-Serial: CH340, PL2303, CP210x, FTDI, CDC-ACM (thuần Java, không .so).
     implementation("com.github.mik3y:usb-serial-for-android:3.8.1")
+    // Máy in tích hợp iMin (IminPrinterBridge.kt). Không dùng plugin Flutter imin_printer:
+    // plugin khởi tạo SDK ngay khi mở app trên MỌI máy Android ≤ 11 (quét, xin quyền USB).
+    // SDK 1.0 (Android ≤ 11, USB/SPI) — jar lấy từ imin_printer 0.7.5 (BSD-3, iminsoftware).
+    implementation(files("libs/iminPrinterSDK-V1.3.2.jar"))
+    // SDK 2.0 (Android 12L+, dịch vụ com.imin.printerservice).
+    implementation("com.github.iminsoftware:IminPrinterLibrary:V2.0.0.18")
     // shared_preferences_android 2.4.20 pulls datastore 1.2.0 whose
     // libdatastore_shared_counter.so fails Play 16 KB RELRO. 1.2.1 rebuilt it.
     implementation("androidx.datastore:datastore:1.2.1")

@@ -134,6 +134,8 @@ class PosKitchenDirectConnect {
         return 'Usb';
       case PosThermalConnectionType.sunmi:
         return 'Sunmi';
+      case PosThermalConnectionType.imin:
+        return 'Imin';
       case PosThermalConnectionType.bluetooth:
         return 'Bluetooth';
     }

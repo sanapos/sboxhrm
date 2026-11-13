@@ -127,6 +127,9 @@ class PosPrinterReadiness {
         } catch (_) {
           return true;
         }
+      case PosThermalConnectionType.imin:
+        // Máy in nằm trong máy: chỉ cần đúng máy iMin (trạng thái giấy kiểm lúc in).
+        return PosPrinterTransport.isIminDevice();
       case PosThermalConnectionType.usb:
         final name = (usbDeviceName ?? '').trim();
         if (name.isEmpty) return false;

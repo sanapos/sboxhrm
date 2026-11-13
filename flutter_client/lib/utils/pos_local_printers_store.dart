@@ -547,7 +547,8 @@ class PosLocalPrintersStore {
         (legacy.enabled ||
             legacy.bluetoothAddress?.trim().isNotEmpty == true ||
             legacy.lanHost?.trim().isNotEmpty == true ||
-            legacy.connectionType == PosThermalConnectionType.sunmi)) {
+            legacy.connectionType == PosThermalConnectionType.sunmi ||
+            legacy.connectionType == PosThermalConnectionType.imin)) {
       list = [PosLocalPrinterProfile.fromLegacy(legacy)];
     }
 
@@ -613,6 +614,7 @@ class PosLocalPrintersStore {
       t == PosThermalConnectionType.usb ||
       t == PosThermalConnectionType.bluetooth ||
       t == PosThermalConnectionType.sunmi ||
+      t == PosThermalConnectionType.imin ||
       t == PosThermalConnectionType.lan;
 
   static bool profileAllowsDirectLocal(PosLocalPrinterProfile p) =>
@@ -718,6 +720,7 @@ class PosLocalPrintersStore {
       PosThermalConnectionType.bluetooth => 'Bluetooth',
       PosThermalConnectionType.usb => 'Usb',
       PosThermalConnectionType.sunmi => 'Sunmi',
+      PosThermalConnectionType.imin => 'Imin',
     };
     if (store.connectionType != conn) return false;
     switch (local.connectionType) {
@@ -742,6 +745,7 @@ class PosLocalPrintersStore {
         return local.name.trim().toLowerCase() ==
             store.name.trim().toLowerCase();
       case PosThermalConnectionType.sunmi:
+      case PosThermalConnectionType.imin:
         return local.name.trim().toLowerCase() ==
             store.name.trim().toLowerCase();
     }
@@ -796,6 +800,7 @@ class PosLocalPrintersStore {
             return norm(old.bluetoothAddress).isNotEmpty &&
                 norm(p.bluetoothAddress) == norm(old.bluetoothAddress);
           case PosThermalConnectionType.sunmi:
+          case PosThermalConnectionType.imin:
             return false;
         }
       }).toList();
@@ -998,5 +1003,6 @@ class PosLocalPrintersStore {
         PosThermalConnectionType.lan => 'Lan',
         PosThermalConnectionType.usb => 'Usb',
         PosThermalConnectionType.sunmi => 'Sunmi',
+        PosThermalConnectionType.imin => 'Imin',
       };
 }

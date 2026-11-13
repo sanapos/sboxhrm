@@ -847,6 +847,11 @@ class _PosBarcodeLabelDialogState extends State<_PosBarcodeLabelDialog> {
                     if (t == PosThermalConnectionType.sunmi && kIsWeb) {
                       return const SizedBox.shrink();
                     }
+                    // Máy in iMin không in tem TSPL — chỉ hiện khi hồ sơ cũ đang chọn.
+                    if (t == PosThermalConnectionType.imin &&
+                        _labelPrinter.connectionType != t) {
+                      return const SizedBox.shrink();
+                    }
                     final selected = _labelPrinter.connectionType == t;
                     return ChoiceChip(
                       label: Text(tr(t.label), style: const TextStyle(fontSize: 11)),

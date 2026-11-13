@@ -44,6 +44,8 @@ public enum PosPrinterConnectionType
     Lan = 1,
     Sunmi = 2,
     Usb = 3,
+    /// <summary>Máy in tích hợp máy POS iMin (máy nội bộ của một thiết bị, giống Sunmi).</summary>
+    Imin = 4,
 }
 
 /// <summary>Trạng thái sức khỏe máy in.</summary>

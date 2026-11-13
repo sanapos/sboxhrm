@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../widgets/notification_overlay.dart';
+import 'pos_imin_printer.dart';
 import 'pos_local_printers_store.dart';
 import 'pos_printer_transport.dart';
 import 'pos_thermal_printer_settings.dart';
@@ -13,6 +14,7 @@ import 'pos_usb_printer.dart';
 
 /// Tự nhận máy in gắn trên thiết bị (không cần vào Thiết lập máy in):
 /// - Máy Sunmi: máy in trong máy → máy in hóa đơn (K80 nếu có dao cắt, K58 máy cầm tay).
+/// - Máy iMin: máy in trong máy (SDK iMin) → máy in hóa đơn, khổ theo máy in / model.
 /// - Cắm USB máy in nhiệt → máy in hóa đơn K80; tên/model gợi ý máy tem → máy in tem 50×30.
 /// - Rút ra cắm cổng khác: khớp lại theo VID/PID (xem [PosUsbPrinter.matchProfilesExclusive]),
 ///   không tạo máy trùng.
@@ -24,6 +26,20 @@ class PosPrinterAutoDetect {
   static const _kIgnored = 'pos_printer_autodetect_ignored_v1';
   static const sunmiIgnoreKey = 'sunmi';
   static const sunmiProfileId = 'auto_sunmi_builtin';
+  static const iminIgnoreKey = 'imin';
+  static const iminProfileId = 'auto_imin_builtin';
+
+  /// VID:PID máy in trong nối USB nội bộ trên máy iMin đời SDK 1.0 (lấy từ iminPrinterSDK
+  /// V1.3.2). Chỉ coi là máy in trong khi thiết bị là iMin — trên máy khác các mã này
+  /// (0x28E9 Zywell, 0x0483 STMicro…) là máy in USB ngoài bình thường.
+  static const iminBuiltinUsbIds = <String>{
+    '1305:8211', // 0x0519:0x2013
+    '1305:8213', // 0x0519:0x2015
+    '1155:30016', // 0x0483:0x7540
+    '10473:653', // 0x28E9:0x028D
+    '14569:4749', // 0x38E9:0x128D
+    '14569:4750', // 0x38E9:0x128E
+  };
 
   StreamSubscription<Map<String, dynamic>>? _usbSub;
   Future<List<PosLocalPrinterProfile>>? _inflight;
@@ -63,6 +79,8 @@ class PosPrinterAutoDetect {
       final existing = await store.loadAll();
       final isSunmi = await PosPrinterTransport.isSunmiDevice();
       final hasCutter = isSunmi && await PosPrinterTransport.sunmiHasAutoCutter();
+      final isImin = !isSunmi && await PosPrinterTransport.isIminDevice();
+      final iminMm = isImin ? await PosIminPrinter.paperWidthMm() : 80;
       final devices = await PosUsbPrinter.listDevices();
       final ignored = await ignoredKeys();
       var seq = 0;
@@ -71,6 +89,8 @@ class PosPrinterAutoDetect {
         devices: devices,
         isSunmiDevice: isSunmi,
         sunmiHasCutter: hasCutter,
+        isIminDevice: isImin,
+        iminPaperSize: iminMm <= 58 ? 'K58' : 'K80',
         ignored: ignored,
         newId: () => 'auto_${DateTime.now().microsecondsSinceEpoch}_${seq++}',
       );
@@ -145,6 +165,8 @@ class PosPrinterAutoDetect {
     String? key;
     if (p.connectionType == PosThermalConnectionType.sunmi) {
       key = sunmiIgnoreKey;
+    } else if (p.connectionType == PosThermalConnectionType.imin) {
+      key = iminIgnoreKey;
     } else if (p.connectionType == PosThermalConnectionType.usb) {
       final ref = PosUsbSavedRef.parse(p.usbDeviceName);
       final parts = (ref.stableId ?? '').split(':');
@@ -175,6 +197,8 @@ class PosPrinterAutoDetect {
     required List<PosUsbDevice> devices,
     required bool isSunmiDevice,
     required bool sunmiHasCutter,
+    bool isIminDevice = false,
+    String iminPaperSize = 'K80',
     required Set<String> ignored,
     required String Function() newId,
   }) {
@@ -197,7 +221,28 @@ class PosPrinterAutoDetect {
       ));
     }
 
-    final printable = devices.where((d) => d.canPrint && !d.isHid && d.vendorId != 0).toList();
+    if (isIminDevice &&
+        !ignored.contains(iminIgnoreKey) &&
+        !existing.any((p) => p.connectionType == PosThermalConnectionType.imin) &&
+        // Đã cài máy hóa đơn khác (kể cả máy in trong qua USB theo cách cũ) → không giành vai trò.
+        !hasInvoice(existing)) {
+      out.add(PosLocalPrinterProfile(
+        id: iminProfileId,
+        name: 'Máy in iMin (máy này)',
+        connectionType: PosThermalConnectionType.imin,
+        printerBrand: PosThermalPrinterBrand.imin,
+        paperSize: iminPaperSize,
+        roles: const {PosLocalPrinterRoles.saleInvoice},
+      ));
+    }
+
+    final printable = devices
+        .where((d) => d.canPrint && !d.isHid && d.vendorId != 0)
+        // Máy iMin: máy in trong cũng hiện là thiết bị USB — đã có kiểu «Máy in iMin», không thêm trùng.
+        .where((d) =>
+            !isIminDevice ||
+            !iminBuiltinUsbIds.contains(usbIgnoreKey(d.vendorId, d.productId)))
+        .toList();
     if (printable.isEmpty) return out;
     final usbProfiles = [
       for (final p in existing)

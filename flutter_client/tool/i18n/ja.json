@@ -5126,6 +5126,7 @@
   "Danh sách, cây chi nhánh, trụ sở, quản lý chi nhánh": "一覧、支店ツリー、本社、支店マネージャー",
   "Danh sách: mọi lần nạp (+) và cấp cho cửa hàng (−).": "一覧：すべてのチャージ（+）と店舗への付与（−）。",
   "Danh tính sẽ được bảo mật": "身元は秘匿されます",
+  "Dao cắt máy in iMin bị kẹt": "iMinプリンターのカッターが詰まっています",
   "Dashboard trực quan, báo cáo chuyên cần, tổng hợp lương, xuất Excel tức thì.": "直感的なダッシュボード、勤怠レポート、給与集計、即時のExcel出力。",
   "DeepSeek AI chưa được bật hoặc chưa cấu hình API Key": "DeepSeek AIが有効になっていないか、API Keyが設定されていません",
   "DeepSeek đã ngừng hỗ trợ. Hệ thống chỉ dùng Google Gemini cho trợ lý ảo.": "DeepSeekのサポートは終了しました。システムはAIアシスタントにGoogle Geminiのみを使用します。",
@@ -10569,6 +10570,7 @@
   "Máy hết bảo hành lúc nhận — nhập phí sửa.": "受付時に保証切れの機器 — 修理費を入力してください。",
   "Máy hỏi máy chủ mà không có trả lời. Nhiều lỗi = order / thanh toán phải bấm lại.": "端末がサーバーに問い合わせても応答がありません。エラーが多いと、注文／支払いを再度押す必要があります。",
   "Máy hội viên sẽ quét (cửa ra vào / quầy lễ tân):": "会員端末がスキャンします (出入口 / 受付):",
+  "Máy iMin: chọn kết nối «Máy in iMin» để in bằng máy in trong máy.": "iMin端末：内蔵プリンターで印刷するには接続«iMinプリンター»を選んでください。",
   "Máy iMin: máy in trong nối qua USB nội bộ — chọn kết nối USB rồi chọn máy in trong danh sách. Dòng M2-202/203/Pro (SPI) chưa hỗ trợ.": "iMin端末: 内蔵プリンターは内部USB接続です — USB接続を選び、リストからプリンターを選択してください。M2-202/203/Pro (SPI) シリーズは未対応です。",
   "Máy in": "プリンター",
   "Máy in & mẫu in": "プリンターと印刷テンプレート",
@@ -10617,6 +10619,12 @@
   "Máy in hóa đơn lỗi. Phiếu treo — không chuyển máy khác.": "レシートプリンターのエラー。伝票は保留中 — 他の端末には切り替わりません。",
   "Máy in hóa đơn offline. Phiếu treo — không chuyển máy khác.": "レシートプリンターがオフライン。伝票は保留中 — 他の端末には切り替わりません。",
   "Máy in hệ thống": "システムプリンター",
+  "Máy in iMin": "iMinプリンター",
+  "Máy in iMin (máy này)": "iMinプリンター（この端末）",
+  "Máy in iMin chưa kết nối / chưa bật": "iMinプリンターが未接続か電源が入っていません",
+  "Máy in iMin hết giấy": "iMinプリンターの用紙切れです",
+  "Máy in iMin tích hợp": "iMin内蔵プリンター",
+  "Máy in iMin đang mở nắp": "iMinプリンターのカバーが開いています",
   "Máy in khác lớp mạng (cần đổi IP)": "プリンターが別のサブネットにあります（IP変更が必要）",
   "Máy in không còn trong cấu hình cửa hàng": "プリンターが店舗設定にありません",
   "Máy in không hợp lệ": "無効なプリンター",
@@ -18001,6 +18009,7 @@
   "Tự duyệt khi chấm tại công ty": "社内での打刻は自動承認",
   "Tự duyệt máy mới": "新しい端末を自動承認",
   "Tự duyệt phạt sau kết ca": "シフト終了後の罰金を自動承認",
+  "Tự dùng máy in trong máy iMin — không cần Bluetooth / LAN / USB. Khổ giấy tự nhận, kiểm lại bên dưới.": "iMin端末に内蔵のプリンターを使います — Bluetooth / LAN / USB は不要です。用紙幅は自動認識されるので、下で確認してください。",
   "Tự dùng máy in trong máy — không cần BT/LAN/hãng/chế độ chữ.": "本体内蔵プリンターを自動で使用します — BT/LAN/メーカー/文字モードの設定は不要です。",
   "Tự giao": "自己割り当て",
   "Tự giao — tem tự in": "自動付与 — 自己印刷ラベル",
@@ -19679,6 +19688,7 @@
   "hủy phiếu": "伝票を取消",
   "hủy vận đơn": "送り状を取消",
   "hủy đơn": "注文を取消",
+  "iMin (máy tích hợp)": "iMin（内蔵）",
   "import sản lượng": "生産量をインポート",
   "in QR bàn": "テーブルQRを印刷",
   "in bếp": "キッチン印刷",
@@ -22472,6 +22482,7 @@
   "Đạt ≥100%": "≥100%達成",
   "Đầu ca": "シフト開始時",
   "Đầu ca: màn bán hàng → Menu ⋮ → Ca thu ngân → Mở ca (nhập tiền đầu ca)": "シフト開始：販売画面 → メニュー ⋮ → レジ担当シフト → シフト開始（開始時の釣銭を入力）",
+  "Đầu in iMin quá nóng": "iMinの印字ヘッドが過熱しています",
   "Đầu kỳ": "期首",
   "Đầu kỳ + thu − chi": "期首＋入金−出金",
   "Đầu kỳ / ĐC": "期首 / 調整",
@@ -29483,6 +29494,10 @@
   [
    "Máy in cục bộ · {0}",
    "ローカルプリンター · {0}"
+  ],
+  [
+   "Máy in iMin báo lỗi ({0})",
+   "iMinプリンターでエラーが発生しました（{0}）"
   ],
   [
    "Máy in {0} hết giấy",

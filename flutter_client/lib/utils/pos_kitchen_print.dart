@@ -1734,7 +1734,7 @@ List<PosStorePrinter> _preferExternalKitchenCloud(List<PosStorePrinter> printers
       .where((p) => p.healthStatus != 'Error' && p.healthStatus != 'Offline')
       .toList();
   final pool = healthy.isNotEmpty ? healthy : ranked;
-  final external = pool.where((p) => !p.isSunmi).toList();
+  final external = pool.where((p) => !p.isSunmi && !p.isImin).toList();
   return external.isNotEmpty ? external : pool;
 }
 
@@ -1743,6 +1743,7 @@ int _kitchenPortRank(PosThermalConnectionType t) => switch (t) {
       PosThermalConnectionType.lan => 1,
       PosThermalConnectionType.bluetooth => 2,
       PosThermalConnectionType.sunmi => 3,
+      PosThermalConnectionType.imin => 3,
     };
 
 int _kitchenCloudRank(PosStorePrinter p) {
