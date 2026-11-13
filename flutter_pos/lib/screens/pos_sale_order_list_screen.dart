@@ -1,4 +1,11 @@
+import '../widgets/export_file_icon.dart';
+import '../utils/vietnamese_font.dart';
 import 'dart:async';
+import '../utils/pos_list_prefs.dart';
+import '../widgets/pos/pos_master_detail_layout.dart';
+import '../utils/pos_shipping_label_print.dart';
+import '../utils/api_datetime.dart';
+import '../utils/pos_payment_label.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -6,8 +13,6 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../utils/pos_list_prefs.dart';
-import '../utils/pos_shipping_label_print.dart';
 import '../models/pos_einvoice.dart';
 import '../utils/pos_einvoice_actions.dart';
 import '../models/pos_sale_order.dart';
@@ -22,16 +27,15 @@ import '../utils/pos_sell_print_settings.dart';
 import '../utils/pos_print_store_info.dart';
 import '../utils/pos_sell_stock_patch.dart';
 import '../utils/pos_mutation_result.dart';
-import '../widgets/hrm_page_chrome.dart';
 import '../widgets/loading_widget.dart';
 import '../screens/main_layout.dart' show ScreenRefreshNotifier;
 import '../widgets/notification_overlay.dart';
-import '../widgets/pos/pos_kiot_time_filter.dart';
+import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
-import '../widgets/pos/pos_master_detail_layout.dart';
 import '../widgets/pos/pos_hub_scope.dart';
+import '../widgets/hrm_page_chrome.dart';
+import '../utils/navigation_notifier.dart';
 import '../widgets/pos/pos_module_toolbar.dart';
-import '../widgets/pos/pos_purchase_toolbar.dart';
 import '../widgets/pos/pos_sale_order_helpers.dart';
 import '../widgets/pos/pos_sale_order_receipt_view.dart';
 import '../widgets/pos/pos_sale_print_options.dart';
@@ -44,7 +48,8 @@ import 'package:sbox_pos/l10n/app_tr.dart';
 import '../theme/sbox_tokens.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import '../utils/pos_owner_password_gate.dart';
-import '../utils/api_datetime.dart';
+import '../utils/pos_sell_settings_helper.dart';
+import '../models/pos_sell_industry.dart' show PosSellProfile;
 enum _ListColumn {
   orderNo('Mã đơn'),
   time('Thời gian'),
@@ -54,6 +59,7 @@ enum _ListColumn {
   total('Tổng'),
   paid('Đã trả'),
   balance('Còn lại'),
+  payment('Thanh toán'),
   delivery('Giao hàng'),
   deliveryStatus('TT giao hàng'),
   status('Trạng thái'),
@@ -63,12 +69,23 @@ enum _ListColumn {
   final String label;
 }
 
+/// Độ rộng cột dùng chung cho tiêu đề và từng dòng (để chữ thẳng hàng).
+const _statusColWidth = 120.0;
+int _colFlex(_ListColumn c) => switch (c) {
+      _ListColumn.orderNo => 3,
+      _ListColumn.customer => 3,
+      _ListColumn.delivery => 1,
+      _ListColumn.eInvoice => 2,
+      _ => 2,
+    };
+
 /// Cột mặc định gọn — tránh bảng quá nhiều cột gây rối (còn lại bật trong Tùy chọn cột).
 Set<_ListColumn> _defaultListColumns() => {
       _ListColumn.orderNo,
       _ListColumn.time,
       _ListColumn.customer,
       _ListColumn.total,
+      _ListColumn.payment,
       _ListColumn.status,
       _ListColumn.eInvoice,
     };
@@ -93,7 +110,7 @@ class PosSaleOrderListScreen extends StatefulWidget {
   final String? initialSearch;
   final String? initialSoldBy;
 
-  /// Tên hiển thị người bán (họ tên thay email) cho ô lọc; null = hiện [initialSoldBy].
+  /// Tên hiển thị người bán (họ tên thay email) cho chip lọc; null = hiện [initialSoldBy].
   final String? initialSoldByLabel;
   final String? initialPaymentMethod;
   final String? initialCustomerId;
@@ -106,6 +123,12 @@ class PosSaleOrderListScreen extends StatefulWidget {
 }
 
 class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
+  /// Tem vận đơn chỉ cho ngành có giao hàng (bán lẻ / F&B) — salon, gym, phòng giờ ẩn.
+  bool get _showShipping {
+    final p = PosSellSettingsHelper.lastProfile;
+    return p == null || p == PosSellProfile.retail || p == PosSellProfile.restaurant;
+  }
+
   final _api = ApiService();
   final _searchCtrl = TextEditingController();
   final _moneyFmt = NumberFormat('#,##0', 'vi_VN');
@@ -144,6 +167,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     'Tiền mặt',
     'Chuyển khoản',
     'Thẻ',
+    'Công nợ',
   ];
 
   @override
@@ -185,12 +209,64 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     _restoreSort();
   }
 
-  /// Lấy lại cách sắp xếp đã chọn lần trước trên máy này.
+  /// Sắp xếp danh sách (server): time_desc | time_asc | total_desc | total_asc — nhớ theo máy.
+  String _sort = 'time_desc';
+
+  static const _sortLabels = {
+    'time_desc': 'Mới nhất',
+    'time_asc': 'Cũ nhất',
+    'total_desc': 'Tổng tiền cao → thấp',
+    'total_asc': 'Tổng tiền thấp → cao',
+  };
+
   Future<void> _restoreSort() async {
     final v = await PosListPrefs.loadSort('sale_orders');
     if (!mounted || v == null || v == _sort || !_sortLabels.containsKey(v)) return;
     setState(() => _sort = v);
     _load();
+  }
+
+  Widget _buildSortButton() {
+    final byTotal = _sort.startsWith('total');
+    return PopupMenuButton<String>(
+      tooltip: tr('Sắp xếp'),
+      onSelected: (v) {
+        if (v == _sort) return;
+        setState(() => _sort = v);
+        PosListPrefs.saveSort('sale_orders', v);
+        _load();
+      },
+      itemBuilder: (_) => [
+        for (final e in _sortLabels.entries)
+          PopupMenuItem(
+            value: e.key,
+            child: Row(children: [
+              Expanded(child: Text(tr(e.value))),
+              if (e.key == _sort) const Icon(Icons.check, size: 18, color: PosTheme.kiotBlue),
+            ]),
+          ),
+      ],
+      // Nút có chữ («Mới nhất ▾») — biểu tượng đồng hồ nhỏ trước đây khó nhận ra là nút sắp xếp.
+      child: Container(
+        height: 34,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: _sort == 'time_desc' ? Colors.white : PosTheme.kiotBlueLight,
+          border: Border.all(
+              color: _sort == 'time_desc' ? PosTheme.border : PosTheme.kiotBlue),
+          borderRadius: BorderRadius.circular(17),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(byTotal ? Icons.payments_outlined : Icons.sort,
+              size: 16, color: PosTheme.kiotBlue),
+          const SizedBox(width: 4),
+          Text(tr(_sortLabels[_sort] ?? ''),
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w600, color: PosTheme.kiotBlue)),
+          const Icon(Icons.arrow_drop_down, size: 18, color: PosTheme.kiotBlue),
+        ]),
+      ),
+    );
   }
 
   void _onExternalRefresh() {
@@ -201,8 +277,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   void dispose() {
     PosManagerApproval.detach(context);
     ScreenRefreshNotifier.posSaleOrders.removeListener(_onExternalRefresh);
+    _debounce?.cancel();
     _searchCtrl.dispose();
-    _uiTick.dispose();
     super.dispose();
   }
 
@@ -214,6 +290,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           _loading = false;
           _items = [];
           _total = 0;
+          _dropMissingMdOrder();
         });
       }
       return;
@@ -250,6 +327,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             .where((o) => !(o.status == 'Draft' &&
                 o.orderNo.toUpperCase().startsWith('TMP')))
             .toList();
+        _dropMissingMdOrder();
       });
       await _loadPeriodSummary();
     } else {
@@ -319,17 +397,6 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     }
   }
 
-  void _toggleStatus(String status, bool? v) {
-    setState(() {
-      if (v == true) {
-        _statusFilter.add(status);
-      } else {
-        _statusFilter.remove(status);
-      }
-    });
-    _load();
-  }
-
   void _onTimeFilterChanged(PosKiotTimeFilterState s) {
     setState(() => _timeFilter = s);
     _load();
@@ -392,6 +459,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     setState(() {
       _items = _items.map((x) => x.id == updated.id ? updated : x).toList();
       if (_expandedId == updated.id) _expandedDetail = updated;
+      if (_mdOrder?.id == updated.id) _mdOrder = updated;
     });
   }
 
@@ -412,10 +480,11 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('Hủy đơn (hoàn kho)')),
+        title: Text(tr('Hủy đơn')),
         content: Text(tr('${tr('Hủy đơn ')}${o.orderNo}?\n\n'
             '• Hoàn kho hàng đã bán\n'
             '• Hoàn công nợ / điểm / voucher (nếu có)\n'
+            '• Thu hồi gói buổi / thẻ dịch vụ bán trong đơn (nếu có)\n'
             '• Đơn chuyển sang «Đã hủy» (vẫn thấy trong danh sách)\n\n'
             'Chỉ dùng khi đơn đã hoàn thành và chưa trả hàng.')),
         actions: [
@@ -521,6 +590,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       setState(() {
         _items = _items.where((x) => x.id != o.id).toList();
         if (_total > 0) _total -= 1;
+        _dropMissingMdOrder();
       });
       ScreenRefreshNotifier.refreshPosAfterStockChange();
       await _loadPeriodSummary();
@@ -1043,136 +1113,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   }
 
   double _balance(PosSaleOrder o) =>
-      o.balanceDue != 0 ? o.balanceDue : o.total - o.paidAmount;
-
-  int get _activeFilterCount {
-    var n = 0;
-    if (_paymentMethod != null) n++;
-    if (_isDeliveryFilter != null) n++;
-    // Mặc định Hoàn thành + Đã hủy — chỉ đếm khi người dùng đổi khác mặc định.
-    if (!(_statusFilter.length == 2 &&
-        _statusFilter.contains('Completed') &&
-        _statusFilter.contains('Cancelled'))) {
-      n++;
-    }
-    return n;
-  }
-
-  Widget _buildFilterPanel() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        saleFilterSection(
-          'Trạng thái',
-          Column(
-            children: [
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('Đang xử lý'), style: TextStyle(fontSize: 13)),
-                value: _statusFilter.contains('Draft'),
-                activeColor: PosTheme.kiotBlue,
-                onChanged: (v) => _toggleStatus('Draft', v),
-              ),
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('Hoàn thành'), style: TextStyle(fontSize: 13)),
-                value: _statusFilter.contains('Completed'),
-                activeColor: PosTheme.kiotBlue,
-                onChanged: (v) => _toggleStatus('Completed', v),
-              ),
-              CheckboxListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('Đã hủy'), style: TextStyle(fontSize: 13)),
-                value: _statusFilter.contains('Cancelled'),
-                activeColor: PosTheme.kiotBlue,
-                onChanged: (v) => _toggleStatus('Cancelled', v),
-              ),
-            ],
-          ),
-        ),
-        saleFilterSection(
-          'Thời gian',
-          PosKiotTimeFilter(state: _timeFilter, onChanged: _onTimeFilterChanged),
-        ),
-        saleFilterSection(
-          'Loại đơn',
-          Column(
-            children: [
-              RadioListTile<bool?>(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('Tất cả'), style: TextStyle(fontSize: 13)),
-                value: null,
-                groupValue: _isDeliveryFilter,
-                activeColor: PosTheme.kiotBlue,
-                onChanged: (v) {
-                  setState(() => _isDeliveryFilter = v);
-                  _load();
-                },
-              ),
-              RadioListTile<bool?>(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('Không giao hàng'), style: TextStyle(fontSize: 13)),
-                value: false,
-                groupValue: _isDeliveryFilter,
-                activeColor: PosTheme.kiotBlue,
-                onChanged: (v) {
-                  setState(() => _isDeliveryFilter = v);
-                  _load();
-                },
-              ),
-              RadioListTile<bool?>(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(tr('Giao hàng'), style: TextStyle(fontSize: 13)),
-                value: true,
-                groupValue: _isDeliveryFilter,
-                activeColor: PosTheme.kiotBlue,
-                onChanged: (v) {
-                  setState(() => _isDeliveryFilter = v);
-                  _load();
-                },
-              ),
-            ],
-          ),
-        ),
-        saleFilterSection(
-          'Thanh toán',
-          DropdownButtonFormField<String?>(
-            isDense: true,
-            value: _paymentMethod,
-            decoration: const InputDecoration(
-              isDense: true,
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            ),
-            hint: Text(tr('Tất cả'), style: TextStyle(fontSize: 12)),
-            items: _paymentMethods
-                .map(
-                  (m) => DropdownMenuItem<String?>(
-                    value: m,
-                    child: Text(tr(m ?? 'Tất cả'), style: const TextStyle(fontSize: 12)),
-                  ),
-                )
-                .toList(),
-            onChanged: (v) {
-              setState(() => _paymentMethod = v);
-              _load();
-            },
-          ),
-        ),
-        FilledButton(
-          onPressed: () => _load(),
-          style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
-          child: Text(tr('Áp dụng lọc'), style: TextStyle(fontSize: 12)),
-        ),
-      ],
-    );
-  }
+      o.balanceDue != 0
+          ? o.balanceDue
+          : o.total + o.vatAmount + o.surchargeAmount + o.deliveryFee - o.paidAmount;
 
   Future<void> _loadPeriodSummary() async {
     final res = await _api.getPosSalesReportSummary(
@@ -1188,26 +1131,200 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     }
   }
 
-  Future<void> _resetFilters() async {
-    setState(() {
-      _statusFilter
-        ..clear()
-        ..addAll({'Completed', 'Cancelled'});
-      _paymentMethod = null;
-      _isDeliveryFilter = null;
-      _timeFilter = PosKiotTimeFilterState.thisMonth();
-    });
-    await _load();
+  @override
+  Widget build(BuildContext context) {
+    final perm = Provider.of<PermissionProvider>(context);
+    if (!perm.canView('PosSaleOrders') && !perm.canView('PosProducts')) {
+      return Scaffold(
+          appBar: AppBar(title: Text(tr('Hóa đơn'))),
+          body: Center(child: Text(tr('Không có quyền xem đơn hàng'))));
+    }
+    final canEdit =
+        perm.canEdit('PosSaleOrders') || perm.canEdit('PosProducts');
+    final mobile = posUseMobileList(context);
+    _md = mobile && MediaQuery.sizeOf(context).width >= 1000;
+    final inHub = PosHubScope.of(context);
+    // Mở đè lên shell («Nhiều hơn», báo cáo, sơ đồ bàn…) → tự vẽ nút quay lại + tiêu đề.
+    final pushed = !inHub &&
+        (PosHubScope.pushedSubPageOf(context) || HrmPageChrome.isPushedOverShell(context));
+
+    return Scaffold(
+      backgroundColor: SboxColors.page,
+      body: Column(
+        children: [
+          if (!inHub) const PosModuleToolbar(activeModule: 'PosSaleOrders'),
+          if (mobile)
+            _buildMobileTop(perm, inHub: inHub, pushed: pushed)
+          else ...[
+            if (pushed) _buildPushedHeader(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+              child: _buildFilterBar(perm),
+            ),
+          ],
+          if (mobile && !_md) _buildMobileSummaryCard(),
+          Expanded(
+            child: _md
+                // Màn ngang rộng dạng mobile (C20 ~1280dp): danh sách trái · chi tiết phải như T1.
+                ? PosMasterDetailLayout(
+                    prefsKey: 'sale_orders',
+                    initialFraction: 0.42,
+                    minMasterWidth: 420,
+                    minDetailWidth: 460,
+                    master: ColoredBox(
+                      color: SboxColors.page,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildMobileSummaryCard(),
+                          Expanded(child: _buildListArea(mobile, canEdit)),
+                        ],
+                      ),
+                    ),
+                    detail: _buildMdOrderPane(canEdit),
+                  )
+                : _buildListArea(mobile, canEdit),
+          ),
+        ],
+      ),
+    );
   }
+
+  Widget _buildListArea(bool mobile, bool canEdit) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: mobile ? 0 : 12),
+      child: Column(
+        children: [
+          Expanded(
+            child: _loading
+                ? const LoadingWidget()
+                : _items.isEmpty
+                    ? RefreshIndicator(
+                        onRefresh: () => _load(page: _page),
+                        child: ListView(
+                          physics:
+                              const AlwaysScrollableScrollPhysics(),
+                          children: const [
+                            SizedBox(height: 60),
+                            SboxEmptyState(
+                              icon: Icons.receipt_long_outlined,
+                              title: 'Chưa có hóa đơn',
+                              message: 'Đổi khoảng thời gian hoặc trạng thái để xem thêm.',
+                            ),
+                          ],
+                        ),
+                      )
+                    : Column(
+                        crossAxisAlignment:
+                            CrossAxisAlignment.stretch,
+                        children: [
+                          _buildTableHeader(),
+                          Expanded(child: _buildList(canEdit)),
+                        ],
+                      ),
+          ),
+          _buildPager(),
+        ],
+      ),
+    );
+  }
+
+  Timer? _debounce;
+
+  void _onSearchChanged(String _) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () => _load());
+  }
+
+  Widget _buildFilterBar(PermissionProvider perm) {
+    final canExport = perm.canExport('PosSaleOrders') || perm.canExport('PosProducts');
+    return SboxFilterBar(
+      searchHint: 'Tìm mã đơn, khách hàng…',
+      searchController: _searchCtrl,
+      onSearch: _onSearchChanged,
+      filters: [
+        PosMultiChip(
+          label: 'Trạng thái',
+          options: const {'Draft': 'Đang xử lý', 'Completed': 'Hoàn thành', 'Cancelled': 'Đã hủy'},
+          selected: _statusFilter,
+          onChanged: (v) {
+            setState(() => _statusFilter
+              ..clear()
+              ..addAll(v));
+            _load();
+          },
+        ),
+        PosTimeRangeChip(state: _timeFilter, onChanged: _onTimeFilterChanged),
+        SboxFilterChip<String>(
+          label: 'Sắp xếp',
+          value: _sort,
+          options: _sortLabels,
+          onChanged: (v) {
+            if (v == _sort) return;
+            setState(() => _sort = v);
+            PosListPrefs.saveSort('sale_orders', v);
+            _load();
+          },
+        ),
+        SboxFilterChip<String>(
+          label: 'Loại đơn',
+          value: _isDeliveryFilter == null ? 'all' : (_isDeliveryFilter! ? 'ship' : 'store'),
+          options: const {'all': 'Tất cả', 'store': 'Không giao hàng', 'ship': 'Giao hàng'},
+          onChanged: (v) {
+            setState(() => _isDeliveryFilter = v == 'all' ? null : v == 'ship');
+            _load();
+          },
+        ),
+        PosPickChip(
+          label: 'Thanh toán',
+          value: _paymentMethod,
+          options: {for (final m in _paymentMethods.whereType<String>()) m: m},
+          onChanged: (v) {
+            setState(() => _paymentMethod = v);
+            _load();
+          },
+        ),
+        if (_hasReportFilter)
+          InputChip(
+            label: Text(tr('Từ báo cáo: ${_reportFilterLabel()}')),
+            onDeleted: _clearReportFilter,
+            deleteButtonTooltipMessage: tr('Bỏ lọc'),
+          ),
+      ],
+      actions: [
+        if (canExport)
+          SboxButton.secondary(
+            label: 'Xuất Excel',
+            icon: Icons.download_outlined,
+            loading: _exporting,
+            onPressed: _exporting ? null : () => _exportExcel(perm),
+          ),
+        SboxButton.secondary(
+          label: 'In tem vận đơn',
+          icon: Icons.local_shipping_outlined,
+          onPressed: _bulkShippingLabels,
+        ),
+        if (!posUseMobileList(context))
+          IconButton(
+            tooltip: tr('Hiển thị cột'),
+            onPressed: _showColumnPicker,
+            icon: const Icon(Icons.view_column_outlined, color: SboxColors.slate600),
+          ),
+      ],
+    );
+  }
+
+  static const _defaultStatuses = {'Completed', 'Cancelled'};
+  static const _statusLabels = {'Draft': 'Đang xử lý', 'Completed': 'Hoàn thành', 'Cancelled': 'Đã hủy'};
 
   bool get _hasReportFilter =>
       _soldBy != null || _customerId != null || _productId != null || _voucherCode != null || _hasVoucher;
 
   String _reportFilterLabel() => [
-        if (_soldBy != null) '${tr('Nhân viên')} ${_soldByLabel ?? _soldBy}',
-        if (_customerId != null) tr('Khách hàng'),
-        if (_productId != null) tr('Hàng hóa'),
-        if (_voucherCode != null) 'Voucher $_voucherCode' else if (_hasVoucher) tr('Có voucher'),
+        if (_soldBy != null) 'NV ${_soldByLabel ?? _soldBy}',
+        if (_customerId != null) 'khách hàng',
+        if (_productId != null) 'hàng hóa',
+        if (_voucherCode != null) 'voucher $_voucherCode' else if (_hasVoucher) 'có voucher',
       ].join(', ');
 
   void _clearReportFilter() {
@@ -1222,505 +1339,324 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     _load();
   }
 
-  void _openFilters() {
-    showPosMobileFilterSheet(
-      context,
-      child: _buildFilterPanel(),
-      onReset: _resetFilters,
-      onApply: () => _load(),
-    );
+  bool get _statusIsDefault =>
+      _statusFilter.length == _defaultStatuses.length && _statusFilter.containsAll(_defaultStatuses);
+
+  bool get _timeIsDefault => !_timeFilter.isCustom && _timeFilter.preset == PosKiotTimePreset.thisMonth;
+
+  int get _activeFilterCount => [
+        !_statusIsDefault,
+        !_timeIsDefault,
+        _isDeliveryFilter != null,
+        _paymentMethod != null,
+        _hasReportFilter,
+      ].where((x) => x).length;
+
+  void _resetFilters() {
+    setState(() {
+      _statusFilter
+        ..clear()
+        ..addAll(_defaultStatuses);
+      _timeFilter = PosKiotTimeFilterState.thisMonth();
+      _isDeliveryFilter = null;
+      _paymentMethod = null;
+      _soldBy = null;
+      _soldByLabel = null;
+      _customerId = null;
+      _productId = null;
+      _voucherCode = null;
+      _hasVoucher = false;
+    });
+    _load();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final perm = Provider.of<PermissionProvider>(context);
-    if (!perm.canView('PosSaleOrders') && !perm.canView('PosProducts')) {
-      return Scaffold(
-          appBar: AppBar(title: Text(tr('Hóa đơn'))),
-          body: Center(child: Text(tr('Không có quyền xem đơn hàng'))));
-    }
-    final canEdit =
-        perm.canEdit('PosSaleOrders') || perm.canEdit('PosProducts');
-    final mobile = posUseMobileList(context);
-    final inHub = PosHubScope.of(context);
-    _md = !mobile && MediaQuery.sizeOf(context).width >= 1100;
-
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      body: Column(
-        children: [
-          if (!inHub) const PosModuleToolbar(activeModule: 'PosSaleOrders'),
-          if (mobile)
-            PosMobileKiotHeader(
-              title: 'Hóa đơn',
-              onFilter: _openFilters,
-              onRefresh: () => _load(page: _page),
-              activeFilterCount: _activeFilterCount,
-              trailing: [
-                IconButton(
-                  onPressed: _bulkShippingLabels,
-                  icon: const Icon(Icons.local_shipping_outlined),
-                  tooltip: tr('In tem vận đơn'),
-                ),
-              ],
-              filterChips: ActionChip(
-                visualDensity: VisualDensity.compact,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 6),
-                padding: EdgeInsets.zero,
-                label: Text(tr(_timeFilter.displayLabel),
-                    style: const TextStyle(fontSize: 11)),
-                onPressed: _openFilters,
-              ),
-            )
-          else
-            PosMobileListHeader(
-              icon: Icons.receipt_long,
-              title: 'Hóa đơn',
-              onRefresh: () => _load(page: _page),
-              onOpenFilters: null,
-              activeFilterCount: _activeFilterCount,
-              trailing: [
-                if (perm.canExport('PosSaleOrders') ||
-                    perm.canExport('PosProducts'))
-                  IconButton(
-                    onPressed: _exporting ? null : () => _exportExcel(perm),
-                    icon: _exporting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.download_outlined),
-                    tooltip: tr('Xuất Excel'),
-                  ),
-                IconButton(
-                  onPressed: _bulkShippingLabels,
-                  icon: const Icon(Icons.local_shipping_outlined),
-                  tooltip: tr('In tem vận đơn'),
-                ),
-                IconButton(
-                  onPressed: _showColumnPicker,
-                  icon: const Icon(Icons.view_column_outlined),
-                  tooltip: tr('Thêm cột'),
-                ),
-              ],
+  /// Desktop mở đè (từ báo cáo…): thanh tiêu đề có nút quay lại.
+  Widget _buildPushedHeader() => Material(
+        color: Colors.white,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 24, 8),
+          child: Row(children: [
+            IconButton(
+              tooltip: tr('Quay lại'),
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.maybePop(context),
             ),
-          if (mobile) _buildMobileSummaryCard(),
-          Expanded(
-            child: _md
-                ? _buildMasterDetail(canEdit)
-                : PosResponsiveFilterLayout(
-              filterPanel: PosPurchaseFilterPanel(child: _buildFilterPanel()),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                        12, posUseMobileList(context) ? 8 : 10, 12, 0),
-                    child: TextField(
-                      controller: _searchCtrl,
-                      decoration: InputDecoration(
-                        hintText: tr('Tìm mã đơn, khách hàng…'),
-                        prefixIcon: Icon(Icons.search, size: 20),
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                        filled: true,
-                        fillColor: Colors.white,
-                      ),
-                      onSubmitted: (_) => _load(),
-                    ),
-                  ),
-                  Expanded(
-                    child: _loading
-                        ? const LoadingWidget()
-                        : _items.isEmpty
-                            ? RefreshIndicator(
-                                onRefresh: () => _load(page: _page),
-                                child: ListView(
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics(),
-                                  children: [
-                                    SizedBox(height: 120),
-                                    Center(child: Text(tr('Chưa có đơn hàng'))),
-                                  ],
-                                ),
-                              )
-                            : Column(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.stretch,
-                                children: [
-                                  _buildTableHeader(),
-                                  Expanded(child: _buildList(canEdit)),
-                                ],
-                              ),
-                  ),
-                  _buildPager(),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Màn ngang rộng (T1, tablet, web): danh sách bên trái · chi tiết bên phải ──
-  // Bộ lọc thu vào nút trên thanh tiêu đề (panel trượt) — trước đây cột lọc chiếm thường trực.
-  bool _md = false;
-  PosSaleOrder? _selectedSummary;
-  /// Panel lọc dựng một lần — mỗi setState báo panel vẽ lại để ô tích / radio hiện đúng.
-  final _uiTick = ValueNotifier<int>(0);
-
-  @override
-  void setState(VoidCallback fn) {
-    super.setState(fn);
-    _uiTick.value++;
-  }
-
-  Future<void> _selectOrder(PosSaleOrder o) async {
-    if (_expandedId == o.id) return;
-    _selectedSummary = o;
-    await _toggleExpand(o);
-  }
-
-  void _closeOrderDetail() {
-    _selectedSummary = null;
-    _collapseExpanded();
-  }
-
-  Future<void> _openFilterPanel() async {
-    await showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: tr('Bộ lọc'),
-      barrierColor: Colors.black26,
-      transitionDuration: const Duration(milliseconds: 180),
-      pageBuilder: (ctx, _, __) => Align(
-        alignment: Alignment.centerLeft,
-        child: Material(
-          color: Colors.white,
-          elevation: 8,
-          child: SizedBox(
-            width: 360,
-            height: double.infinity,
-            child: SafeArea(
-              child: ValueListenableBuilder<int>(
-                valueListenable: _uiTick,
-                builder: (_, __, ___) {
-                  final n = _activeFilterCount;
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.filter_list, color: PosTheme.kiotBlue),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                tr(n > 0 ? 'Bộ lọc ($n)' : 'Bộ lọc'),
-                                style: const TextStyle(
-                                    fontSize: 18, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            if (n > 0)
-                              TextButton(
-                                onPressed: _resetFilters,
-                                child: Text(tr('Xóa lọc')),
-                              ),
-                            IconButton(
-                              tooltip: tr('Đóng'),
-                              icon: const Icon(Icons.close),
-                              onPressed: () => Navigator.pop(ctx),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1, color: PosTheme.border),
-                      Expanded(
-                        child: SingleChildScrollView(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                          child: _buildFilterPanel(),
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ),
-        ),
-      ),
-      transitionBuilder: (ctx, anim, _, child) => SlideTransition(
-        position: Tween(begin: const Offset(-1, 0), end: Offset.zero)
-            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
-        child: child,
-      ),
-    );
-  }
-
-  /// Sắp xếp danh sách (server): time_desc | time_asc | total_desc | total_asc.
-  String _sort = 'time_desc';
-
-  static const _sortLabels = {
-    'time_desc': 'Mới nhất',
-    'time_asc': 'Cũ nhất',
-    'total_desc': 'Tổng tiền cao → thấp',
-    'total_asc': 'Tổng tiền thấp → cao',
-  };
-
-  /// Nút lọc ngay trên cột danh sách (khỏi với lên góc phải).
-  Widget _buildListFilterButton() {
-    final n = _activeFilterCount;
-    final on = n > 0;
-    return InkWell(
-      onTap: _openFilterPanel,
-      borderRadius: BorderRadius.circular(4),
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: on ? PosTheme.kiotBlueLight : null,
-          border: Border.all(color: on ? PosTheme.kiotBlue : PosTheme.border),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.filter_list, size: 18, color: PosTheme.kiotBlue),
-            if (on) ...[
-              const SizedBox(width: 4),
-              Text(
-                '$n',
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: PosTheme.kiotBlue),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSortButton() {
-    final byTotal = _sort.startsWith('total');
-    return PopupMenuButton<String>(
-      tooltip: tr('Sắp xếp'),
-      onSelected: (v) {
-        if (v == _sort) return;
-        setState(() => _sort = v);
-        PosListPrefs.saveSort('sale_orders', v);
-        _load();
-      },
-      itemBuilder: (_) => [
-        for (final e in _sortLabels.entries)
-          PopupMenuItem(
-            value: e.key,
-            child: Row(
-              children: [
-                Expanded(child: Text(tr(e.value))),
-                if (e.key == _sort)
-                  const Icon(Icons.check, size: 18, color: PosTheme.kiotBlue),
-              ],
-            ),
-          ),
-      ],
-      child: Container(
-        height: 40,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: _sort == 'time_desc' ? null : PosTheme.kiotBlueLight,
-          border: Border.all(
-              color: _sort == 'time_desc' ? PosTheme.border : PosTheme.kiotBlue),
-          borderRadius: BorderRadius.circular(4),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(byTotal ? Icons.payments_outlined : Icons.schedule,
-                size: 18, color: PosTheme.kiotBlue),
-            const SizedBox(width: 2),
-            Icon(
-              _sort.endsWith('desc') ? Icons.arrow_downward : Icons.arrow_upward,
-              size: 16,
-              color: PosTheme.kiotBlue,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMasterDetail(bool canEdit) {
-    return PosMasterDetailLayout(
-      prefsKey: 'sale_orders',
-      initialFraction: 0.36,
-      minMasterWidth: 400,
-      master: ColoredBox(
-                color: Colors.white,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _searchCtrl,
-                              decoration: InputDecoration(
-                                hintText: tr('Tìm mã đơn, khách hàng…'),
-                                prefixIcon: const Icon(Icons.search, size: 20),
-                                border: const OutlineInputBorder(),
-                                isDense: true,
-                                filled: true,
-                                fillColor: Colors.white,
-                              ),
-                              onSubmitted: (_) => _load(),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildSortButton(),
-                          const SizedBox(width: 8),
-                          _buildListFilterButton(),
-                        ],
-                      ),
-                    ),
-                    _buildMobileSummaryCard(),
-                    Expanded(
-                      child: _loading
-                          ? const LoadingWidget()
-                          : _items.isEmpty
-                              ? Center(child: Text(tr('Chưa có đơn hàng')))
-                              : _buildGroupedList(canEdit),
-                    ),
-                    _buildPager(),
-                  ],
-                ),
-              ),
-      detail: _buildOrderDetailPane(canEdit),
-    );
-  }
-
-  Widget _buildOrderDetailPane(bool canEdit) {
-    final summary = _selectedSummary;
-    if (_expandedId == null || summary == null) {
-      return ColoredBox(
-        color: SboxColors.slate50,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.receipt_long_outlined,
-                  size: 56, color: SboxColors.slate400),
-              const SizedBox(height: 12),
-              Text(
-                tr('Chọn hóa đơn bên trái'),
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                tr('Chi tiết, lịch sử thanh toán và thao tác (in lại, trả hàng, hủy…) hiện ở đây'),
-                style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary),
-              ),
-            ],
-          ),
+            const SizedBox(width: 4),
+            Text(tr('Hóa đơn'), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+          ]),
         ),
       );
-    }
-    final o = _expandedDetail ?? summary;
-    final dt = o.saleDate ?? o.createdAt;
-    return ColoredBox(
-      color: SboxColors.slate50,
+
+  /// Điện thoại: tiêu đề + quay lại, ô tìm + nút «Bộ lọc» (đếm số lọc), dòng tóm tắt lọc đang áp dụng.
+  Widget _buildMobileTop(PermissionProvider perm, {required bool inHub, required bool pushed}) {
+    final canExport = perm.canExport('PosSaleOrders') || perm.canExport('PosProducts');
+    // Trong hub POS / mở đè: không có AppBar ngoài → tự vẽ tiêu đề (như các tab POS khác).
+    final showTitle = inHub || pushed || !HrmPageChrome.shellHasVisibleChrome(context);
+    final count = _activeFilterCount;
+    final exportBtn = canExport
+        ? IconButton(
+            tooltip: tr('Xuất Excel'),
+            onPressed: _exporting ? null : () => _exportExcel(perm),
+            icon: _exporting
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                : const ExportFileIcon(ExportFileKind.excel),
+          )
+        : null;
+    final summary = <Widget>[
+      _summaryChip(Icons.calendar_today_outlined, _timeFilter.displayLabel),
+      _summaryChip(
+          Icons.flag_outlined,
+          _statusFilter.length == _statusLabels.length
+              ? 'Mọi trạng thái'
+              : _statusFilter.map((s) => _statusLabels[s] ?? s).join(', ')),
+      if (_isDeliveryFilter != null)
+        _summaryChip(Icons.local_shipping_outlined, _isDeliveryFilter! ? 'Giao hàng' : 'Không giao hàng'),
+      if (_paymentMethod != null) _summaryChip(Icons.payments_outlined, _paymentMethod!),
+      if (_hasReportFilter)
+        InputChip(
+          visualDensity: VisualDensity.compact,
+          label: Text(tr('Từ báo cáo: ${_reportFilterLabel()}'), style: const TextStyle(fontSize: 12)),
+          onDeleted: _clearReportFilter,
+        ),
+    ];
+
+    final titleRow = Row(children: [
+              if (pushed)
+                IconButton(
+                  tooltip: tr('Quay lại'),
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.maybePop(context),
+                )
+              else if (inHub)
+                IconButton(
+                  tooltip: tr(NavigationNotifier.mainLayoutReady.value ? 'Về SBOX HRM' : 'Về trang chủ'),
+                  icon: Icon(
+                    NavigationNotifier.mainLayoutReady.value ? Icons.apps_outlined : Icons.home_outlined,
+                    color: SboxColors.appBarFg(PosTheme.textPrimary),
+                  ),
+                  onPressed: NavigationNotifier.leavePosHubToAppHome,
+                ),
+              Expanded(
+                child: Text(tr('Hóa đơn'),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: SboxColors.appBarFg(PosTheme.textPrimary))),
+              ),
+              if (exportBtn != null) exportBtn,
+              if (_showShipping)
+              IconButton(
+                tooltip: tr('In tem vận đơn'),
+                onPressed: _bulkShippingLabels,
+                icon: const Icon(Icons.local_shipping_outlined),
+              ),
+            ]);
+
+    final content = Padding(
+      padding: EdgeInsets.fromLTRB(showTitle && (pushed || inHub) ? 4 : 12, 6, 8, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Material(
-            color: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 8, 4),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          tr(o.orderNo),
-                          style: TextStyle(
-                            fontSize: 19,
-                            fontWeight: FontWeight.w700,
-                            color: posSaleOrderAccentColor(o.status,
-                                fallback: PosTheme.kiotBlue),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          tr('${dt != null ? _dateFmt.format(dt.toLocal()) : '—'} · ${o.customerName ?? 'Khách lẻ'}'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 13, color: PosTheme.textSecondary),
-                        ),
-                      ],
+          if (showTitle && !SboxColors.isBoss) titleRow,
+          Padding(
+            padding: EdgeInsets.only(left: showTitle && (pushed || inHub) ? 8 : 0, top: showTitle ? 2 : 0),
+            child: Row(children: [
+              Expanded(
+                child: SizedBox(
+                  height: 40,
+                  child: TextField(
+                    controller: _searchCtrl,
+                    onChanged: _onSearchChanged,
+                    textInputAction: TextInputAction.search,
+                    style: const TextStyle(fontSize: 14),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: tr('Tìm mã đơn, khách hàng…'),
+                      prefixIcon: const Icon(Icons.search, size: 20),
+                      contentPadding: EdgeInsets.zero,
+                      filled: true,
+                      fillColor: SboxColors.isBoss ? SboxColors.white : SboxColors.slate50,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: PosTheme.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(color: PosTheme.border),
+                      ),
                     ),
                   ),
-                  posSaleOrderStatusChip(o.status,
-                      returnStatus: o.returnStatus,
-                      returnedAmount: o.returnedAmount),
-                  const SizedBox(width: 16),
-                  Text(
-                    tr('${_moneyFmt.format(o.total)} đ'),
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                ),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                height: 40,
+                child: OutlinedButton.icon(
+                  onPressed: _openFilterSheet,
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    side: BorderSide(color: count > 0 ? PosTheme.kiotBlue : PosTheme.border),
+                    backgroundColor: count > 0 ? SboxColors.brand50 : SboxColors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                   ),
-                  IconButton(
-                    tooltip: tr('Đóng'),
-                    icon: const Icon(Icons.close),
-                    onPressed: _closeOrderDetail,
-                  ),
-                ],
+                  icon: const Icon(Icons.tune, size: 18),
+                  label: Text(tr(count > 0 ? 'Lọc ($count)' : 'Lọc')),
+                ),
               ),
-            ),
+              if (!showTitle && exportBtn != null) exportBtn,
+              // Có dòng tiêu đề thì nút đã nằm trên đó — trước đây hiện 2 xe tải.
+              if (!showTitle && _showShipping)
+                IconButton(
+                  tooltip: tr('In tem vận đơn'),
+                  onPressed: _bulkShippingLabels,
+                  icon: const Icon(Icons.local_shipping_outlined),
+                ),
+            ]),
           ),
-          Material(
-            color: Colors.white,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 8),
-              child: Row(
-                children: [
-                  _detailTabBtn(0, 'Thông tin'),
-                  _detailTabBtn(1, 'Lịch sử thanh toán'),
-                ],
-              ),
-            ),
-          ),
-          const Divider(height: 1, color: PosTheme.border),
-          Expanded(
-            child: _detailLoading
-                ? const Center(child: CircularProgressIndicator(strokeWidth: 2))
-                : SingleChildScrollView(
-                    padding: const EdgeInsets.all(16),
-                    child: _detailTab == 0
-                        ? _buildInfoTab(o, showTitle: false)
-                        : _buildPaymentsTab(o),
-                  ),
-          ),
-          // Thao tác ghim đáy — đơn dài vẫn thấy nút In / Trả hàng / Hủy không phải cuộn.
-          Material(
-            color: Colors.white,
-            child: Container(
-              decoration: const BoxDecoration(
-                border: Border(top: BorderSide(color: PosTheme.border)),
-              ),
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: _orderDetailActionBar(
-                _orderActionButtons(o, canEdit, desktopExtras: true),
-              ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: 32,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: EdgeInsets.only(left: showTitle && (pushed || inHub) ? 8 : 0),
+              children: [
+                for (final w in summary) Padding(padding: const EdgeInsets.only(right: 6), child: w),
+              ],
             ),
           ),
         ],
       ),
+    );
+    final bar = Material(
+      color: showTitle ? SboxColors.appBarBg(Colors.white) : Colors.white,
+      child: posNeedsTopSafeArea(context) ? SafeArea(bottom: false, child: content) : content,
+    );
+    return SboxColors.posApp && showTitle ? sboxOnChromeScope(bar) : bar;
+  }
+
+  Widget _summaryChip(IconData icon, String label) => ActionChip(
+        visualDensity: VisualDensity.compact,
+        avatar: Icon(icon, size: 14, color: PosTheme.textSecondary),
+        label: Text(tr(label), style: const TextStyle(fontSize: 12)),
+        onPressed: _openFilterSheet,
+      );
+
+  Future<void> _openFilterSheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => StatefulBuilder(builder: (ctx, setSheet) {
+        void apply(VoidCallback change) {
+          setState(change);
+          setSheet(() {});
+          _load();
+        }
+
+        Widget section(String title, Widget child) => Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr(title), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 8),
+                child,
+              ]),
+            );
+
+        Widget choice(String label, bool selected, VoidCallback onTap) => ChoiceChip(
+              label: Text(tr(label)),
+              selected: selected,
+              onSelected: (_) => onTap(),
+            );
+
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.85),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 4, 0),
+                    child: Row(children: [
+                      Expanded(
+                        child: Text(tr('Bộ lọc hóa đơn'),
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                      ),
+                      TextButton(
+                        onPressed: () {
+                          _resetFilters();
+                          setSheet(() {});
+                        },
+                        child: Text(tr('Đặt lại')),
+                      ),
+                      IconButton(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.close)),
+                    ]),
+                  ),
+                  section(
+                    'Thời gian',
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: PosTimeRangeChip(
+                        state: _timeFilter,
+                        onChanged: (s) => apply(() => _timeFilter = s),
+                      ),
+                    ),
+                  ),
+                  section(
+                    'Trạng thái',
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      for (final e in _statusLabels.entries)
+                        FilterChip(
+                          label: Text(tr(e.value)),
+                          selected: _statusFilter.contains(e.key),
+                          onSelected: (on) {
+                            // Luôn giữ ít nhất một trạng thái.
+                            if (!on && _statusFilter.length == 1) return;
+                            apply(() => on ? _statusFilter.add(e.key) : _statusFilter.remove(e.key));
+                          },
+                        ),
+                    ]),
+                  ),
+                  section(
+                    'Loại đơn',
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      choice('Tất cả', _isDeliveryFilter == null, () => apply(() => _isDeliveryFilter = null)),
+                      choice('Không giao hàng', _isDeliveryFilter == false,
+                          () => apply(() => _isDeliveryFilter = false)),
+                      choice('Giao hàng', _isDeliveryFilter == true, () => apply(() => _isDeliveryFilter = true)),
+                    ]),
+                  ),
+                  section(
+                    'Thanh toán',
+                    Wrap(spacing: 8, runSpacing: 8, children: [
+                      for (final m in _paymentMethods)
+                        choice(m ?? 'Tất cả', _paymentMethod == m, () => apply(() => _paymentMethod = m)),
+                    ]),
+                  ),
+                  if (_hasReportFilter)
+                    section(
+                      'Lọc từ báo cáo',
+                      InputChip(
+                        label: Text(tr(_reportFilterLabel())),
+                        onDeleted: () {
+                          _clearReportFilter();
+                          setSheet(() {});
+                        },
+                      ),
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 12),
+                    child: FilledButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(44)),
+                      child: Text(tr('Xem kết quả')),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }),
     );
   }
 
@@ -1735,39 +1671,22 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       );
     }
     if (_total <= _pageSize) return const SizedBox.shrink();
-    final pages = (_total / _pageSize).ceil();
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        children: [
-          Text(tr('Tổng $_total đơn'),
-              style:
-                  const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: _page > 1 ? () => _load(page: _page - 1) : null,
-          ),
-          Text(tr('Trang $_page / $pages'), style: const TextStyle(fontSize: 12)),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: _page < pages ? () => _load(page: _page + 1) : null,
-          ),
-        ],
-      ),
-    );
+    return SboxPager(page: _page, pageSize: _pageSize, total: _total, onPage: (p) => _load(page: p));
   }
 
   Widget _buildTableHeader() {
     if (posUseMobileList(context)) return const SizedBox.shrink();
     TextStyle h = const TextStyle(
         fontSize: 11, fontWeight: FontWeight.w600, color: PosTheme.textSecondary);
-    Widget col(_ListColumn c, {int flex = 2, TextAlign align = TextAlign.left}) {
+    Widget col(_ListColumn c, {TextAlign align = TextAlign.left}) {
       if (!_visibleColumns.contains(c)) return const SizedBox.shrink();
+      final t = Text(tr(c.label), style: h, textAlign: align, maxLines: 1, overflow: TextOverflow.ellipsis);
+      if (c == _ListColumn.status) {
+        return SizedBox(width: _statusColWidth, child: Padding(padding: const EdgeInsets.only(left: 12), child: t));
+      }
       return Expanded(
-        flex: flex,
-        child: Text(tr(c.label), style: h, textAlign: align),
+        flex: _colFlex(c),
+        child: Padding(padding: const EdgeInsets.only(left: 12), child: t),
       );
     }
 
@@ -1781,9 +1700,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       ),
       child: Row(
         children: [
-          // Flex / độ rộng phải khớp từng ô ở _buildOrderBlock, nếu không cột lệch.
           const SizedBox(width: 24),
-          col(_ListColumn.orderNo, flex: 3),
+          col(_ListColumn.orderNo),
           col(_ListColumn.time),
           col(_ListColumn.customer),
           col(_ListColumn.subTotal, align: TextAlign.right),
@@ -1791,61 +1709,21 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           col(_ListColumn.total, align: TextAlign.right),
           col(_ListColumn.paid, align: TextAlign.right),
           col(_ListColumn.balance, align: TextAlign.right),
-          col(_ListColumn.delivery, flex: 1),
-          col(_ListColumn.deliveryStatus, flex: 2),
-          if (_visibleColumns.contains(_ListColumn.status))
-            SizedBox(
-              width: 90,
-              child: Text(tr(_ListColumn.status.label),
-                  style: h, textAlign: TextAlign.center),
-            ),
-          if (_visibleColumns.contains(_ListColumn.eInvoice))
-            Expanded(
-              flex: 2,
-              child: Padding(
-                padding: const EdgeInsets.only(left: 12),
-                child: Text(tr(_ListColumn.eInvoice.label), style: h),
-              ),
-            ),
+          col(_ListColumn.payment),
+          col(_ListColumn.delivery),
+          col(_ListColumn.deliveryStatus),
+          col(_ListColumn.status),
+          col(_ListColumn.eInvoice),
         ],
       ),
     );
   }
 
   Widget _buildMobileSummaryCard() {
-    final card = _buildMobileSummaryTotals();
-    if (!_hasReportFilter) return card;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: InputChip(
-              visualDensity: VisualDensity.compact,
-              avatar: const Icon(Icons.filter_alt_outlined, size: 18),
-              label: Text('${tr('Từ báo cáo')}: ${_reportFilterLabel()}'),
-              onDeleted: _clearReportFilter,
-              deleteButtonTooltipMessage: tr('Bỏ lọc'),
-            ),
-          ),
-        ),
-        card,
-      ],
-    );
-  }
-
-  Widget _buildMobileSummaryTotals() {
     final completed = _items.where((o) => o.status == 'Completed');
     // Chỉ lọc thời gian → doanh thu kỳ (báo cáo); có lọc khác / tìm kiếm → tổng HĐ hoàn thành theo bộ lọc.
-    final statusIsDefault = _statusFilter.length == 2 && _statusFilter.containsAll({'Completed', 'Cancelled'});
-    final onlyTime = statusIsDefault &&
-        _isDeliveryFilter == null &&
-        _paymentMethod == null &&
-        !_hasReportFilter &&
-        _searchCtrl.text.trim().isEmpty;
+    final onlyTime = _statusIsDefault && _isDeliveryFilter == null && _paymentMethod == null &&
+        !_hasReportFilter && _searchCtrl.text.trim().isEmpty;
     final totalAmount = (onlyTime ? _periodRevenue : _filteredCompletedTotal) ??
         completed.fold<double>(0, (s, o) => s + o.total);
     final returnedTotal =
@@ -1855,24 +1733,36 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       child: Container(
         decoration: PosTheme.mobileCardDecoration(),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        // Tổng tiền trên, số HĐ / đã trả dưới — cùng một hàng thì tổng tỷ đồng đẩy «7130 HĐ · Trả …» thành «7130 H…».
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                tr('$_total HĐ${returnedTotal > 0 ? ' · Trả ${_moneyFmt.format(returnedTotal)} đ' : ''}'),
-                style: const TextStyle(
-                    fontSize: 12, color: PosTheme.textSecondary),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    // Cùng kiểu «… đ» với tổng ngày và từng hóa đơn bên dưới.
+                    '${_moneyFmt.format(totalAmount)} đ',
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: PosTheme.kiotBlue,
+                    ),
+                  ),
+                  Text(
+                    tr('$_total HĐ${returnedTotal > 0 ? ' · Trả ${_moneyFmt.format(returnedTotal)} đ' : ''}'),
+                    style: const TextStyle(
+                        fontSize: 12, color: PosTheme.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
-            Text(
-              tr(_moneyFmt.format(totalAmount)),
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+            const SizedBox(width: 10),
+            _buildSortButton(),
           ],
         ),
       ),
@@ -1919,6 +1809,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
   Widget _buildGroupedList(bool canEdit) {
     final groups = <String, List<PosSaleOrder>>{};
     final order = <String>[];
+    // Xếp theo tổng tiền: một danh sách liền, không chia nhóm theo ngày.
     final byTotal = _sort.startsWith('total');
     for (final o in _items) {
       final dt = o.saleDate ?? o.createdAt;
@@ -1939,7 +1830,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       final list = groups[key]!;
       if (byTotal) {
         for (final o in list) {
-          children.add(_buildKiotInvoiceTile(o, canEdit));
+          children.add(posUseMobileList(context)
+              ? _buildKiotInvoiceTile(o, canEdit)
+              : _buildOrderBlock(o, canEdit));
         }
         continue;
       }
@@ -1963,9 +1856,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 ),
               ),
               Text(
-                tr(dayReturn > 0
-                    ? 'Thuần ${_moneyFmt.format(dayNet)} · Trả ${_moneyFmt.format(dayReturn)}'
-                    : 'Tổng ngày: ${_moneyFmt.format(dayNet)} đ'),
+                // Cùng một cách ghi cho mọi ngày: số thu thuần, có trả hàng thì ghi thêm phần đã trừ.
+                tr('${_moneyFmt.format(dayNet)} đ'
+                    '${dayReturn > 0 ? ' · đã trừ trả ${_moneyFmt.format(dayReturn)} đ' : ''}'),
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
@@ -1977,7 +1870,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         ),
       );
       for (final o in list) {
-        if (posUseMobileList(context) || _md) {
+        if (posUseMobileList(context)) {
           children.add(_buildKiotInvoiceTile(o, canEdit));
         } else {
           children.add(_buildOrderBlock(o, canEdit));
@@ -2099,15 +1992,21 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
 
   Widget _orderDetailActionBar(List<Widget> children) {
     if (children.isEmpty) return const SizedBox.shrink();
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: children.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (_, i) => children[i],
-      ),
-    );
+    // Lưới nút đều nhau: trước đây cuộn ngang → nút «In» hẹp, nút cuối bị cắt mép phải.
+    const gap = 6.0;
+    return LayoutBuilder(builder: (context, c) {
+      if (!c.hasBoundedWidth) {
+        return Wrap(spacing: gap, runSpacing: gap, children: children);
+      }
+      final fit = ((c.maxWidth + gap) / (104 + gap)).floor();
+      final perRow = fit < 1 ? 1 : (fit > children.length ? children.length : fit);
+      final w = ((c.maxWidth - gap * (perRow - 1)) / perRow).floorToDouble();
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: [for (final b in children) SizedBox(width: w, height: 40, child: b)],
+      );
+    });
   }
 
   List<Widget> _orderActionButtons(
@@ -2159,9 +2058,9 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
         ));
       }
     }
-    if (canEdit && o.canCancelWithStock) {
+    if (canEdit && o.canCancelWithStock && perm.canPosCancelPaid()) {
       btns.add(_compactOrderBtn(
-        label: 'Hoàn kho',
+        label: 'Hủy đơn',
         color: Colors.red.shade700,
         onPressed: () => run(() => _cancelOrder(o)),
       ));
@@ -2173,7 +2072,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       btns.add(_compactOrderBtn(
         label: 'Vận đơn',
         filled: true,
-        color: (SboxColors.posApp ? SboxColors.brand600 : Color(0xFF0F766E)),
+        color: (SboxColors.posApp ? SboxColors.brand600 : SboxColors.isBoss ? SboxColors.brand500 : Color(0xFF0F766E)),
         onPressed: () => run(() => _createShipmentFromList(o)),
       ));
     }
@@ -2217,9 +2116,112 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     return btns;
   }
 
+  // ── Màn chia đôi (C20 ngang): đơn đang xem ở cột phải ──
+  bool _md = false;
+  PosSaleOrder? _mdOrder;
+  List<Map<String, dynamic>> _mdPayments = const [];
+  bool _mdLoading = false;
+
+  /// Đổi lọc / tìm / trang hoặc xóa mà đơn đang xem không còn trong danh sách → về «Chọn hóa đơn bên trái».
+  void _dropMissingMdOrder() {
+    final o = _mdOrder;
+    if (o != null && !_items.any((x) => x.id == o.id)) _mdOrder = null;
+  }
+
+  Future<void> _selectMdOrder(PosSaleOrder summary) async {
+    setState(() {
+      _mdOrder = summary;
+      _mdPayments = const [];
+      _mdLoading = true;
+    });
+    final results = await Future.wait([_api.getPosSale(summary.id), _api.getPosSalePayments(summary.id)]);
+    if (!mounted || _mdOrder?.id != summary.id) return;
+    final res = results[0];
+    final payRes = results[1];
+    if (res['isSuccess'] == true && res['data'] is Map<String, dynamic>) {
+      _patchOrderInList(PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>));
+    }
+    setState(() {
+      _mdPayments = payRes['isSuccess'] == true && payRes['data'] is List
+          ? (payRes['data'] as List).cast<Map<String, dynamic>>()
+          : const [];
+      _mdLoading = false;
+    });
+  }
+
+  Widget _buildMdOrderPane(bool canEdit) {
+    final o = _mdOrder;
+    if (o == null) {
+      return ColoredBox(
+        color: SboxColors.slate50,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.receipt_long_outlined, size: 56, color: SboxColors.slate400),
+              const SizedBox(height: 12),
+              Text(tr('Chọn hóa đơn bên trái'),
+                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 6),
+              Text(tr('Chi tiết, lịch sử thanh toán và thao tác (in lại, trả hàng, hủy…) hiện ở đây'),
+                  style: const TextStyle(fontSize: 13, color: PosTheme.textSecondary)),
+            ],
+          ),
+        ),
+      );
+    }
+    return ColoredBox(
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+            child: Row(children: [
+              Expanded(
+                child: Text(tr('Chi tiết hóa đơn'),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              ),
+              IconButton(
+                tooltip: tr('Đóng'),
+                icon: const Icon(Icons.close),
+                onPressed: () => setState(() => _mdOrder = null),
+              ),
+            ]),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: _mdLoading
+                ? const LoadingWidget()
+                : SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        PosSaleOrderReceiptView(order: o),
+                        _mobilePaymentHistory(o, _mdPayments),
+                      ],
+                    ),
+                  ),
+          ),
+          const Divider(height: 1),
+          // Nút thao tác ghim đáy.
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+            child: _orderDetailActionBar(_orderActionButtons(o, canEdit)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showMobileOrderDetail(PosSaleOrder summary, bool canEdit) async {
     PosSaleOrder order = summary;
-    final res = await _api.getPosSale(summary.id);
+    final results = await Future.wait([_api.getPosSale(summary.id), _api.getPosSalePayments(summary.id)]);
+    final res = results[0];
+    final payRes = results[1];
+    final payments = payRes['isSuccess'] == true && payRes['data'] is List
+        ? (payRes['data'] as List).cast<Map<String, dynamic>>()
+        : <Map<String, dynamic>>[];
     if (mounted && res['isSuccess'] == true && res['data'] is Map<String, dynamic>) {
       order = PosSaleOrder.fromJson(res['data'] as Map<String, dynamic>);
       _patchOrderInList(order);
@@ -2244,16 +2246,16 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               padding: const EdgeInsets.fromLTRB(12, 12, 8, 8),
               child: Row(
                 children: [
+                  // Mã đơn + trạng thái đã có ở đầu tờ hóa đơn bên dưới.
                   Expanded(
                     child: Text(
-                      tr(order.orderNo),
+                      tr('Chi tiết hóa đơn'),
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
-                  posSaleOrderStatusChip(order.status, returnStatus: order.returnStatus),
                   IconButton(
                     onPressed: () => Navigator.pop(ctx),
                     icon: const Icon(Icons.close),
@@ -2265,7 +2267,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             Expanded(
               child: SingleChildScrollView(
                 controller: scrollCtrl,
-                child: PosSaleOrderReceiptView(order: order),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    PosSaleOrderReceiptView(order: order),
+                    _mobilePaymentHistory(order, payments),
+                  ],
+                ),
               ),
             ),
             const Divider(height: 1),
@@ -2284,117 +2292,22 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     );
   }
 
-  /// Khách lẻ ghi sẵn «Bán cho người tiêu dùng» — không lặp ở mỗi dòng danh sách.
-  static bool _isWalkInName(String? name) {
-    final n = (name ?? '').trim().toLowerCase();
-    return n.isEmpty ||
-        n == 'khách lẻ' ||
-        n == 'bán cho người tiêu dùng' ||
-        n == 'người tiêu dùng';
-  }
-
-  /// Dòng danh sách màn rộng: mã đơn + tổng tiền / giờ · thanh toán · khách + trạng thái.
-  Widget _buildMdInvoiceRow(PosSaleOrder o) {
-    final selected = _expandedId == o.id;
-    final cancelled = o.status == 'Cancelled';
-    final dt = o.saleDate ?? o.createdAt;
-    final meta = [
-      if (dt != null) DateFormat('HH:mm').format(dt.toLocal()),
-      _paymentMethodLabel(o.paymentMethod),
-      if (!_isWalkInName(o.customerName)) o.customerName!.trim(),
-    ].where((e) => e.isNotEmpty).join(' · ');
-    return Material(
-      color: selected ? PosTheme.kiotBlueLight : posSaleOrderRowBackground(o.status),
-      child: InkWell(
-        onTap: () => _selectOrder(o),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: selected ? PosTheme.kiotBlue : Colors.transparent,
-                width: 3,
-              ),
-              bottom: const BorderSide(color: PosTheme.border),
-            ),
-          ),
-          padding: const EdgeInsets.fromLTRB(13, 10, 12, 10),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      tr(o.orderNo),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
-                        color: posSaleOrderAccentColor(o.status,
-                            fallback: PosTheme.textPrimary),
-                        decoration: cancelled ? TextDecoration.lineThrough : null,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  _buildOrderTotalColumn(o),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      tr(meta),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 12.5, color: PosTheme.textSecondary),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  posSaleOrderStatusChip(o.status,
-                      returnStatus: o.returnStatus,
-                      returnedAmount: o.returnedAmount),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildKiotInvoiceTile(PosSaleOrder o, bool canEdit) {
-    if (_md) return _buildMdInvoiceRow(o);
     final dt = o.saleDate ?? o.createdAt;
     final timeStr =
         dt != null ? DateFormat('dd/MM/yyyy HH:mm', 'vi_VN').format(dt.toLocal()) : '—';
     final firstLine = o.lines.isNotEmpty ? o.lines.first : null;
     final isCancelled = o.status == 'Cancelled';
 
+    final selected = _md && _mdOrder?.id == o.id;
     return Material(
-      color: _md && _expandedId == o.id
-          ? PosTheme.kiotBlueLight
-          : posSaleOrderRowBackground(o.status),
+      color: selected ? PosTheme.kiotBlueLight : posSaleOrderRowBackground(o.status),
+      shape: selected
+          ? const Border(left: BorderSide(color: PosTheme.kiotBlue, width: 3))
+          : null,
       child: InkWell(
-        onTap: () => _md ? _selectOrder(o) : _showMobileOrderDetail(o, canEdit),
-        child: Container(
-          // Màn rộng: dòng đang xem có vạch xanh bên trái, chi tiết nằm cột phải.
-          decoration: _md
-              ? BoxDecoration(
-                  border: Border(
-                    left: BorderSide(
-                      color: _expandedId == o.id
-                          ? PosTheme.kiotBlue
-                          : Colors.transparent,
-                      width: 3,
-                    ),
-                    bottom: const BorderSide(color: PosTheme.border),
-                  ),
-                )
-              : null,
+        onTap: () => _md ? _selectMdOrder(o) : _showMobileOrderDetail(o, canEdit),
+        child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2430,23 +2343,30 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                 ],
               ),
               const SizedBox(height: 4),
-              // Dòng 2: mã đơn trái · trạng thái (dưới tổng tiền) phải
+              // Dòng 2: mã đơn trái · trạng thái (dưới tổng tiền) phải. Mã đơn luôn đủ chữ — chip
+              // «Hoàn thành» + «Trả một phần · … đ» thu nhỏ lại thay vì cắt mã thành «HD291020260…».
               Row(
                 children: [
+                  Text(
+                    tr(o.orderNo),
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: PosTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: Text(
-                      tr(o.orderNo),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: PosTheme.textPrimary,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: posSaleOrderStatusChip(o.status,
+                            returnStatus: o.returnStatus, returnedAmount: o.returnedAmount),
                       ),
                     ),
                   ),
-                  posSaleOrderStatusChip(o.status,
-                      returnStatus: o.returnStatus, returnedAmount: o.returnedAmount),
                 ],
               ),
               const SizedBox(height: 2),
@@ -2462,10 +2382,11 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                     ),
                   ),
                   Text(
-                    tr(_paymentMethodLabel(o.paymentMethod)),
-                    style: const TextStyle(
+                    // Đơn tạm / đã hủy: paymentLabel trả mã thô (Cash…) → hiện tiếng Việt.
+                    tr(posPaymentMethodVi(o.paymentLabel)),
+                    style: TextStyle(
                       fontSize: 11,
-                      color: PosTheme.textSecondary,
+                      color: o.paymentLabel.contains('Công nợ') ? SboxColors.dangerText : PosTheme.textSecondary,
                     ),
                   ),
                 ],
@@ -2486,30 +2407,14 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     );
   }
 
-  /// Server lưu mã tiếng Anh (Cash / Transfer…) — hiển thị tên tiếng Việt.
-  static String _paymentMethodLabel(String raw) {
-    // Nhiều hình thức: «Cash + BankTransfer» → «Tiền mặt + Chuyển khoản».
-    if (raw.contains('+')) {
-      return raw.split('+').map((e) => _paymentMethodLabel(e)).join(' + ');
-    }
-    switch (raw.trim().toLowerCase()) {
-      case 'cash':
-        return 'Tiền mặt';
-      case 'transfer':
-      case 'banktransfer':
-      case 'bank':
-        return 'Chuyển khoản';
-      case 'card':
-        return 'Thẻ';
-      case 'mixed':
-        return 'Tiền mặt + CK';
-      default:
-        return raw;
-    }
-  }
-
   String _qtyFmt(double q) {
     return q == q.roundToDouble() ? q.toStringAsFixed(0) : q.toStringAsFixed(1);
+  }
+
+  Widget _cell(_ListColumn c, Widget child) {
+    final padded = Padding(padding: const EdgeInsets.only(left: 12), child: child);
+    if (c == _ListColumn.status) return SizedBox(width: _statusColWidth, child: padded);
+    return Expanded(flex: _colFlex(c), child: padded);
   }
 
   Widget _buildOrderBlock(PosSaleOrder o, bool canEdit) {
@@ -2574,9 +2479,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                   ),
                   const SizedBox(width: 4),
                   if (_visibleColumns.contains(_ListColumn.orderNo))
-                    Expanded(
-                      flex: 3,
-                      child: Row(
+                    _cell(_ListColumn.orderNo, Row(
                         children: [
                           Flexible(
                             child: Text(
@@ -2601,17 +2504,13 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       ),
                     ),
                   if (_visibleColumns.contains(_ListColumn.time))
-                    Expanded(
-                      flex: 2,
-                      child: Text(
+                    _cell(_ListColumn.time, Text(
                         tr(dt != null ? _dateFmt.format(dt.toLocal()) : '—'),
                         style: const TextStyle(fontSize: 12),
                       ),
                     ),
                   if (_visibleColumns.contains(_ListColumn.customer))
-                    Expanded(
-                      flex: 2,
-                      child: Text(
+                    _cell(_ListColumn.customer, Text(
                         tr(o.customerName ?? 'Khách lẻ'),
                         style: posSaleOrderCancelledTextStyle(
                               o.status,
@@ -2622,23 +2521,17 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       ),
                     ),
                   if (_visibleColumns.contains(_ListColumn.subTotal))
-                    Expanded(
-                      flex: 2,
-                      child: Text(tr('${_moneyFmt.format(o.subTotal)} đ'),
+                    _cell(_ListColumn.subTotal, Text(tr('${_moneyFmt.format(o.subTotal)} đ'),
                           style: const TextStyle(fontSize: 12),
                           textAlign: TextAlign.right),
                     ),
                   if (_visibleColumns.contains(_ListColumn.discount))
-                    Expanded(
-                      flex: 2,
-                      child: Text(tr('${_moneyFmt.format(o.discount)} đ'),
+                    _cell(_ListColumn.discount, Text(tr('${_moneyFmt.format(o.discount)} đ'),
                           style: const TextStyle(fontSize: 12),
                           textAlign: TextAlign.right),
                     ),
                   if (_visibleColumns.contains(_ListColumn.total))
-                    Expanded(
-                      flex: 2,
-                      child: Column(
+                    _cell(_ListColumn.total, Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(tr('${_moneyFmt.format(o.total)} đ'),
@@ -2669,49 +2562,45 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
                       ),
                     ),
                   if (_visibleColumns.contains(_ListColumn.paid))
-                    Expanded(
-                      flex: 2,
-                      child: Text(tr('${_moneyFmt.format(o.paidAmount)} đ'),
+                    _cell(_ListColumn.paid, Text(tr('${_moneyFmt.format(o.paidAmount)} đ'),
                           style: const TextStyle(fontSize: 12),
                           textAlign: TextAlign.right),
                     ),
                   if (_visibleColumns.contains(_ListColumn.balance))
-                    Expanded(
-                      flex: 2,
-                      child: Text(tr('${_moneyFmt.format(_balance(o))} đ'),
+                    _cell(_ListColumn.balance, Text(tr('${_moneyFmt.format(_balance(o))} đ'),
                           style: const TextStyle(fontSize: 12),
                           textAlign: TextAlign.right),
                     ),
+                  if (_visibleColumns.contains(_ListColumn.payment))
+                    // Thu chưa đủ → «Công nợ» / «Tiền mặt + Công nợ» (chữ đỏ).
+                    _cell(_ListColumn.payment, Text(tr(posPaymentMethodVi(o.paymentLabel)),
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: o.paymentLabel.contains('Công nợ') ? SboxColors.dangerText : null,
+                              fontWeight: o.paymentLabel.contains('Công nợ') ? FontWeight.w600 : null),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ),
                   if (_visibleColumns.contains(_ListColumn.delivery))
-                    Expanded(
-                      flex: 1,
-                      child: Text(tr(o.isDelivery ? 'Có' : '—'),
+                    _cell(_ListColumn.delivery, Text(tr(o.isDelivery ? 'Có' : '—'),
                           style: const TextStyle(fontSize: 12)),
                     ),
                   if (_visibleColumns.contains(_ListColumn.deliveryStatus))
-                    Expanded(
-                      flex: 2,
-                      child: Text(tr(o.deliveryStatus ?? '—'),
+                    _cell(_ListColumn.deliveryStatus, Text(tr(o.deliveryStatus ?? '—'),
                           style: const TextStyle(fontSize: 12),
                           overflow: TextOverflow.ellipsis),
                     ),
                   if (_visibleColumns.contains(_ListColumn.status))
-                    SizedBox(
-                      width: 90,
-                      child: Align(
-                        alignment: Alignment.center,
+                    _cell(_ListColumn.status,
+                      Align(
+                        alignment: Alignment.centerLeft,
                         child: posSaleOrderStatusChip(o.status, returnStatus: o.returnStatus),
                       ),
                     ),
                   if (_visibleColumns.contains(_ListColumn.eInvoice))
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: 12),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: _eInvoiceChip(o),
-                        ),
+                    _cell(_ListColumn.eInvoice, Align(
+                        alignment: Alignment.centerLeft,
+                        child: _eInvoiceChip(o),
                       ),
                     ),
                 ],
@@ -2743,7 +2632,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
             children: [
               _detailTabBtn(0, 'Thông tin'),
               _detailTabBtn(1, 'Lịch sử thanh toán'),
-              // Trạng thái đã có ở dòng bảng và đầu tờ hóa đơn — không lặp lần 3.
+              // Trạng thái đã có ở dòng bảng và đầu tờ hoá đơn — không lặp lần 3.
             ],
           ),
           const SizedBox(height: 8),
@@ -2767,6 +2656,8 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
       style: TextButton.styleFrom(
         foregroundColor: active ? PosTheme.kiotBlue : PosTheme.textSecondary,
         textStyle: TextStyle(
+            fontFamily: kVietnameseFontFamily,
+            fontFamilyFallback: kVietnameseFontFallback,
             fontWeight: active ? FontWeight.w600 : FontWeight.normal,
             fontSize: 13),
       ),
@@ -2774,15 +2665,16 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     );
   }
 
-  Widget _buildInfoTab(PosSaleOrder o, {bool showTitle = true}) {
+  Widget _buildInfoTab(PosSaleOrder o) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
-      child: PosSaleOrderReceiptView(order: o, showTitle: showTitle),
+      child: PosSaleOrderReceiptView(order: o),
     );
   }
 
-  Widget _meta(String label, String value) => RichText(
-        text: TextSpan(
+  // Text.rich (không phải RichText): kế thừa font của theme, RichText thì không.
+  Widget _meta(String label, String value) => Text.rich(
+        TextSpan(
           style: const TextStyle(fontSize: 12, color: SboxColors.text),
           children: [
             TextSpan(
@@ -2792,6 +2684,109 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
           ],
         ),
       );
+
+  /// Điện thoại: lịch sử thanh toán (thu khi bán, cọc trừ vào đơn, thu nợ sau) + còn phải thu.
+  Widget _mobilePaymentHistory(PosSaleOrder o, List<Map<String, dynamic>> payments) {
+    final balance = _balance(o);
+    double paid = 0;
+    final rows = <Widget>[];
+    for (final p in payments) {
+      final amount = ((p['amount'] ?? p['Amount']) as num?)?.toDouble() ?? 0;
+      paid += amount;
+      final kind = (p['kind'] ?? p['Kind'] ?? 'sale').toString();
+      final paidAt = p['paidAt'] ?? p['PaidAt'];
+      final dt = paidAt != null ? parseApiUtcDateTime(paidAt.toString()) : null;
+      final method = posPaymentMethodVi((p['paymentMethod'] ?? p['PaymentMethod'])?.toString());
+      final (icon, color, label) = switch (kind) {
+        'deposit' => (Icons.event_available_outlined, SboxColors.brand600, 'Tiền cọc'),
+        'debt' => (Icons.savings_outlined, SboxColors.success, 'Thu nợ'),
+        _ => (Icons.point_of_sale_outlined, PosTheme.kiotBlue, 'Thu khi bán'),
+      };
+      rows.add(Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withOpacity(0.1), shape: BoxShape.circle),
+            child: Icon(icon, size: 16, color: SboxColors.isBoss ? SboxColors.iconOnBox : color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(tr(label), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              Text(tr('${p['paymentNo'] ?? p['PaymentNo'] ?? ''}'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary)),
+              Text(
+                tr([if (dt != null) _dateFmt.format(dt.toLocal()), if (method.isNotEmpty) method]
+                    .join(' · ')),
+                style: const TextStyle(fontSize: 11, color: PosTheme.textSecondary),
+              ),
+            ]),
+          ),
+          const SizedBox(width: 8),
+          Text(tr('${_moneyFmt.format(amount)} đ'),
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        ]),
+      ));
+    }
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: PosTheme.border),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const Icon(Icons.history, size: 18, color: PosTheme.textSecondary),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(tr('Lịch sử thanh toán'), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          ),
+          if (payments.isNotEmpty)
+            Text(tr('${payments.length} lần'), style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary)),
+        ]),
+        const SizedBox(height: 4),
+        if (rows.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            child: Text(
+              tr(o.status == 'Completed' ? 'Chưa có thanh toán' : 'Đơn chưa hoàn thành — chưa ghi nhận thanh toán'),
+              style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
+            ),
+          )
+        else
+          ...rows,
+        const Divider(height: 16),
+        Row(children: [
+          Expanded(child: Text(tr('Đã thu'), style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary))),
+          Text(tr('${_moneyFmt.format(paid)} đ'), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+        ]),
+        if (o.status == 'Completed' && balance > 0.5) ...[
+          const SizedBox(height: 4),
+          Row(children: [
+            Expanded(
+              child: Text(tr('Còn phải thu'), style: TextStyle(fontSize: 12, color: Colors.red.shade700)),
+            ),
+            Text(tr('${_moneyFmt.format(balance)} đ'),
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: Colors.red.shade700)),
+          ]),
+        ],
+        // Đơn chỉ lưu phương thức của tiền đã thu («Tiền mặt»): có phiếu thu nợ gắn đơn thì nói rõ đơn từng ghi nợ.
+        if (o.status == 'Completed' &&
+            balance <= 0.5 &&
+            payments.any((p) => (p['kind'] ?? p['Kind']) == 'debt')) ...[
+          const SizedBox(height: 4),
+          Text(tr('Ghi nợ · đã thu đủ'),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: SboxColors.success)),
+        ],
+      ]),
+    );
+  }
 
   Widget _buildPaymentsTab(PosSaleOrder o) {
     if (_payments.isEmpty) {
@@ -2804,7 +2799,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
     return Column(
       children: _payments.map((p) {
         final paidAt = p['paidAt'] ?? p['PaidAt'];
-        final dt = parseApiUtcDateTime(paidAt);
+        final dt = paidAt != null ? parseApiUtcDateTime(paidAt.toString()) : null;
         return ListTile(
           dense: true,
           contentPadding: EdgeInsets.zero,
@@ -2813,7 +2808,7 @@ class _PosSaleOrderListScreenState extends State<PosSaleOrderListScreen> {
               style: const TextStyle(fontSize: 12)),
           subtitle: Text(
             tr([
-              if (dt != null) _dateFmt.format(dt),
+              if (dt != null) _dateFmt.format(dt.toLocal()),
               p['paymentMethod'] ?? p['PaymentMethod'],
               // Ngoặc: «a ?? b != null» là «a ?? (b != null)» → ghi chú dạng chuỗi làm vỡ màn.
               if ((p['note'] ?? p['Note']) != null) p['note'] ?? p['Note'],

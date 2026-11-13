@@ -508,6 +508,12 @@ class PermissionProvider extends ChangeNotifier {
   /// Thu ngân — thanh toán / hoàn tất hóa đơn.
   bool canPosPay() => canApprove('PosSell');
 
+  /// Hủy hóa đơn đã thanh toán (trước đây: quyền thanh toán).
+  bool canPosCancelPaid() {
+    if (_isSuperUser) return true;
+    return _knows('PosSellCancelPaid') ? _flag('PosSellCancelPaid', 'canApprove') : canPosPay();
+  }
+
   bool _knows(String moduleCode) => _permissions.containsKey(moduleCode);
 
   /// Đổi đơn giá tay khi bán (chưa cấu hình riêng → theo quyền thanh toán).

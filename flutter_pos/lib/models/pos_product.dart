@@ -484,10 +484,6 @@ class PosProduct {
   final List<double> areaQuickSizes;
   final bool trackExpiry;
   final int expiryWarningDays;
-  /// Mã PLU in trong tem cân (EAN-13 đầu 20–29); null = chưa gán.
-  final String? scalePlu;
-  /// Hàng cân / đóng gói tại quầy: số ngày dùng được kể từ ngày đóng gói.
-  final int? packShelfLifeDays;
   final String serviceBillingMode;
   final int? minBillMinutes;
   final int? billRoundMinutes;
@@ -500,12 +496,24 @@ class PosProduct {
   /// Khung giờ đặc biệt cộng / trừ giá (JSON, xem PosServiceBillingCalc.parseTimeSurcharges).
   final String? timeSurchargesJson;
   final int sessionPackValidDays;
+  /// Gym: khung giờ được vào tập của thẻ / gói khi bán («06:00-16:00»). Null = mọi giờ.
+  final String? gymAccessHours;
   /// Gói giờ bán trước (phút) — > 0: đếm ngược, hết giờ báo + tính quá giờ.
   final int timePackageMinutes;
   /// Dịch vụ tính giờ dùng cho phần quá giờ.
   final String? overtimeProductId;
   /// Báo trước khi hết gói (phút).
   final int timeAlertBeforeMinutes;
+  /// Hàng gia công / sản xuất theo đơn — báo giá nhập rộng × cao (mm) + số bộ.
+  final bool isMadeToOrder;
+  /// Hàng gia công tính giá theo m²: [basePrice] là đơn giá / m².
+  final bool priceByArea;
+  /// Giá tối thiểu mỗi bộ khi tính theo m².
+  final double? minPricePerSet;
+  /// Mã PLU in trong tem cân (EAN-13 đầu 20–29); null = chưa gán.
+  final String? scalePlu;
+  /// Hàng cân / đóng gói tại quầy: số ngày dùng được kể từ ngày đóng gói.
+  final int? packShelfLifeDays;
   final bool isTopping;
   final bool allowToppings;
   /// Tự mở popup topping (nhóm) khi thêm món vào giỏ.
@@ -588,8 +596,6 @@ class PosProduct {
     this.areaQuickSizes = const [],
     this.trackExpiry = false,
     this.expiryWarningDays = 30,
-    this.scalePlu,
-    this.packShelfLifeDays,
     this.serviceBillingMode = 'Flat',
     this.minBillMinutes,
     this.billRoundMinutes,
@@ -601,9 +607,15 @@ class PosProduct {
     this.openingMinutes,
     this.timeSurchargesJson,
     this.sessionPackValidDays = 0,
+    this.gymAccessHours,
     this.timePackageMinutes = 0,
     this.overtimeProductId,
     this.timeAlertBeforeMinutes = 5,
+    this.isMadeToOrder = false,
+    this.priceByArea = false,
+    this.minPricePerSet,
+    this.scalePlu,
+    this.packShelfLifeDays,
     this.isTopping = false,
     this.allowToppings = false,
     this.autoOpenToppingPopup = true,
@@ -657,6 +669,15 @@ class PosProduct {
   }
 
   /// Cột tồn kho: dịch vụ và combo tắt quản lý tồn gói hiện "—", không hiện 999.
+  /// «Thẻ 30 ngày» / «10 buổi · hạn 60 ngày» — hiện trong danh sách hàng (spa / gym).
+  String? get sessionPackLabel {
+    if (sessionPackCount <= 0) return null;
+    if (sessionPackCount >= 9999) {
+      return 'Thẻ ${sessionPackValidDays > 0 ? sessionPackValidDays : 30} ngày · không giới hạn buổi';
+    }
+    return '$sessionPackCount buổi${sessionPackValidDays > 0 ? ' · hạn $sessionPackValidDays ngày' : ''}';
+  }
+
   bool get showsWarehouseStock {
     if (productType == PosProductType.service) return false;
     if (productType == PosProductType.combo) return comboTrackStock;
@@ -807,8 +828,6 @@ class PosProduct {
       trackExpiry: json['trackExpiry'] == true || json['TrackExpiry'] == true,
       expiryWarningDays:
           (json['expiryWarningDays'] ?? json['ExpiryWarningDays'] as num?)?.toInt() ?? 30,
-      scalePlu: (json['scalePlu'] ?? json['ScalePlu'])?.toString(),
-      packShelfLifeDays: (json['packShelfLifeDays'] ?? json['PackShelfLifeDays'] as num?)?.toInt(),
       serviceBillingMode:
           (json['serviceBillingMode'] ?? json['ServiceBillingMode'] ?? 'Flat')
               .toString(),
@@ -838,11 +857,22 @@ class PosProduct {
           (json['sessionPackValidDays'] ?? json['SessionPackValidDays'] as num?)
                   ?.toInt() ??
               0,
+      gymAccessHours: (json['gymAccessHours'] ?? json['GymAccessHours'])?.toString(),
       timePackageMinutes:
           (json['timePackageMinutes'] ?? json['TimePackageMinutes'] as num?)?.toInt() ?? 0,
       overtimeProductId: (json['overtimeProductId'] ?? json['OvertimeProductId'])?.toString(),
       timeAlertBeforeMinutes:
           (json['timeAlertBeforeMinutes'] ?? json['TimeAlertBeforeMinutes'] as num?)?.toInt() ?? 5,
+      isMadeToOrder:
+          json['isMadeToOrder'] == true || json['IsMadeToOrder'] == true,
+      priceByArea: json['priceByArea'] == true || json['PriceByArea'] == true,
+      minPricePerSet: () {
+        final v = json['minPricePerSet'] ?? json['MinPricePerSet'];
+        final d = v is num ? v.toDouble() : double.tryParse('${v ?? ''}');
+        return d != null && d > 0 ? d : null;
+      }(),
+      scalePlu: (json['scalePlu'] ?? json['ScalePlu'])?.toString(),
+      packShelfLifeDays: (json['packShelfLifeDays'] ?? json['PackShelfLifeDays'] as num?)?.toInt(),
       isTopping: json['isTopping'] == true || json['IsTopping'] == true,
       allowToppings:
           json['allowToppings'] == true || json['AllowToppings'] == true,
@@ -939,8 +969,6 @@ class PosProduct {
       if (areaQuickSizes.isNotEmpty) 'areaQuickSizes': areaQuickSizesRaw,
       if (trackExpiry) 'trackExpiry': true,
       if (trackExpiry) 'expiryWarningDays': expiryWarningDays,
-      'scalePlu': scalePlu,
-      'packShelfLifeDays': packShelfLifeDays,
       'serviceBillingMode': serviceBillingMode,
       if (minBillMinutes != null) 'minBillMinutes': minBillMinutes,
       if (billRoundMinutes != null) 'billRoundMinutes': billRoundMinutes,
@@ -953,9 +981,15 @@ class PosProduct {
       if (openingMinutes != null) 'openingMinutes': openingMinutes,
       if (timeSurchargesJson != null) 'timeSurchargesJson': timeSurchargesJson,
       'sessionPackValidDays': sessionPackValidDays,
+      if (gymAccessHours != null) 'gymAccessHours': gymAccessHours,
       'timePackageMinutes': timePackageMinutes,
       if (overtimeProductId != null) 'overtimeProductId': overtimeProductId,
       'timeAlertBeforeMinutes': timeAlertBeforeMinutes,
+      'isMadeToOrder': isMadeToOrder,
+      'priceByArea': priceByArea,
+      if (minPricePerSet != null) 'minPricePerSet': minPricePerSet,
+      'scalePlu': scalePlu,
+      'packShelfLifeDays': packShelfLifeDays,
       'isTopping': isTopping,
       'allowToppings': allowToppings && !isTopping,
       'autoOpenToppingPopup': autoOpenToppingPopup,
@@ -1068,8 +1102,6 @@ class PosProduct {
       areaHeight: areaHeight ?? this.areaHeight,
       areaQuickSizes: areaQuickSizes ?? this.areaQuickSizes,
       trackExpiry: this.trackExpiry,
-      scalePlu: scalePlu ?? this.scalePlu,
-      packShelfLifeDays: this.packShelfLifeDays,
       warrantyMonths: this.warrantyMonths,
       defaultPrinterId: defaultPrinterId,
       defaultPrinterName: defaultPrinterName,
@@ -1090,6 +1122,7 @@ class PosProduct {
       openingMinutes: this.openingMinutes,
       timeSurchargesJson: this.timeSurchargesJson,
       sessionPackValidDays: this.sessionPackValidDays,
+      gymAccessHours: this.gymAccessHours,
       timePackageMinutes: this.timePackageMinutes,
       overtimeProductId: this.overtimeProductId,
       timeAlertBeforeMinutes: this.timeAlertBeforeMinutes,
@@ -1103,6 +1136,11 @@ class PosProduct {
       commissionFixed: this.commissionFixed,
       commissionPerSession: this.commissionPerSession,
       sellerCommissionPercent: this.sellerCommissionPercent,
+      isMadeToOrder: this.isMadeToOrder,
+      priceByArea: this.priceByArea,
+      minPricePerSet: this.minPricePerSet,
+      scalePlu: scalePlu ?? this.scalePlu,
+      packShelfLifeDays: this.packShelfLifeDays,
       toppingOptions: this.toppingOptions,
       toppingGroupIds: this.toppingGroupIds,
       toppingGroups: this.toppingGroups,
@@ -1141,6 +1179,11 @@ class PosProduct {
         'allowAreaWidth': areaWidth,
         'allowAreaHeight': areaHeight,
         'areaQuickSizes': areaQuickSizesRaw,
+        'isMadeToOrder': isMadeToOrder,
+        'priceByArea': priceByArea,
+        'minPricePerSet': minPricePerSet,
+        'scalePlu': scalePlu,
+        'packShelfLifeDays': packShelfLifeDays,
         'variantCount': variantCount,
         'saleQuickNotes': saleQuickNotes,
         'isTopping': isTopping,
@@ -1158,6 +1201,7 @@ class PosProduct {
         if (defaultDurationMinutes != null) 'defaultDurationMinutes': defaultDurationMinutes,
         'sessionPackCount': sessionPackCount,
         'sessionPackValidDays': sessionPackValidDays,
+        if (gymAccessHours != null) 'gymAccessHours': gymAccessHours,
         'openingFee': openingFee,
         if (openingMinutes != null) 'openingMinutes': openingMinutes,
         if (timeSurchargesJson != null) 'timeSurchargesJson': timeSurchargesJson,

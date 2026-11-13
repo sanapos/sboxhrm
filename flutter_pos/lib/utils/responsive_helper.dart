@@ -5,6 +5,9 @@ import 'package:flutter/material.dart';
 
 /// Centralized responsive breakpoints and helpers
 class Responsive {
+  /// Bề rộng tối đa chung của thân trang danh sách / bảng / lưới — xem [PageMaxWidth].
+  static const double pageMaxWidth = 1440;
+
   /// Hạ xuống 600 (client dùng 768). Dùng **cạnh ngắn** (sw) — Sunmi V2s
   /// 720×1440 luôn sw≈360 → layout mobile cả dọc lẫn ngang cầm tay.
   static const double mobileBreakpoint = 600;
@@ -30,14 +33,11 @@ class Responsive {
   static bool useUnifiedPageScroll(BuildContext context) =>
       isCompactViewport(context) || (!kIsWeb && isMobile(context));
 
-  /// Bảng DataTable chỉ khi đủ rộng; viewport hẹp dùng thẻ + cuộn dọc.
-  /// Màn POS ngang rộng nhưng thấp (Sunmi T1/T2 1920×1080 @1.5x ≈ 1280×632dp)
-  /// vẫn dùng bảng — kiểu thẻ điện thoại ở đây chỉ hiện 4 dòng, giữa trống trơn.
-  static bool preferTableListLayout(BuildContext context) {
-    if (isMobile(context)) return false;
-    if (!isCompactViewport(context)) return true;
-    return MediaQuery.sizeOf(context).width >= 1200;
-  }
+  /// Bảng DataTable chỉ khi đủ rộng và đủ cao — như SBOX POS Android 7: màn ngang thấp (Sunmi T1
+  /// 1280×632dp) dùng kiểu danh sách · chi tiết. (27/10 từng ép T1 dùng bảng khi kiểu thẻ chỉ hiện
+  /// 4 dòng; từ 28/10 Hàng hóa, Hóa đơn, phiếu kho đã chia đôi danh sách · chi tiết.)
+  static bool preferTableListLayout(BuildContext context) =>
+      !isCompactViewport(context) && !isMobile(context);
 
   static double dialogMaxHeight(BuildContext context) =>
       MediaQuery.sizeOf(context).height * 0.72;

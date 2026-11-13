@@ -131,19 +131,37 @@ double _niceMax(double v) {
 Widget _bottomLabel(List<String> labels, double v, {required int maxLabels, double? axisWidth}) {
   final i = v.round();
   if ((v - i).abs() > 0.01 || i < 0 || i >= labels.length) return const SizedBox.shrink();
-  final step = math.max(1, (labels.length / maxLabels).ceil());
-  // Nhãn cuối chỉ ép hiện khi không sát nhãn trước (tránh hai nhãn đè nhau).
-  final lastFar = i == labels.length - 1 && (labels.length - 1) % step >= (step / 2).ceil();
-  if (i % step != 0 && !lastFar) return const SizedBox.shrink();
+  final n = labels.length;
+  final slot = axisWidth == null || axisWidth <= 0 ? null : axisWidth / n;
+  final double width;
+  if (slot == null) {
+    final step = math.max(1, (n / maxLabels).ceil());
+    // Nhãn cuối chỉ ép hiện khi không sát nhãn trước (tránh hai nhãn đè nhau).
+    final lastFar = i == n - 1 && (n - 1) % step >= (step / 2).ceil();
+    if (i % step != 0 && !lastFar) return const SizedBox.shrink();
+    width = 54.0 * step;
+  } else {
+    // Rải đều k nhãn, luôn có nhãn đầu và nhãn cuối (ngày hôm nay / người đứng đầu); hai nhãn cạnh nhau
+    // cách ≥ 44px. Trước đây ô nhãn tối thiểu 54px × bước, rộng hơn khoảng cách giữa hai nhãn trên điện
+    // thoại hẹp (10 tên NV ≈ 25px / cột) và nhãn cuối bị ép hiện sát nhãn trước → tên đè lên nhau.
+    final k = n <= 1 ? 1 : math.min(n, math.min(maxLabels, ((axisWidth! - slot) / 44).floor() + 1)).clamp(2, n);
+    if (k > 1) {
+      final gap = (n - 1) / (k - 1);
+      final j = (i / gap).round();
+      if ((j * gap).round() != i) return const SizedBox.shrink();
+    }
+    // Vừa khoảng giữa hai nhãn đang hiện (không tràn sang nhãn bên cạnh).
+    width = k <= 1 ? math.max(slot - 4, 54.0) : math.max(((n - 1) / (k - 1)).floor() * slot - 4, 20.0);
+  }
   // Tên dài (tên hàng) không tràn sang cột bên cạnh: giới hạn trong ô, cắt «…», di chuột xem đủ.
-  // Ô rộng theo đúng phần trục của mỗi nhãn — trước đây cố định 54px nên ít cột vẫn cắt «31–60 ng…».
-  final slot = axisWidth != null && axisWidth > 0 ? axisWidth / labels.length * step : 0.0;
   return Padding(
     padding: const EdgeInsets.only(top: 6),
     child: Tooltip(
       message: labels[i],
+      // Ô nhãn rộng bằng phần trục của mỗi cột (ít cột → nhãn đủ chỗ): trước đây cố định 54px nên
+      // «31–60 ngày» bị cắt thành «31–60 ng…» dù biểu đồ còn rộng.
       child: SizedBox(
-        width: math.max(54.0 * step, slot * 0.92),
+        width: width,
         child: Text(labels[i],
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -181,8 +199,7 @@ FlTitlesData _titles({
           showTitles: true,
           reservedSize: 24,
           interval: 1,
-          getTitlesWidget: (v, meta) =>
-              _bottomLabel(labels, v, maxLabels: maxLabels, axisWidth: meta.parentAxisSize),
+          getTitlesWidget: (v, meta) => _bottomLabel(labels, v, maxLabels: maxLabels, axisWidth: meta.parentAxisSize),
         ),
       ),
       rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
@@ -211,11 +228,14 @@ class SboxBarChart extends StatelessWidget {
     this.axisFormat = _defaultFmt,
     this.showLegend = true,
     this.maxLabels = 10,
+    this.onTapIndex,
   });
 
   final List<String> labels;
   final List<SboxSeries> series;
   final bool stacked;
+  /// Bấm một cột (chỉ số nhãn) — vd mở chi tiết ngày đó; null = chỉ xem tooltip.
+  final ValueChanged<int>? onTapIndex;
   final double height;
   /// Định dạng số trong tooltip.
   final String Function(num? v) valueFormat;
@@ -282,6 +302,12 @@ class SboxBarChart extends StatelessWidget {
                 interval: yInterval,
                 maxLabels: math.max(3, (cons.maxWidth / 56).floor()).clamp(3, maxLabels)),
             barTouchData: BarTouchData(
+              touchCallback: onTapIndex == null
+                  ? null
+                  : (event, resp) {
+                      final spot = resp?.spot;
+                      if (event is FlTapUpEvent && spot != null) onTapIndex!(spot.touchedBarGroupIndex);
+                    },
               touchTooltipData: BarTouchTooltipData(
                 getTooltipColor: (_) => SboxChartColors.tooltipBg,
                 fitInsideHorizontally: true,
@@ -372,6 +398,7 @@ class SboxLineChart extends StatelessWidget {
     this.dashedSeries = const {},
     this.maxY,
     this.maxLabels = 10,
+    this.onTapIndex,
   });
 
   final List<String> labels;
@@ -379,6 +406,8 @@ class SboxLineChart extends StatelessWidget {
   final double height;
   final String Function(num? v) valueFormat;
   final SboxValueFormat axisFormat;
+  /// Bấm một điểm (chỉ số nhãn) — vd mở các đơn của giờ đó; null = chỉ xem tooltip.
+  final ValueChanged<int>? onTapIndex;
   /// Tô nền dưới chuỗi đầu tiên.
   final bool area;
   final bool showLegend;
@@ -417,6 +446,14 @@ class SboxLineChart extends StatelessWidget {
             borderData: FlBorderData(show: false),
             titlesData: _titles(labels: labels, axisFormat: axisFormat, maxLabels: math.max(3, (cons.maxWidth / 56).floor()).clamp(3, maxLabels)),
             lineTouchData: LineTouchData(
+              touchCallback: onTapIndex == null
+                  ? null
+                  : (event, resp) {
+                      final spots = resp?.lineBarSpots;
+                      if (event is FlTapUpEvent && spots != null && spots.isNotEmpty) {
+                        onTapIndex!(spots.first.x.round().clamp(0, n - 1));
+                      }
+                    },
               touchTooltipData: LineTouchTooltipData(
                 getTooltipColor: (_) => SboxChartColors.tooltipBg,
                 fitInsideHorizontally: true,
@@ -573,9 +610,12 @@ class SboxRankList extends StatelessWidget {
     this.emptyHeight = 120,
     this.ascending = false,
     this.maxValue,
+    this.onTap,
   });
 
   final List<SboxSlice> items;
+  /// Bấm một dòng (vd mở chi tiết nhân viên); null = chỉ xem.
+  final void Function(SboxSlice item)? onTap;
   final String Function(num? v) valueFormat;
   final Color color;
   final int maxItems;
@@ -597,7 +637,10 @@ class SboxRankList extends StatelessWidget {
     final top = peak <= 0 ? 1.0 : peak;
     return Column(children: [
       for (var i = 0; i < shown.length; i++)
-        Padding(
+        InkWell(
+          onTap: onTap == null ? null : () => onTap!(shown[i]),
+          borderRadius: SboxRadius.smAll,
+          child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
@@ -628,6 +671,7 @@ class SboxRankList extends StatelessWidget {
               ),
             ),
           ]),
+        ),
         ),
     ]);
   }

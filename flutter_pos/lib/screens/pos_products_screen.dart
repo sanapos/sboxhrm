@@ -7,10 +7,12 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models/pos_product.dart';
+import '../models/pos_sell_industry.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
+import '../services/branch_session.dart';
+import '../utils/pos_sell_settings_helper.dart';
 import '../utils/file_saver.dart' as file_saver;
-import '../utils/pos_list_prefs.dart';
 import '../utils/responsive_helper.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
 import '../utils/number_formatter.dart';
@@ -39,21 +41,27 @@ import '../widgets/pos/pos_unit_chip_selector.dart';
 import '../utils/pos_product_type_picker.dart';
 import '../utils/pos_purchase_product_lookup.dart';
 import '../widgets/pos/pos_hub_scope.dart';
+import 'pos/pos_price_lists_screen.dart';
 import '../widgets/pos/pos_product_image.dart';
 import '../utils/navigation_notifier.dart';
 import 'pos/pos_product_detail_screen.dart';
 import 'pos/pos_product_editor_page.dart';
-import '../widgets/pos/pos_unsaved_changes.dart';
 import '../widgets/pos/pos_master_detail_layout.dart';
+import '../widgets/pos/pos_unsaved_changes.dart';
 import 'pos/pos_topping_groups_screen.dart';
 import '../widgets/pos_barcode_scanner.dart';
 import 'main_layout.dart' show ScreenRefreshNotifier;
 import 'package:sbox_pos/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../widgets/sbox/sbox_ui.dart';
+import '../widgets/pos/pos_list_filters.dart';
 /// Danh sách hàng hóa — giao diện kiểu KiotViet.
 class PosProductsScreen extends StatefulWidget {
-  const PosProductsScreen({super.key});
+  const PosProductsScreen({super.key, this.initialStockFilter = PosStockFilter.all});
+
+  /// Mở sẵn bộ lọc tồn (vd «Hàng đã hết» trên SBOX BOSS mở thẳng danh sách hàng hết).
+  final PosStockFilter initialStockFilter;
 
   @override
   State<PosProductsScreen> createState() => _PosProductsScreenState();
@@ -85,7 +93,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   String? _locationFilter;
   String? _supplierFilter;
   PosProductType? _typeFilter;
-  PosStockFilter _stockFilter = PosStockFilter.all;
+  late PosStockFilter _stockFilter = widget.initialStockFilter;
   PosStockoutFilter _stockoutFilter = PosStockoutFilter.all;
   bool? _directSaleFilter;
   PosProductSortBy _sortBy = PosProductSortBy.createdAt;
@@ -103,31 +111,28 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   final Set<String> _variantsLoadingIds = {};
   final Map<String, String?> _unitViewVariantIdByProductId = {};
 
+  /// Ngành hàng của cửa hàng — dùng để ẩn các mục chỉ F&B (NVL, topping).
+  PosSellProfile? _sellProfile;
+  bool get _fnbTypes => _sellProfile?.usesFnbItemTypes ?? true;
+
   @override
   void initState() {
     super.initState();
     ScreenRefreshNotifier.posProducts.addListener(_onExternalRefresh);
     NavigationNotifier.currentModuleCode.addListener(_onModuleVisible);
     _loadColumnPrefs();
+    _loadSellProfile();
     _listScroll.addListener(_onProductListScroll);
     _loadAll();
-    _restoreSort();
   }
 
-  /// Lấy lại cách sắp xếp đã chọn lần trước («name:asc»…).
-  Future<void> _restoreSort() async {
-    final v = await PosListPrefs.loadSort('products');
-    if (!mounted || v == null) return;
-    final parts = v.split(':');
-    final by = PosProductSortBy.values.where((e) => e.name == parts.first).firstOrNull;
-    if (by == null) return;
-    final desc = parts.length > 1 && parts[1] == 'desc';
-    if (by == _sortBy && desc == _sortDesc) return;
-    setState(() {
-      _sortBy = by;
-      _sortDesc = desc;
-    });
-    await _reloadProducts();
+  Future<void> _loadSellProfile() async {
+    try {
+      final res = await PosSellSettingsHelper(_api).load();
+      final p = res.settings?.sellProfile;
+      if (p != null) posProductPickerFnbTypes = p.usesFnbItemTypes;
+      if (mounted && p != null) setState(() => _sellProfile = p);
+    } catch (_) {}
   }
 
   void _onExternalRefresh() {
@@ -151,26 +156,10 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   void dispose() {
     ScreenRefreshNotifier.posProducts.removeListener(_onExternalRefresh);
     NavigationNotifier.currentModuleCode.removeListener(_onModuleVisible);
-    _listScroll.dispose();
     _searchDebounce?.cancel();
+    _listScroll.dispose();
     _searchCtrl.dispose();
     super.dispose();
-  }
-
-  /// Gõ tới đâu lọc tới đó (chờ 400ms) — trước đây phải bấm Enter mới tìm.
-  Timer? _searchDebounce;
-
-  void _onSearchChanged(String _) {
-    _searchDebounce?.cancel();
-    _searchDebounce = Timer(const Duration(milliseconds: 400), () {
-      if (mounted) _reloadProducts();
-    });
-  }
-
-  void _clearSearch() {
-    _searchDebounce?.cancel();
-    _searchCtrl.clear();
-    _reloadProducts();
   }
 
   PosProductType? get _typeFilterParam => _typeFilter;
@@ -291,11 +280,22 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   Future<void> _reloadProducts({bool forceNetwork = false}) async {
     if (!forceNetwork && _canFilterLocally) {
       _applyLocalFilters();
+      _dropMissingDetail();
       if (mounted) setState(() {});
       return;
     }
     await _loadProducts(page: 1);
+    _dropMissingDetail();
     if (mounted) setState(() {});
+  }
+
+  void _dropMissingDetail() {
+    final cur = _detailProduct;
+    if (!_md || cur == null || _detailHandle.isDirty()) return;
+    if (_items.any((x) => x.id == cur.id)) return;
+    _detailProduct = null;
+    _detailTemplate = null;
+    _detailSeq++;
   }
 
   Future<void> _loadAll() async {
@@ -440,10 +440,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     if (!perm.canCreate('PosProducts')) return;
     if (_md) {
-      if (_detailHandle.isDirty() &&
-          !await confirmDiscardUnsavedChanges(context)) {
-        return;
-      }
+      if (_detailHandle.isDirty() && !await confirmDiscardUnsavedChanges(context)) return;
       if (!mounted) return;
       setState(() {
         _detailProduct = null;
@@ -459,8 +456,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       productType: type,
     );
     if (saved == true) {
-      await _loadCatalogs();
-      await _loadProducts(page: 1);
+      await Future.wait([_loadCatalogs(), _loadProducts(page: 1)]);
       if (mounted) setState(() {});
     }
   }
@@ -1238,12 +1234,13 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     final perm = Provider.of<PermissionProvider>(context);
     final wide = Responsive.preferTableListLayout(context) && Responsive.isDesktop(context);
     final mobile = posUseMobileList(context);
+    _md = mobile && MediaQuery.sizeOf(context).width >= 1000;
     final inHub = PosHubScope.of(context);
-    _md = wide && !mobile && MediaQuery.sizeOf(context).width >= 1100;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
-      floatingActionButton: mobile && perm.canCreate('PosProducts')
+      backgroundColor: SboxColors.page,
+      // Màn chia đôi: nút tạo nằm trên thanh đầu (nút nổi che dòng tổng và nút Lưu của form).
+      floatingActionButton: mobile && !_md && perm.canCreate('PosProducts')
           ? PosMobileFab(
               onPressed: () => _openTypeHub(
                 perm,
@@ -1264,826 +1261,84 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
               onFilter: inHub ? null : () => _openMobileFilters(perm),
               onSort: inHub ? null : _showSortSheet,
               onMore: () => _showMobileMoreMenu(perm),
+              moreOpensMenu: true,
               onRefresh: inHub ? null : () => _reloadProducts(forceNetwork: true),
               activeFilterCount: _activeMobileFilterCount,
               filterChips: null,
+              trailing: _md && perm.canCreate('PosProducts')
+                  ? [
+                      FilledButton.icon(
+                        onPressed: () => _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại'),
+                        style: FilledButton.styleFrom(backgroundColor: PosTheme.kiotBlue),
+                        icon: const Icon(Icons.add_rounded, size: 20),
+                        label: Text(tr('Thêm hàng')),
+                      ),
+                      const SizedBox(width: 4),
+                    ]
+                  : null,
             )
           else
             _buildMainToolbar(perm, wide),
           if (_selectedIds.isNotEmpty) _buildSelectionBar(),
-          // Màn rộng: chip loại hàng nằm trên cột danh sách bên trái.
-          if (!_md) ...[
-            PosProductTypeFilterBar(
-              value: _typeFilter,
-              onChanged: (v) async {
-                setState(() => _typeFilter = v);
-                await _reloadProducts();
-              },
-            ),
-            const Divider(height: 1, color: PosTheme.border),
-          ],
-          if (mobile && !inHub) _buildMobileStockSummary(),
-          Expanded(
-            child: _loading
-                ? LoadingWidget(message: tr('Đang tải hàng hóa…'))
-                : _md
-                    ? _buildMasterDetail(perm)
-                    : Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (wide)
-                        SizedBox(
-                          width: 280,
-                          child: DecoratedBox(
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              border: Border(
-                                right: BorderSide(color: PosTheme.border),
-                              ),
-                            ),
-                            child: _buildFilterSidebar(perm),
-                          ),
-                        ),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            Expanded(child: _buildContent(perm, wide)),
-                            _buildPagination(),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-        ],
-        ),
-      ),
-    );
-  }
-
-  // ── Màn ngang rộng (T1, tablet, web): danh sách bên trái · chi tiết bên phải ──
-  // Bộ lọc thu vào nút «Bộ lọc» (panel trượt từ trái) — trước đây cột lọc 280dp chiếm thường trực.
-
-  int get _activeFilterCount {
-    var n = _activeMobileFilterCount;
-    if (_locationFilter != null) n++;
-    if (_supplierFilter != null) n++;
-    if (_directSaleFilter != null) n++;
-    if (_includeInactive) n++;
-    if (_useStockoutCustom) n++;
-    if (_createdTimeFilter.preset != PosKiotTimePreset.allTime ||
-        _createdTimeFilter.isCustom) {
-      n++;
-    }
-    return n;
-  }
-
-  Widget _buildFilterSidebar(PermissionProvider perm, {VoidCallback? onChanged}) {
-    // Panel lọc dựng một lần → mỗi lần đổi phải báo panel vẽ lại (radio / dropdown hiện đúng giá trị).
-    Future<void> apply(VoidCallback fn) async {
-      setState(fn);
-      onChanged?.call();
-      await _reloadProducts();
-      onChanged?.call();
-    }
-
-    final canManage =
-        perm.canEdit('PosProducts') || perm.canDelete('PosProducts');
-    return PosProductFilterSidebar(
-      categories: _categories,
-      brands: _brands,
-      locations: _locations,
-      suppliers: _suppliers,
-      categoryId: _categoryFilter,
-      brandId: _brandFilter,
-      locationId: _locationFilter,
-      supplierId: _supplierFilter,
-      productType: _typeFilter,
-      stockFilter: _stockFilter,
-      stockoutFilter: _stockoutFilter,
-      directSaleFilter: _directSaleFilter,
-      includeInactive: _includeInactive,
-      createdTimeFilter: _createdTimeFilter,
-      useStockoutCustom: _useStockoutCustom,
-      stockoutBefore: _stockoutBefore,
-      onCategoryChanged: (v) => apply(() => _categoryFilter = v),
-      onBrandChanged: (v) => apply(() => _brandFilter = v),
-      onLocationChanged: (v) => apply(() => _locationFilter = v),
-      onSupplierChanged: (v) => apply(() => _supplierFilter = v),
-      onProductTypeChanged: (v) => apply(() => _typeFilter = v),
-      onStockFilterChanged: (v) => apply(() => _stockFilter = v),
-      onStockoutFilterChanged: (v) => apply(() => _stockoutFilter = v),
-      onDirectSaleFilterChanged: (v) => apply(() => _directSaleFilter = v),
-      onIncludeInactiveChanged: (v) => apply(() => _includeInactive = v),
-      onCreatedTimeFilterChanged: (s) {
-        _onCreatedTimeFilterChanged(s);
-        onChanged?.call();
-      },
-      onStockoutCustomChanged: (v) => apply(() => _useStockoutCustom = v),
-      onStockoutBeforeChanged: (d) => apply(() => _stockoutBefore = d),
-      onCreateCategory: perm.canCreate('PosProducts') ? _addCategory : null,
-      onManageCategory:
-          canManage ? () => _manageCatalog(PosCatalogKind.category) : null,
-      onManageSupplier:
-          canManage ? () => _manageCatalog(PosCatalogKind.supplier) : null,
-      onManageLocation:
-          canManage ? () => _manageCatalog(PosCatalogKind.location) : null,
-      onManageBrand: canManage ? () => _manageCatalog(PosCatalogKind.brand) : null,
-    );
-  }
-
-  Future<void> _openFilterPanel(PermissionProvider perm) async {
-    await showGeneralDialog<void>(
-      context: context,
-      barrierDismissible: true,
-      barrierLabel: tr('Bộ lọc'),
-      barrierColor: Colors.black26,
-      transitionDuration: const Duration(milliseconds: 180),
-      pageBuilder: (ctx, _, __) => StatefulBuilder(
-        builder: (ctx, setPanel) {
-          final n = _activeFilterCount;
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: Material(
-              color: Colors.white,
-              elevation: 8,
-              child: SizedBox(
-                width: 380,
-                height: double.infinity,
-                child: SafeArea(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.filter_list, color: PosTheme.kiotBlue),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                tr(n > 0 ? 'Bộ lọc ($n)' : 'Bộ lọc'),
-                                style: const TextStyle(
-                                    fontSize: 18, fontWeight: FontWeight.w600),
-                              ),
-                            ),
-                            if (n > 0)
-                              TextButton(
-                                onPressed: () async {
-                                  await _resetMobileFilters();
-                                  setPanel(() {});
-                                },
-                                child: Text(tr('Xóa lọc')),
-                              ),
-                            IconButton(
-                              tooltip: tr('Đóng'),
-                              icon: const Icon(Icons.close),
-                              onPressed: () => Navigator.pop(ctx),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(height: 1, color: PosTheme.border),
-                      Expanded(
-                        child: _buildFilterSidebar(perm,
-                            onChanged: () => setPanel(() {})),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-      transitionBuilder: (ctx, anim, _, child) => SlideTransition(
-        position: Tween(begin: const Offset(-1, 0), end: Offset.zero)
-            .animate(CurvedAnimation(parent: anim, curve: Curves.easeOutCubic)),
-        child: child,
-      ),
-    );
-    if (mounted) setState(() {});
-  }
-
-  Widget _buildFilterButton(PermissionProvider perm) {
-    final n = _activeFilterCount;
-    final on = n > 0;
-    return OutlinedButton.icon(
-      onPressed: () => _openFilterPanel(perm),
-      icon: const Icon(Icons.filter_list, size: 20),
-      label: Text(tr(on ? 'Bộ lọc ($n)' : 'Bộ lọc')),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: on ? PosTheme.kiotBlue : PosTheme.textPrimary,
-        backgroundColor: on ? PosTheme.kiotBlueLight : null,
-        side: BorderSide(color: on ? PosTheme.kiotBlue : PosTheme.border),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      ),
-    );
-  }
-
-  /// Catalog mẫu / Import / Xuất file gom vào một nút — thanh trên gọn còn Tìm · Lọc · Tạo mới.
-  Widget _buildMoreMenu(PermissionProvider perm) {
-    PopupMenuItem<String> item(String v, IconData icon, String label) =>
-        PopupMenuItem<String>(
-          value: v,
-          child: Row(
-            children: [
-              Icon(icon, size: 20, color: PosTheme.textSecondary),
-              const SizedBox(width: 12),
-              Text(tr(label)),
-            ],
-          ),
-        );
-    return PopupMenuButton<String>(
-      tooltip: tr('Thêm thao tác'),
-      icon: const Icon(Icons.more_horiz),
-      onSelected: (v) async {
-        switch (v) {
-          case 'sample':
-            final created = await showPosSampleCatalogPicker(
-              context,
-              _api,
-              categories: _categories,
-            );
-            if (created != null && mounted) {
-              await _reloadProducts(forceNetwork: true);
-            }
-          case 'import_typed':
-            await _openTypeHub(perm,
-                title: 'Nhập Excel theo loại', showCreate: false);
-          case 'import':
-            await _importExcel(perm);
-          case 'ai_menu':
-            await _openAiMenuImport();
-          case 'export':
-            await _exportExcel(perm);
-          case 'columns':
-            _showColumnPicker();
-        }
-      },
-      itemBuilder: (_) => [
-        if (perm.canCreate('PosProducts')) ...[
-          item('sample', Icons.restaurant_menu, 'Catalog mẫu'),
-          item('import_typed', Icons.upload_file, 'Nhập Excel theo loại'),
-          item('import', Icons.table_view_outlined, 'Import hỗn hợp (cột Loại hàng)'),
-          item('ai_menu', Icons.auto_awesome_outlined, 'Quét ảnh menu bằng AI'),
-        ],
-        if (perm.canExport('PosProducts'))
-          item('export', Icons.download, 'Xuất file'),
-      ],
-    );
-  }
-
-  bool _md = false;
-  PosProduct? _detailProduct;
-  /// Bản sao đang soạn (sau «Lưu & sao chép»): form thêm mới điền sẵn từ hàng nguồn.
-  PosProduct? _detailTemplate;
-  /// «Tạo mới» trên màn rộng: form thêm hàng loại này mở ở cột phải.
-  PosProductType? _detailNewType;
-  int _detailSeq = 0;
-  final _detailHandle = PosProductEditorHandle();
-
-  Future<void> _selectDetail(PosProduct p) async {
-    if (_detailProduct?.id == p.id && _detailTemplate == null) return;
-    if (_detailHandle.isDirty() &&
-        !await confirmDiscardUnsavedChanges(context)) {
-      return;
-    }
-    if (!mounted) return;
-    setState(() {
-      _detailProduct = p;
-      _detailTemplate = null;
-      _detailNewType = null;
-      _detailSeq++;
-      _detailHandle.isDirty = () => false;
-    });
-  }
-
-  void _closeDetail() {
-    setState(() {
-      _detailProduct = null;
-      _detailTemplate = null;
-      _detailNewType = null;
-      _detailSeq++;
-      _detailHandle.isDirty = () => false;
-    });
-  }
-
-  Future<void> _onDetailSaved(String? id, {required bool copy}) async {
-    await _loadProducts(page: 1);
-    if (!mounted) return;
-    PosProduct? saved;
-    if (id != null) {
-      final res = await _api.getPosProduct(id);
-      if (!mounted) return;
-      if (res['isSuccess'] == true && res['data'] is Map) {
-        saved = PosProduct.fromJson(res['data'] as Map<String, dynamic>);
-      }
-    }
-    if (_detailNewType != null) await _loadCatalogs();
-    if (!mounted) return;
-    setState(() {
-      _detailHandle.isDirty = () => false;
-      _detailNewType = null;
-      if (copy && saved != null) {
-        _detailProduct = null;
-        _detailTemplate = saved;
-      } else {
-        _detailProduct = saved ?? _detailProduct;
-        _detailTemplate = null;
-      }
-      _detailSeq++;
-    });
-  }
-
-  Widget _buildMasterDetail(PermissionProvider perm) {
-    return PosMasterDetailLayout(
-      prefsKey: 'products',
-      initialFraction: 0.34,
-      minMasterWidth: 380,
-      master: _buildMasterPane(perm),
-      detail: _buildDetailPane(perm),
-    );
-  }
-
-  static const _sortLabels = {
-    PosProductSortBy.createdAt: 'Mới tạo',
-    PosProductSortBy.name: 'Tên hàng',
-    PosProductSortBy.code: 'Mã hàng',
-    PosProductSortBy.price: 'Giá bán',
-    PosProductSortBy.stock: 'Tồn kho',
-  };
-
-  /// Sắp xếp danh sách bên trái: chọn tiêu chí, chọn lại cùng tiêu chí để đảo chiều.
-  Widget _buildSortButton() {
-    return PopupMenuButton<PosProductSortBy>(
-      tooltip: tr('Sắp xếp'),
-      onSelected: (v) async {
-        setState(() {
-          if (v == _sortBy) {
-            _sortDesc = !_sortDesc;
-          } else {
-            _sortBy = v;
-            _sortDesc = v == PosProductSortBy.createdAt ||
-                v == PosProductSortBy.price ||
-                v == PosProductSortBy.stock;
-          }
-        });
-        PosListPrefs.saveSort(
-            'products', '${_sortBy.name}:${_sortDesc ? 'desc' : 'asc'}');
-        await _reloadProducts();
-      },
-      itemBuilder: (_) => [
-        for (final e in _sortLabels.entries)
-          PopupMenuItem(
-            value: e.key,
-            child: Row(
-              children: [
-                Expanded(child: Text(tr(e.value))),
-                if (e.key == _sortBy)
-                  Icon(
-                    _sortDesc ? Icons.arrow_downward : Icons.arrow_upward,
-                    size: 18,
-                    color: PosTheme.kiotBlue,
-                  ),
-              ],
-            ),
-          ),
-      ],
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.sort, size: 18, color: PosTheme.kiotBlue),
-            const SizedBox(width: 4),
-            Text(
-              tr(_sortLabels[_sortBy] ?? ''),
-              style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: PosTheme.kiotBlue),
-            ),
-            Icon(
-              _sortDesc ? Icons.arrow_downward : Icons.arrow_upward,
-              size: 16,
-              color: PosTheme.kiotBlue,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildMasterPane(PermissionProvider perm) {
-    return ColoredBox(
-      color: Colors.white,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
           PosProductTypeFilterBar(
             value: _typeFilter,
+            showFnbTypes: _fnbTypes,
             onChanged: (v) async {
               setState(() => _typeFilter = v);
               await _reloadProducts();
             },
           ),
-          if (_categories.isNotEmpty) _buildCategoryChips(),
           const Divider(height: 1, color: PosTheme.border),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 4, 8, 2),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    tr('$_total mặt hàng · Tồn kho: ${_moneyFmt.format(_totalOnHand)}'),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 12.5, color: PosTheme.textSecondary),
-                  ),
-                ),
-                _buildSortButton(),
-              ],
-            ),
-          ),
+          // Salon / gym chủ yếu bán dịch vụ — «Tổng tồn 0» chỉ gây rối khi chưa có hàng tồn.
+          if (_showsMobileStockSummary) _buildMobileStockSummary(),
           Expanded(
-            child: _items.isEmpty
-                ? EmptyState(
-                    icon: Icons.inventory_2_outlined,
-                    title: 'Không có hàng hóa',
-                    description: _activeFilterCount > 0 || _typeFilter != null
-                        ? 'Thử bỏ bớt bộ lọc'
-                        : null,
-                  )
-                : ListView.separated(
-                    controller: _listScroll,
-                    itemCount: _items.length + (_loadingMore ? 1 : 0),
-                    separatorBuilder: (_, __) =>
-                        const Divider(height: 1, indent: 72, color: PosTheme.border),
-                    itemBuilder: (context, i) {
-                      if (i >= _items.length) {
-                        return const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(
-                            child: SizedBox(
-                              width: 22,
-                              height: 22,
-                              child: CircularProgressIndicator(strokeWidth: 2),
+            child: _loading
+                ? LoadingWidget(message: tr('Đang tải hàng hóa…'))
+                : _md
+                    // Màn ngang rộng dạng mobile (C20): danh sách trái · sửa / xem hàng bên phải như T1.
+                    ? PosMasterDetailLayout(
+                        prefsKey: 'products',
+                        initialFraction: 0.4,
+                        minMasterWidth: 400,
+                        minDetailWidth: 520,
+                        master: Column(
+                          children: [
+                            Expanded(child: _buildContent(perm, wide)),
+                            _buildPagination(),
+                          ],
+                        ),
+                        detail: _buildDetailPane(perm),
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              children: [
+                                Expanded(child: _buildContent(perm, wide)),
+                                _buildPagination(),
+                              ],
                             ),
                           ),
-                        );
-                      }
-                      return _buildMasterRow(_items[i], perm);
-                    },
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Nhóm hàng chọn nhanh ngay trên danh sách (các lọc khác nằm trong nút «Bộ lọc»).
-  Widget _buildCategoryChips() {
-    Widget chip(String? id, String label) {
-      final sel = _categoryFilter == id;
-      return ChoiceChip(
-        label: Text(tr(label)),
-        selected: sel,
-        showCheckmark: false,
-        backgroundColor: Colors.white,
-        selectedColor: PosTheme.kiotBlueLight,
-        labelStyle: TextStyle(
-          fontSize: 13,
-          fontWeight: sel ? FontWeight.w600 : FontWeight.w500,
-          color: sel ? PosTheme.kiotBlue : PosTheme.textPrimary,
-        ),
-        side: BorderSide(color: sel ? PosTheme.kiotBlue : PosTheme.border),
-        onSelected: (_) async {
-          setState(() => _categoryFilter = id);
-          await _reloadProducts();
-        },
-      );
-    }
-
-    return SizedBox(
-      height: 48,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(12, 2, 12, 8),
-        children: [
-          chip(null, 'Mọi nhóm hàng'),
-          for (final c in _categories) ...[
-            const SizedBox(width: 8),
-            chip(c.id, c.name),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// Bấm ảnh nhỏ ở danh sách: xem ảnh lớn.
-  Future<void> _showImagePreview(PosProduct p) {
-    // Vuông, vừa chiều cao màn (T1 ngang chỉ ~630dp) — chừa thanh tiêu đề.
-    final side = (MediaQuery.sizeOf(context).height - 160).clamp(240.0, 560.0);
-    return showDialog<void>(
-      context: context,
-      builder: (ctx) => Dialog(
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
-              child: Row(children: [
-                Expanded(
-                  child: Text(tr(p.name),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
-                ),
-                IconButton(
-                  tooltip: tr('Đóng'),
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(ctx),
-                ),
-              ]),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: InteractiveViewer(
-              maxScale: 4,
-              child: PosProductImage(
-                productId: p.id,
-                imageUrl: p.imageUrl,
-                updatedAt: p.updatedAt,
-                size: side,
-                borderRadius: 0,
-                fit: BoxFit.contain,
-              ),
-            ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Bấm nhãn tồn ở danh sách: tồn mặt hàng ở từng chi nhánh.
-  Future<void> _showBranchStock(PosProduct p) async {
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(tr('Tồn theo chi nhánh · ${p.name}')),
-        content: SizedBox(
-          width: 420,
-          child: FutureBuilder<Map<String, dynamic>>(
-            future: _api.getBranchStockMatrix(p.id),
-            builder: (_, snap) {
-              if (!snap.hasData) {
-                return const SizedBox(
-                    height: 80, child: Center(child: CircularProgressIndicator()));
-              }
-              final data = snap.data!['data'];
-              final rows = data is Map ? (data['branches'] as List? ?? const []) : const [];
-              if (rows.isEmpty) {
-                return Text(tr(
-                    'Cửa hàng chưa chia chi nhánh — tồn chung: ${_moneyFmt.format(p.onHandQty)}'));
-              }
-              final total = rows.fold<num>(0, (a, b) => a + ((b as Map)['qty'] as num? ?? 0));
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final b in rows.cast<Map>())
-                    ListTile(
-                      dense: true,
-                      contentPadding: EdgeInsets.zero,
-                      leading: Icon(
-                          b['isHeadquarter'] == true
-                              ? Icons.home_work_outlined
-                              : Icons.store_outlined,
-                          color: PosTheme.kiotBlue),
-                      title: Text(tr('${b['name']}${b['isHeadquarter'] == true ? ' (trụ sở)' : ''}')),
-                      trailing: Text(
-                        _moneyFmt.format(b['qty'] as num? ?? 0),
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: (b['qty'] as num? ?? 0) <= 0
-                              ? SboxColors.danger
-                              : PosTheme.textPrimary,
-                        ),
-                      ),
-                    ),
-                  const Divider(),
-                  Row(children: [
-                    Expanded(
-                      child: Text(tr('Tổng'),
-                          style: const TextStyle(fontWeight: FontWeight.w700)),
-                    ),
-                    Text(_moneyFmt.format(total),
-                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
-                  ]),
-                ],
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildMasterRow(PosProduct p, PermissionProvider perm) {
-    final selected = _detailProduct?.id == p.id;
-    final qty = p.productType == PosProductType.combo
-        ? (p.sellableQty ?? p.onHandQty)
-        : p.onHandQty;
-    final stock = !p.showsWarehouseStock
-        ? null
-        : qty <= 0
-            ? 'Hết hàng'
-            : p.productType == PosProductType.combo
-                ? 'Bán được ${_moneyFmt.format(qty)}'
-                : 'Tồn ${_moneyFmt.format(qty)}';
-    return Material(
-      color: selected ? PosTheme.kiotBlueLight : Colors.white,
-      child: InkWell(
-        onTap: () => _selectDetail(p),
-        onLongPress: () => _showMobileProductActions(p, perm),
-        child: Container(
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(
-                color: selected ? PosTheme.kiotBlue : Colors.transparent,
-                width: 3,
-              ),
-              bottom: const BorderSide(color: Color(0xFFF0F2F5)),
-            ),
-          ),
-          padding: const EdgeInsets.fromLTRB(13, 9, 0, 9),
-          child: Row(
-            children: [
-              GestureDetector(
-                onTap: (p.imageUrl ?? '').isEmpty ? null : () => _showImagePreview(p),
-                child: Opacity(
-                  opacity: p.isActive ? 1 : 0.5,
-                  child: PosProductImage(
-                    productId: p.id,
-                    imageUrl: p.imageUrl,
-                    updatedAt: p.updatedAt,
-                    size: 52,
-                    borderRadius: 8,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      tr(p.name),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: p.isActive
-                            ? PosTheme.textPrimary
-                            : PosTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            p.productCode,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                                fontSize: 12.5, color: PosTheme.textSecondary),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        PosProductTypeBadge(type: p.productType, compact: true),
-                        if (!p.isActive) ...[
-                          const SizedBox(width: 6),
-                          Text(
-                            tr('Ngừng bán'),
-                            style: const TextStyle(
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w600,
-                                color: SboxColors.danger),
-                          ),
                         ],
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '${_moneyFmt.format(p.basePrice)} đ',
-                    style: const TextStyle(
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.w700,
-                        color: PosTheme.kiotBlue),
-                  ),
-                  if (stock != null) ...[
-                    const SizedBox(height: 4),
-                    InkWell(
-                      onTap: () => _showBranchStock(p),
-                      borderRadius: BorderRadius.circular(10),
-                      child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: qty <= 0
-                            ? SboxColors.dangerSoft
-                            : SboxColors.successSoft,
-                        borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Text(
-                        tr(stock),
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w600,
-                          color: qty <= 0
-                              ? SboxColors.dangerText
-                              : SboxColors.successText,
-                        ),
-                      ),
-                    ),
-                    ),
-                  ],
-                ],
-              ),
-              IconButton(
-                tooltip: tr('Thao tác'),
-                visualDensity: VisualDensity.compact,
-                icon: const Icon(Icons.more_vert,
-                    size: 20, color: PosTheme.textSecondary),
-                onPressed: () => _showMobileProductActions(p, perm),
-              ),
-            ],
           ),
+        ],
         ),
       ),
-    );
-  }
-
-  Widget _buildDetailPane(PermissionProvider perm) {
-    final p = _detailProduct;
-    final tpl = _detailTemplate;
-    final newType = _detailNewType;
-    if (p == null && tpl == null && newType == null) {
-      return const ColoredBox(
-        color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF0F2F5)),
-        child: EmptyState(
-          icon: Icons.touch_app_outlined,
-          title: 'Chọn hàng hóa bên trái',
-          description:
-              'Chi tiết hiện ở đây — sửa xong bấm «Lưu» hoặc «Lưu & sao chép» để tạo hàng tương tự',
-        ),
-      );
-    }
-    if (p != null && !perm.canEdit('PosProducts')) {
-      return PosProductDetailScreen(
-        key: ValueKey('view-${p.id}-$_detailSeq'),
-        product: p,
-      );
-    }
-    return PosProductEditorPage(
-      key: ValueKey('edit-${p?.id ?? 'new'}-$_detailSeq'),
-      productType: (p ?? tpl)?.productType ?? newType!,
-      product: p,
-      templateProduct: tpl,
-      embedded: true,
-      handle: _detailHandle,
-      onSaved: (id, {required copy}) {
-        _onDetailSaved(id, copy: copy);
-      },
-      onClose: _closeDetail,
     );
   }
 
   Widget _buildMainToolbar(PermissionProvider perm, bool wide) {
     final mobile = posUseMobileList(context);
     return Material(
-      color: Colors.white,
+      color: mobile ? Colors.white : SboxColors.page,
       elevation: 0,
       child: Container(
-        padding: EdgeInsets.fromLTRB(mobile ? 12 : 16, 12, mobile ? 12 : 16, 12),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: PosTheme.border)),
-        ),
+        padding: EdgeInsets.fromLTRB(mobile ? 12 : 24, mobile ? 12 : 16, mobile ? 12 : 24, 12),
+        decoration: mobile
+            ? const BoxDecoration(border: Border(bottom: BorderSide(color: PosTheme.border)))
+            : null,
         child: mobile
             ? Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2112,15 +1367,6 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                             _showColumnPicker();
                           } else if (v == 'scan') {
                             _scanSearch();
-                          } else if (v == 'promotions') {
-                            Navigator.of(context).push(MaterialPageRoute(
-                                builder: (_) => const PosPromotionsScreen()));
-                          } else if (v == 'scale_label') {
-                            // ignore: discarded_futures
-                            showPosScaleLabelDialog(context);
-                          } else if (v == 'reorder') {
-                            Navigator.of(context).push(MaterialPageRoute(
-                                builder: (_) => const PosReorderSuggestionsScreen()));
                           } else if (v == 'export' && perm.canExport('PosProducts')) {
                             _exportExcel(perm);
                           } else if (v == 'import' && perm.canCreate('PosProducts')) {
@@ -2152,6 +1398,18 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                           } else if (v == 'create_hub' &&
                               perm.canCreate('PosProducts')) {
                             _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại');
+                          } else if (v == 'promotions') {
+                            Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => const PosPromotionsScreen()));
+                          } else if (v == 'scale_label') {
+                            // ignore: discarded_futures
+                            showPosScaleLabelDialog(context);
+                          } else if (v == 'reorder') {
+                            Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => const PosReorderSuggestionsScreen()));
+                          } else if (v == 'price_lists') {
+                            Navigator.of(context).push(MaterialPageRoute(
+                                builder: (_) => PosHubScope.pushed(child: const PosPriceListsScreen())));
                           } else if (v == 'topping_groups') {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -2176,12 +1434,8 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                                 child: Text(tr('Tạo / nhập theo loại'))),
                           ],
                           PopupMenuItem(
-                              value: 'topping_groups',
-                              child: Text(tr('Nhóm topping'))),
-                          PopupMenuItem(
-                              value: 'columns', child: Text(tr('Hiển thị cột'))),
-                          PopupMenuItem(
-                              value: 'scan', child: Text(tr('Quét mã vạch'))),
+                              value: 'price_lists',
+                              child: Text(tr('Bảng giá (giá sỉ / VIP / theo kỳ)'))),
                           if (perm.canView('PosPromotions'))
                           PopupMenuItem(
                               value: 'promotions',
@@ -2194,6 +1448,14 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                           PopupMenuItem(
                               value: 'reorder',
                               child: Text(tr('Hàng cần nhập thêm'))),
+                          if (_fnbTypes)
+                          PopupMenuItem(
+                              value: 'topping_groups',
+                              child: Text(tr('Nhóm topping'))),
+                          PopupMenuItem(
+                              value: 'columns', child: Text(tr('Hiển thị cột'))),
+                          PopupMenuItem(
+                              value: 'scan', child: Text(tr('Quét mã vạch'))),
                           if (perm.canExport('PosProducts'))
                             PopupMenuItem(
                                 value: 'export', child: Text(tr('Xuất file'))),
@@ -2234,7 +1496,6 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                         borderSide: BorderSide.none,
                       ),
                     ),
-                    onChanged: _onSearchChanged,
                     onSubmitted: (_) => _reloadProducts(),
                   ),
                   if (perm.canCreate('PosProducts')) ...[
@@ -2254,182 +1515,217 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   ],
                 ],
               )
-            : Row(
-          children: [
-            if (!wide)
-              IconButton(
-                tooltip: tr('Bộ lọc'),
-                onPressed: () => _openMobileFilters(perm),
-                icon: const Icon(Icons.filter_list),
-              ),
-            Text(tr('Hàng hóa'),
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: PosTheme.textPrimary,
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: TextField(
-                  controller: _searchCtrl,
-                  decoration: InputDecoration(
-                    hintText: tr('Theo mã, tên hàng'),
-                    isDense: true,
-                    prefixIcon: const Icon(Icons.search, size: 20),
-                    // Nút xóa nhanh khi đã gõ.
-                    suffixIcon: ValueListenableBuilder<TextEditingValue>(
-                      valueListenable: _searchCtrl,
-                      builder: (_, v, __) => v.text.isEmpty
-                          ? const SizedBox.shrink()
-                          : IconButton(
-                              tooltip: tr('Xóa'),
-                              icon: const Icon(Icons.close, size: 18),
-                              onPressed: _clearSearch,
-                            ),
-                    ),
-                    filled: true,
-                    fillColor: const Color(0xFFF5F7FA),
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: BorderSide.none,
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
-                      borderSide: const BorderSide(color: PosTheme.kiotBlue),
-                    ),
-                  ),
-                  onChanged: _onSearchChanged,
-                  onSubmitted: (_) => _reloadProducts(),
-                ),
-              ),
-            ),
-            if (_md) ...[
-              const SizedBox(width: 12),
-              _buildFilterButton(perm),
-            ],
-            const Spacer(),
-            if (perm.canCreate('PosProducts'))
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: FilledButton.icon(
-                  onPressed: () => _openTypeHub(
-                    perm,
-                    title: 'Tạo hoặc nhập theo loại',
-                  ),
-                  icon: const Icon(Icons.add, size: 18),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: PosTheme.kiotBlue,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 10),
-                  ),
-                  label: Text(tr('Tạo mới')),
-                ),
-              ),
-            if (!_md && perm.canCreate('PosProducts'))
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: OutlinedButton.icon(
-                  onPressed: () async {
-                    final created = await showPosSampleCatalogPicker(
-                      context,
-                      _api,
-                      categories: _categories,
-                    );
-                    if (created != null && mounted) {
-                      await _reloadProducts(forceNetwork: true);
-                    }
-                  },
-                  icon: const Icon(Icons.restaurant_menu, size: 18),
-                  label: Text(tr('Catalog mẫu')),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: PosTheme.textPrimary,
-                    side: const BorderSide(color: PosTheme.border),
-                  ),
-                ),
-              ),
-            if (!_md && perm.canCreate('PosProducts'))
-              PopupMenuButton<String>(
-                onSelected: (v) {
-                  if (v == 'import') _importExcel(perm);
-                  if (v == 'ai_menu') _openAiMenuImport();
-                  if (v == 'import_typed') {
-                    _openTypeHub(
-                      perm,
-                      title: 'Nhập Excel theo loại',
-                      showCreate: false,
-                    );
-                  }
-                },
-                itemBuilder: (_) => [
-                  PopupMenuItem(
-                      value: 'import_typed',
-                      child: Text(tr('Nhập / tải mẫu theo loại'))),
-                  PopupMenuItem(
-                      value: 'import',
-                      child: Text(tr('Import hỗn hợp (cột Loại hàng)'))),
-                  PopupMenuItem(
-                      value: 'ai_menu',
-                      child: Text(tr('Quét ảnh menu bằng AI'))),
-                ],
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: PosTheme.border),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.upload_file, size: 18),
-                      const SizedBox(width: 6),
-                      Text(tr('Import Excel')),
-                      const Icon(Icons.arrow_drop_down, size: 18),
-                    ],
-                  ),
-                ),
-              ),
-            if (!_md && perm.canExport('PosProducts')) ...[
-              const SizedBox(width: 8),
-              OutlinedButton.icon(
-                onPressed: _isExporting ? null : () => _exportExcel(perm),
-                icon: const Icon(Icons.download, size: 18),
-                label: Text(tr(_isExporting ? 'Đang xuất…' : 'Xuất file')),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: PosTheme.textPrimary,
-                  side: const BorderSide(color: PosTheme.border),
-                ),
-              ),
-            ],
-            if (_md) _buildMoreMenu(perm),
-            if (!_md)
-            IconButton(
-              tooltip: tr('Hiển thị cột'),
-              onPressed: _showColumnPicker,
-              icon: const Icon(Icons.view_column_outlined),
-            ),
-            IconButton(
-              tooltip: tr('Quét mã vạch'),
-              onPressed: _scanSearch,
-              icon: const Icon(Icons.qr_code_scanner),
-            ),
-            IconButton(
-              tooltip: tr('Làm mới'),
-              onPressed: _loadAll,
-              icon: const Icon(Icons.refresh),
-            ),
-          ],
-        ),
+            : _buildDesktopFilterBar(perm),
       ),
     );
+  }
+
+  Future<void> _setAndReload(VoidCallback fn) async {
+    setState(fn);
+    await _reloadProducts();
+  }
+
+  /// Desktop: một hàng như HRM — tìm kiếm · bộ lọc chính · nút thao tác (không còn cột lọc trái).
+  Widget _buildDesktopFilterBar(PermissionProvider perm) {
+    final canCreate = perm.canCreate('PosProducts');
+    final advanced = _activeMobileFilterCount -
+        [_categoryFilter, _brandFilter, _supplierFilter].where((x) => x != null).length -
+        (_stockFilter != PosStockFilter.all ? 1 : 0);
+    return SboxFilterBar(
+      searchHint: 'Theo mã, tên hàng',
+      searchController: _searchCtrl,
+      onSearch: _onSearchChanged,
+      filters: [
+        PosPickChip(
+          label: 'Nhóm hàng',
+          value: _categoryFilter,
+          options: {for (final c in _categories) c.id: c.name},
+          onChanged: (v) => _setAndReload(() => _categoryFilter = v),
+        ),
+        SboxFilterChip<PosStockFilter>(
+          label: 'Tồn kho',
+          value: _stockFilter,
+          options: const {
+            PosStockFilter.all: 'Tất cả',
+            PosStockFilter.belowMin: 'Dưới định mức',
+            PosStockFilter.outOfStock: 'Hết hàng',
+            PosStockFilter.aboveMax: 'Vượt định mức',
+          },
+          onChanged: (v) => _setAndReload(() => _stockFilter = v),
+        ),
+        if (_suppliers.isNotEmpty)
+          PosPickChip(
+            label: 'NCC',
+            value: _supplierFilter,
+            options: {for (final c in _suppliers) c.id: c.name},
+            onChanged: (v) => _setAndReload(() => _supplierFilter = v),
+          ),
+        if (_brands.isNotEmpty)
+          PosPickChip(
+            label: 'Thương hiệu',
+            value: _brandFilter,
+            options: {for (final c in _brands) c.id: c.name},
+            onChanged: (v) => _setAndReload(() => _brandFilter = v),
+          ),
+        InkWell(
+          borderRadius: SboxRadius.mdAll,
+          onTap: () => _openMobileFilters(perm),
+          child: PosChipFrame(
+            label: '',
+            value: advanced > 0 ? 'Bộ lọc khác ($advanced)' : 'Bộ lọc khác',
+            icon: Icons.tune_rounded,
+            active: advanced > 0,
+          ),
+        ),
+      ],
+      actions: [
+        if (canCreate)
+          SboxButton(
+            label: 'Tạo mới',
+            icon: Icons.add,
+            onPressed: () => _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại'),
+          ),
+        if (perm.canExport('PosProducts'))
+          SboxButton.secondary(
+            label: 'Xuất file',
+            icon: Icons.download_outlined,
+            loading: _isExporting,
+            onPressed: _isExporting ? null : () => _exportExcel(perm),
+          ),
+        PopupMenuButton<String>(
+          tooltip: tr('Thêm thao tác'),
+          onSelected: (v) => _runMoreAction(v, perm),
+          itemBuilder: (_) => [
+            for (final (gi, g) in _moreActionGroups(perm, mobile: false).indexed) ...[
+              if (gi > 0) const PopupMenuDivider(),
+              for (final (value, icon, text) in g.$2) _menuItem(value, icon, text),
+            ],
+          ],
+          child: const PosChipFrame(label: '', value: 'Thêm', icon: Icons.more_horiz),
+        ),
+      ],
+    );
+  }
+
+  /// Mọi chức năng phụ của màn Hàng hóa — dùng chung menu «Thêm» máy lớn và bảng ⋯ điện thoại.
+  /// Trước điện thoại phải bấm ⋯ → «Thêm chức năng» mới tới bảng, mà bảng chỉ có 4 mục
+  /// (thiếu nhập Excel, bảng giá, khuyến mãi, quản lý nhóm hàng / NCC…).
+  List<(String, List<(String, IconData, String)>)> _moreActionGroups(
+    PermissionProvider perm, {
+    required bool mobile,
+  }) {
+    final canCreate = perm.canCreate('PosProducts');
+    final canManage = perm.canEdit('PosProducts') || perm.canDelete('PosProducts');
+    final inHub = PosHubScope.of(context);
+    final filterLabel = _activeMobileFilterCount > 0 ? 'Bộ lọc ($_activeMobileFilterCount)' : 'Bộ lọc';
+    return [
+      if (mobile)
+        ('Xem', [
+          ('filter', Icons.filter_list, filterLabel),
+          ('sort', Icons.import_export, 'Sắp xếp'),
+          ('refresh', Icons.sync, inHub ? 'Làm mới' : 'Đồng bộ'),
+        ]),
+      if (canCreate)
+        ('Thêm / nhập hàng', [
+          if (mobile) ('create', Icons.add_box_outlined, 'Tạo / nhập theo loại'),
+          ('sample_menu', Icons.restaurant_menu, 'Thêm từ catalog mẫu'),
+          ('import_typed', Icons.upload_file, 'Nhập Excel theo loại'),
+          ('import', Icons.table_view_outlined, 'Import hỗn hợp (cột Loại hàng)'),
+          ('ai_menu', Icons.auto_awesome_outlined, 'Quét ảnh menu bằng AI'),
+        ]),
+      ('Giá & kho', [
+        ('price_lists', Icons.price_change_outlined, 'Bảng giá (giá sỉ / VIP / theo kỳ)'),
+        if (perm.canView('PosPromotions'))
+          ('promotions', Icons.local_offer_outlined, 'Khuyến mãi (giờ vàng, mua X tặng Y…)'),
+        if (perm.canEdit('PosProducts'))
+          ('scale_label', Icons.scale_outlined, 'Cân & in tem hàng cân'),
+        if (perm.canView('PosReportStock'))
+          ('reorder', Icons.production_quantity_limits, 'Hàng cần nhập thêm'),
+        if (_fnbTypes) ('topping_groups', Icons.local_cafe_outlined, 'Nhóm topping'),
+      ]),
+      if (canManage)
+        ('Danh mục', [
+          ('m_category', Icons.folder_outlined, 'Quản lý nhóm hàng'),
+          ('m_supplier', Icons.local_shipping_outlined, 'Quản lý nhà cung cấp'),
+          ('m_brand', Icons.sell_outlined, 'Quản lý thương hiệu'),
+          ('m_location', Icons.place_outlined, 'Quản lý vị trí'),
+        ]),
+      ('Công cụ', [
+        if (!mobile) ('columns', Icons.view_column_outlined, 'Hiển thị cột'),
+        ('scan', Icons.qr_code_scanner, 'Quét mã vạch'),
+        if (mobile && perm.canExport('PosProducts'))
+          ('export', Icons.download_outlined, 'Xuất file Excel'),
+      ]),
+    ];
+  }
+
+  Future<void> _runMoreAction(String v, PermissionProvider perm) async {
+    switch (v) {
+      case 'filter':
+        _openMobileFilters(perm);
+      case 'sort':
+        _showSortSheet();
+      case 'refresh':
+        if (PosHubScope.of(context)) {
+          await _reloadProducts();
+        } else {
+          await _loadAll();
+        }
+      case 'create':
+        _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại');
+      case 'export':
+        if (!_isExporting) _exportExcel(perm);
+      case 'sample_menu':
+        final created = await showPosSampleCatalogPicker(context, _api, categories: _categories);
+        if (created != null && mounted) await _reloadProducts(forceNetwork: true);
+      case 'import_typed':
+        _openTypeHub(perm, title: 'Nhập Excel theo loại', showCreate: false);
+      case 'import':
+        _importExcel(perm);
+      case 'ai_menu':
+        _openAiMenuImport();
+      case 'topping_groups':
+        await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PosToppingGroupsScreen()));
+      case 'price_lists':
+        await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => PosHubScope.pushed(child: const PosPriceListsScreen())));
+      case 'columns':
+        _showColumnPicker();
+      case 'scan':
+        _scanSearch();
+      case 'promotions':
+        await Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const PosPromotionsScreen()));
+      case 'scale_label':
+        await showPosScaleLabelDialog(context);
+      case 'reorder':
+        await Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const PosReorderSuggestionsScreen()));
+      case 'm_category':
+        _manageCatalog(PosCatalogKind.category);
+      case 'm_supplier':
+        _manageCatalog(PosCatalogKind.supplier);
+      case 'm_brand':
+        _manageCatalog(PosCatalogKind.brand);
+      case 'm_location':
+        _manageCatalog(PosCatalogKind.location);
+    }
+  }
+
+  PopupMenuItem<String> _menuItem(String value, IconData icon, String text) => PopupMenuItem(
+        value: value,
+        child: Row(children: [
+          Icon(icon, size: 18, color: SboxColors.slate500),
+          const SizedBox(width: 10),
+          Text(tr(text)),
+        ]),
+      );
+
+  Timer? _searchDebounce;
+
+  void _onSearchChanged(String _) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 400), () => _reloadProducts());
   }
 
   Widget _buildSelectionBar() {
@@ -2473,7 +1769,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(tr('Tìm hàng hóa')),
+        title: Text(tr('Tìm hàng hoá')),
         content: TextField(
           controller: _searchCtrl,
           autofocus: true,
@@ -2544,89 +1840,55 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   }
 
   void _showMobileMoreMenu(PermissionProvider perm) {
-    final inHub = PosHubScope.of(context);
+    final groups = _moreActionGroups(perm, mobile: true);
     showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (inHub) ...[
-              ListTile(
-                leading: const Icon(Icons.filter_list),
-                title: Text(tr('${tr('Bộ lọc')}${_activeMobileFilterCount > 0 ? ' ($_activeMobileFilterCount)' : ''}')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _openMobileFilters(perm);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.import_export),
-                title: Text(tr('Sắp xếp')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _showSortSheet();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.refresh),
-                title: Text(tr('Làm mới')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _reloadProducts();
-                },
-              ),
-              const Divider(height: 1),
-            ],
-            if (perm.canCreate('PosProducts')) ...[
-              ListTile(
-                leading: const Icon(Icons.restaurant_menu),
-                title: Text(tr('Thêm từ menu / catalog mẫu')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  // ignore: discarded_futures
-                  () async {
-                    final created = await showPosSampleCatalogPicker(
-                      context,
-                      _api,
-                      categories: _categories,
-                    );
-                    if (created != null && mounted) {
-                      await _reloadProducts(forceNetwork: true);
-                    }
-                  }();
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.inventory_2_outlined),
-                title: Text(tr('Tạo / nhập theo loại')),
-                onTap: () {
-                  Navigator.pop(ctx);
-                  _openTypeHub(perm, title: 'Tạo hoặc nhập theo loại');
-                },
-              ),
-            ],
-            ListTile(
-              leading: const Icon(Icons.qr_code_scanner),
-              title: Text(tr('Quét mã vạch')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _scanSearch();
-              },
+        // Cuộn được: trên V2s đủ mục thì mục cuối bị cắt ở đáy màn hình.
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.85),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (final (gi, g) in groups.indexed) ...[
+                  if (gi > 0) const Divider(height: 1),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
+                    child: Text(
+                      tr(g.$1),
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: SboxColors.slate500,
+                      ),
+                    ),
+                  ),
+                  for (final (value, icon, text) in g.$2)
+                    ListTile(
+                      dense: true,
+                      leading: Icon(icon),
+                      title: Text(tr(text)),
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        unawaited(_runMoreAction(value, perm));
+                      },
+                    ),
+                ],
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.refresh),
-              title: Text(tr('Làm mới')),
-              onTap: () {
-                Navigator.pop(ctx);
-                _loadAll();
-              },
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+
+  bool get _showsMobileStockSummary =>
+      posUseMobileList(context) &&
+      !PosHubScope.of(context) &&
+      !((_sellProfile?.usesSessionPackages ?? false) && _totalOnHand == 0);
 
   Widget _buildMobileStockSummary() {
     return Container(
@@ -2754,7 +2016,7 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
   Widget _buildContent(PermissionProvider perm, bool wide) {
     if (_items.isEmpty) {
       // Đang lọc loại / tìm kiếm mà không ra gì: trước đây vẫn báo «Chưa có hàng hóa» (tab Combo trống
-      // trong khi cửa hàng có hàng).
+      // trong khi cửa hàng có 8 mặt hàng).
       final emptyTypeTitle = switch (_typeFilter) {
         PosProductType.goods => 'Chưa có hàng hóa',
         PosProductType.service => 'Chưa có dịch vụ',
@@ -2776,7 +2038,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
         icon: Icons.inventory_2_outlined,
         title: 'Chưa có hàng hóa',
         description: perm.canCreate('PosProducts')
-            ? 'Nhấn «Tạo mới» để thêm hàng hóa, dịch vụ, combo, NVL hoặc topping'
+            ? (_fnbTypes
+                ? 'Nhấn «Thêm hàng» để thêm hàng hóa, dịch vụ, combo, NVL hoặc topping'
+                : 'Nhấn «Thêm hàng» để thêm hàng hóa, dịch vụ hoặc combo')
             : null,
       );
     }
@@ -2897,7 +2161,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
             ),
           );
         }
-        return _buildKiotMobileProductRow(_items[i], perm);
+        final p = _items[i];
+        final row = _buildKiotMobileProductRow(p, perm);
+        return _md && _detailProduct?.id == p.id ? KeyedSubtree(key: _detailRowKey, child: row) : row;
       },
     );
   }
@@ -2926,11 +2192,16 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
                 child: Row(
                   children: [
-                    PosProductImage(
-                      productId: p.id,
-                      imageUrl: p.imageUrl,
-                      size: 44,
-                      borderRadius: 8,
+                    GestureDetector(
+                      onTap: (p.imageUrl ?? '').isEmpty ? null : () => _showImagePreview(p),
+                      child: PosProductImage(
+                        productId: p.id,
+                        imageUrl: p.imageUrl,
+                        idFallback: false,
+                        updatedAt: p.updatedAt,
+                        size: 44,
+                        borderRadius: 8,
+                      ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -2971,10 +2242,23 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   );
                 },
               ),
+              if (p.showsWarehouseStock && BranchSession.instance.branches.length > 1)
+                ListTile(
+                  leading: const Icon(Icons.store_outlined),
+                  title: Text(tr('Tồn theo chi nhánh')),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _showBranchStock(p);
+                  },
+                ),
               if (canEdit)
                 ListTile(
                   leading: const Icon(Icons.edit_outlined),
-                  title: Text(tr('Sửa hàng hóa')),
+                  title: Text(tr(switch (p.productType) {
+                    PosProductType.service => 'Sửa dịch vụ',
+                    PosProductType.combo => 'Sửa combo',
+                    _ => 'Sửa hàng hóa',
+                  })),
                   onTap: () {
                     Navigator.pop(ctx);
                     _openEdit(p);
@@ -3038,6 +2322,252 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     );
   }
 
+  /// Bấm ảnh nhỏ ở danh sách: xem ảnh lớn.
+  Future<void> _showImagePreview(PosProduct p) {
+    // Vuông, vừa chiều cao màn (T1 ngang chỉ ~630dp) — chừa thanh tiêu đề.
+    final screen = MediaQuery.sizeOf(context);
+    // Vuông, vừa cả chiều cao (máy ngang) lẫn chiều rộng (điện thoại dọc như C20).
+    final side = [screen.height - 160, screen.width - 112, 560.0]
+        .reduce((a, b) => a < b ? a : b)
+        .clamp(200.0, 560.0);
+    return showDialog<void>(
+      context: context,
+      builder: (ctx) => Dialog(
+        clipBehavior: Clip.antiAlias,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 8, 8),
+              child: Row(children: [
+                Expanded(
+                  child: Text(tr(p.name),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                ),
+                IconButton(
+                  tooltip: tr('Đóng'),
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: InteractiveViewer(
+              maxScale: 4,
+              child: PosProductImage(
+                productId: p.id,
+                imageUrl: p.imageUrl,
+                idFallback: false,
+                updatedAt: p.updatedAt,
+                size: side,
+                borderRadius: 0,
+                fit: BoxFit.contain,
+              ),
+            ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Bấm nhãn tồn ở danh sách: tồn mặt hàng ở từng chi nhánh.
+  Future<void> _showBranchStock(PosProduct p) async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(tr('Tồn theo chi nhánh · ${p.name}')),
+        content: SizedBox(
+          width: 420,
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: _api.getBranchStockMatrix(p.id),
+            builder: (_, snap) {
+              if (!snap.hasData) {
+                return const SizedBox(
+                    height: 80, child: Center(child: CircularProgressIndicator()));
+              }
+              final data = snap.data!['data'];
+              final rows = data is Map ? (data['branches'] as List? ?? const []) : const [];
+              if (rows.isEmpty) {
+                return Text(tr(
+                    'Cửa hàng chưa chia chi nhánh — tồn chung: ${_moneyFmt.format(p.onHandQty)}'));
+              }
+              final total = rows.fold<num>(0, (a, b) => a + ((b as Map)['qty'] as num? ?? 0));
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final b in rows.cast<Map>())
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(
+                          b['isHeadquarter'] == true
+                              ? Icons.home_work_outlined
+                              : Icons.store_outlined,
+                          color: PosTheme.kiotBlue),
+                      title: Text(tr('${b['name']}${b['isHeadquarter'] == true ? ' (trụ sở)' : ''}')),
+                      trailing: Text(
+                        _moneyFmt.format(b['qty'] as num? ?? 0),
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: (b['qty'] as num? ?? 0) <= 0
+                              ? SboxColors.danger
+                              : PosTheme.textPrimary,
+                        ),
+                      ),
+                    ),
+                  const Divider(),
+                  Row(children: [
+                    Expanded(
+                      child: Text(tr('Tổng'),
+                          style: const TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                    Text(_moneyFmt.format(total),
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+                  ]),
+                ],
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(tr('Đóng'))),
+        ],
+      ),
+    );
+  }
+
+  // ── Màn chia đôi (C20 ngang): hàng đang xem / sửa ở cột phải ──
+  bool _md = false;
+  PosProduct? _detailProduct;
+
+  /// «Lưu & sao chép»: form mới điền sẵn từ hàng vừa lưu.
+  PosProduct? _detailTemplate;
+
+  /// «Tạo mới»: form thêm hàng loại này.
+  PosProductType? _detailNewType;
+  int _detailSeq = 0;
+  final _detailHandle = PosProductEditorHandle();
+
+  Future<void> _selectDetail(PosProduct p) async {
+    if (_detailProduct?.id == p.id && _detailTemplate == null) return;
+    if (_detailHandle.isDirty() && !await confirmDiscardUnsavedChanges(context)) return;
+    if (!mounted) return;
+    setState(() {
+      _detailProduct = p;
+      _detailTemplate = null;
+      _detailNewType = null;
+      _detailSeq++;
+      _detailHandle.isDirty = () => false;
+    });
+  }
+
+  void _closeDetail() {
+    setState(() {
+      _detailProduct = null;
+      _detailTemplate = null;
+      _detailNewType = null;
+      _detailSeq++;
+      _detailHandle.isDirty = () => false;
+    });
+  }
+
+  Future<void> _onDetailSaved(String? id, {required bool copy}) async {
+    PosProduct? saved;
+    if (id != null) {
+      final res = await _api.getPosProduct(id);
+      if (!mounted) return;
+      if (res['isSuccess'] == true && res['data'] is Map) {
+        saved = PosProduct.fromJson(res['data'] as Map<String, dynamic>);
+      }
+    }
+    final idx = saved == null ? -1 : _items.indexWhere((x) => x.id == saved!.id);
+    if (idx >= 0 && _detailNewType == null) {
+      _items[idx] = saved!;
+      _localCatalog = null;
+    } else {
+      await _loadProducts(page: 1);
+      if (!mounted) return;
+    }
+    if (_detailNewType != null) await _loadCatalogs();
+    if (!mounted) return;
+    setState(() {
+      _detailHandle.isDirty = () => false;
+      _detailNewType = null;
+      if (copy && saved != null) {
+        _detailProduct = null;
+        _detailTemplate = saved;
+      } else {
+        _detailProduct = saved ?? _detailProduct;
+        _detailTemplate = null;
+      }
+      _detailSeq++;
+    });
+    if (!copy && saved != null) _revealDetailRow(saved.id);
+  }
+
+  /// Dòng đang xem ở cột phải — để cuộn tới sau khi lưu.
+  final _detailRowKey = GlobalKey();
+
+  /// Cuộn danh sách tới hàng [id] (dòng chưa dựng thì nhảy ước lượng trước rồi canh lại).
+  void _revealDetailRow(String id) {
+    final i = _items.indexWhere((x) => x.id == id);
+    if (i < 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final ctx = _detailRowKey.currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(ctx, alignment: 0.3, duration: const Duration(milliseconds: 250));
+        return;
+      }
+      if (!_listScroll.hasClients) return;
+      final pos = _listScroll.position;
+      _listScroll.jumpTo((i * 64.0).clamp(0, pos.maxScrollExtent));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final c = _detailRowKey.currentContext;
+        if (mounted && c != null) {
+          Scrollable.ensureVisible(c, alignment: 0.3, duration: const Duration(milliseconds: 200));
+        }
+      });
+    });
+  }
+
+  Widget _buildDetailPane(PermissionProvider perm) {
+    final p = _detailProduct;
+    final tpl = _detailTemplate;
+    final newType = _detailNewType;
+    if (p == null && tpl == null && newType == null) {
+      return const ColoredBox(
+        color: (SboxColors.posApp ? SboxColors.page : Color(0xFFF0F2F5)),
+        child: EmptyState(
+          icon: Icons.touch_app_outlined,
+          title: 'Chọn hàng hóa bên trái',
+          description:
+              'Chi tiết hiện ở đây — sửa xong bấm «Lưu» hoặc «Lưu & sao chép» để tạo hàng tương tự',
+        ),
+      );
+    }
+    if (p != null && !perm.canEdit('PosProducts')) {
+      return PosProductDetailScreen(key: ValueKey('view-${p.id}-$_detailSeq'), product: p);
+    }
+    return PosProductEditorPage(
+      key: ValueKey('edit-${p?.id ?? 'new'}-$_detailSeq'),
+      productType: (p ?? tpl)?.productType ?? newType!,
+      product: p,
+      templateProduct: tpl,
+      embedded: true,
+      handle: _detailHandle,
+      onSaved: (id, {required copy}) {
+        _onDetailSaved(id, copy: copy);
+      },
+      onClose: _closeDetail,
+    );
+  }
+
   Widget _buildKiotMobileProductRow(PosProduct p, PermissionProvider perm) {
     final variants = _variantsByProductId[p.id] ?? [];
     final unitViews = buildPosProductUnitViews(p, variants);
@@ -3046,25 +2576,48 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
     final stockUnit = activeView.label.isNotEmpty
         ? activeView.label
         : p.baseUnitName;
+    final stockQty = p.productType == PosProductType.combo
+        ? (p.sellableQty ?? activeView.onHandQty)
+        : activeView.onHandQty;
 
     return PosMobileProductRow(
       name: p.name,
       code: activeView.displayCode,
       priceText: _moneyFmt.format(activeView.basePrice),
       stockText: !p.showsWarehouseStock
-          ? ''
-          : p.productType == PosProductType.combo
-              ? 'Bán ${_moneyFmt.format(p.sellableQty ?? activeView.onHandQty)}'
-              : 'Tồn ${_moneyFmt.format(activeView.onHandQty)} $stockUnit',
+          ? (p.sessionPackLabel ?? '')
+          : stockQty <= 0
+              ? 'Hết hàng'
+              : p.productType == PosProductType.combo
+                  ? 'Bán ${_moneyFmt.format(stockQty)}'
+                  : 'Tồn ${_moneyFmt.format(stockQty)} $stockUnit',
+      // Hàng có tồn: nhãn màu, bấm xem tồn từng chi nhánh (cửa hàng nhiều chi nhánh).
+      stockPill: p.showsWarehouseStock,
+      stockOut: p.showsWarehouseStock && stockQty <= 0,
+      onStockTap: p.showsWarehouseStock && BranchSession.instance.branches.length > 1
+          ? () => _showBranchStock(p)
+          : null,
       typeBadge: PosProductTypeBadge(type: p.productType, compact: true),
-      image: PosProductImage(
-        productId: p.id,
-        imageUrl: p.imageUrl,
-        size: 48,
-        borderRadius: 8,
+      // Bấm ảnh: xem ảnh lớn; bấm dòng: thao tác.
+      image: GestureDetector(
+        onTap: (p.imageUrl ?? '').isEmpty ? null : () => _showImagePreview(p),
+        child: PosProductImage(
+          productId: p.id,
+          imageUrl: p.imageUrl,
+          idFallback: false,
+          updatedAt: p.updatedAt,
+          size: 48,
+          borderRadius: 8,
+        ),
       ),
-      onTap: () => _showMobileProductActions(p, perm),
-      onLongPress: perm.canEdit('PosProducts') ? () => _openEdit(p) : null,
+      // Màn chia đôi: bấm mở bên phải, giữ để xem thao tác (in tem, sao chép, xóa…).
+      isSelected: _md && _detailProduct?.id == p.id,
+      onTap: _md ? () => _selectDetail(p) : () => _showMobileProductActions(p, perm),
+      onLongPress: _md
+          ? () => _showMobileProductActions(p, perm)
+          : perm.canEdit('PosProducts')
+              ? () => _openEdit(p)
+              : null,
     );
   }
 
@@ -3171,9 +2724,9 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
                   ),
                 ),
                 if (!p.showsWarehouseStock)
-                  Text(tr(p.productType == PosProductType.combo
+                  Text(tr(p.sessionPackLabel ?? (p.productType == PosProductType.combo
                       ? 'Combo không quản lý tồn kho'
-                      : 'Không trừ kho'),
+                      : 'Không trừ kho')),
                     style: TextStyle(fontSize: 11, color: SboxColors.slate600),
                   )
                 else if (p.productType == PosProductType.combo)
@@ -3274,31 +2827,27 @@ class _PosProductsScreenState extends State<PosProductsScreen> {
       ),
       child: Row(
         children: [
-          Text(tr('Tổng: $_total · Tồn: ${_moneyFmt.format(_totalOnHand)}'),
+          // Đã có dòng «Tổng tồn» phía trên danh sách → chân trang chỉ đếm số mặt hàng.
+          Text(tr((_sellProfile?.usesSessionPackages ?? false) && _totalOnHand == 0 || _showsMobileStockSummary
+              ? 'Tổng: ${_moneyFmt.format(_total)}'
+              : 'Tổng: ${_moneyFmt.format(_total)} · Tồn: ${_moneyFmt.format(_totalOnHand)}'),
             style: const TextStyle(fontSize: 12, color: PosTheme.textSecondary),
           ),
           const Spacer(),
-          if (_totalPages > 1 && !posUseMobileList(context)) ...[
-            IconButton(
-              onPressed: _page > 1
-                  ? () async {
-                      await _loadProducts(page: _page - 1);
-                      setState(() {});
-                    }
-                  : null,
-              icon: const Icon(Icons.chevron_left),
+          if (_totalPages > 1 && !posUseMobileList(context))
+            Flexible(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: SboxPagerNav(
+                  page: _page,
+                  pages: _totalPages,
+                  onPage: (p) async {
+                    await _loadProducts(page: p);
+                    if (mounted) setState(() {});
+                  },
+                ),
+              ),
             ),
-            Text(tr('Trang $_page / $_totalPages')),
-            IconButton(
-              onPressed: _page < _totalPages
-                  ? () async {
-                      await _loadProducts(page: _page + 1);
-                      setState(() {});
-                    }
-                  : null,
-              icon: const Icon(Icons.chevron_right),
-            ),
-          ],
         ],
       ),
     );

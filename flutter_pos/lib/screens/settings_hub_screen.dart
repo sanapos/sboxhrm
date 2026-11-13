@@ -1,41 +1,59 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../widgets/page_max_width.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sbox_pos/l10n/app_tr.dart';
+
 import '../models/settings_hub_sidebar_config.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
+import '../services/api_service.dart';
 import '../services/settings_hub_sidebar_prefs.dart';
 import '../utils/permission_navigation.dart';
+import '../utils/pos_local_printers_store.dart';
+import '../utils/pos_print_orchestrator.dart';
+import '../models/pos_sell_industry.dart';
+import '../utils/pos_sell_settings_helper.dart';
 import '../utils/settings_hub_catalog.dart';
-import '../utils/pos_lite_mode.dart';
 import '../utils/store_role_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
-import '../services/api_service.dart';
+import '../widgets/sbox_icon_tile.dart';
+import '../widgets/pos/pos_theme.dart';
+import '../widgets/sbox/sbox_ui.dart';
+import '../widgets/settings/settings_page.dart';
 import '../widgets/settings_hub_sidebar_config_dialog.dart';
 import '../widgets/store_agent_support_card.dart';
+import 'package:flutter/foundation.dart';
+import '../utils/pos_lite_mode.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';
-import '../widgets/pos/pos_theme.dart';
-
 import 'hrm_module_unavailable_screen.dart';
-import 'pos_print_templates_screen.dart';
 import 'pos/pos_sell_industry_settings_hub_screen.dart';
-import 'pos/pos_einvoice_settings_screen.dart';
-import 'pos/pos_shipping_settings_screen.dart';
-import 'pos/pos_store_settings_hub_screen.dart';
-import 'pos/pos_printers_tabs_screen.dart';
-import 'pos/pos_payment_gateway_settings_screen.dart';
-import 'pos/pos_resource_floor_screen.dart';
 import 'pos/pos_appointment_day_screen.dart';
-import 'pos/pos_customer_display_settings_screen.dart';
 import 'pos/pos_customers_screen.dart';
 import 'pos/pos_accounts_screen.dart';
 import 'pos/pos_role_permissions_screen.dart';
-import 'store_access_devices_screen.dart';
-import 'package:sbox_pos/l10n/app_tr.dart';
-
 import '../theme/sbox_tokens.dart';
+import 'pos/pos_customer_display_settings_screen.dart';
+import 'pos/pos_einvoice_settings_screen.dart';
+import 'pos/pos_payment_gateway_settings_screen.dart';
+import 'pos/pos_cancel_return_settings_screen.dart';
+import 'pos/pos_loyalty_settings_screen.dart';
+import 'pos/pos_printers_tabs_screen.dart';
+import 'pos/pos_qr_table_order_screen.dart';
+import 'pos/pos_resource_floor_screen.dart';
+import 'pos/pos_shipping_settings_screen.dart';
+import 'pos/pos_store_settings_hub_screen.dart';
+import 'pos_print_templates_screen.dart';
+import 'store_access_devices_screen.dart';
+
+/// Thiết lập SBOX: tìm kiếm, tình trạng từng mục (chưa cấu hình / cần chú ý), mở gần đây,
+/// nhóm theo nghiệp vụ. Máy tính: menu nhóm bên trái + nội dung bên phải. Điện thoại: danh sách.
 class SettingsHubScreen extends StatefulWidget {
   const SettingsHubScreen({super.key});
+
+  /// Mục Thiết lập người dùng này thấy được (quyền + gói) — hub và ô «Tìm chức năng» dùng chung.
+  static List<SettingsHubItemDef> visibleItems(BuildContext context, List<SettingsHubItemDef> items) =>
+      _settingsVisibleItems(context, items);
 
   /// MainLayout lắng nghe để hiện tiêu đề + nút back khi mở trang con.
   static final ValueNotifier<int> chromeEpoch = ValueNotifier(0);
@@ -43,8 +61,7 @@ class SettingsHubScreen extends StatefulWidget {
   static VoidCallback? _internalBackCallback;
   static String? _activeSubPageTitle;
 
-  /// Static callback for main_layout to handle internal back navigation.
-  /// When a sub-screen is active, this resets to the hub menu instead of leaving HRM setup.
+  /// Callback cho main_layout: đang ở trang con thì «Quay lại» về trang Thiết lập thay vì rời hẳn.
   static VoidCallback? get internalBackCallback => _internalBackCallback;
   static set internalBackCallback(VoidCallback? value) {
     final changed = (_internalBackCallback == null) != (value == null);
@@ -52,7 +69,7 @@ class SettingsHubScreen extends StatefulWidget {
     if (changed) _bumpChrome();
   }
 
-  /// Title of the active sub-page (for main_layout AppBar / top bar).
+  /// Tiêu đề trang con đang mở (cho thanh trên của main_layout).
   static String? get activeSubPageTitle => _activeSubPageTitle;
   static set activeSubPageTitle(String? value) {
     if (_activeSubPageTitle == value) return;
@@ -66,15 +83,26 @@ class SettingsHubScreen extends StatefulWidget {
     });
   }
 
-  /// True when a sub-settings page is open — main_layout already shows one back button.
+  /// Đang mở trang con — main_layout đã có 1 nút back.
   static bool get isEmbeddedSubPage => internalBackCallback != null;
 
-  /// Pending sub-screen index to open when navigating to settings hub.
-  /// Set value to trigger navigation, even if already on settings hub.
+  /// Test: thay danh sách mục được phép (bỏ qua quyền / gói dịch vụ).
+  @visibleForTesting
+  static List<SettingsHubItemDef>? debugPermittedItems;
+
+  /// Mở thẳng một mục khi điều hướng tới Thiết lập (đặt giá trị kể cả khi đang ở Thiết lập).
   static final ValueNotifier<int?> pendingSubIndex = ValueNotifier<int?>(null);
 
-  /// Navigate back from a settings sub-screen.
-  /// Uses internalBackCallback if available, otherwise Navigator.maybePop.
+  /// Mở thẳng một mục theo mã chữ cố định (vd `printers`, `printTemplates`, `device`).
+  /// Gọi trước khi điều hướng tới Thiết lập SBOX. Trả về false nếu mã không tồn tại.
+  static bool openCode(String code) {
+    final item = SettingsHubCatalog.byCode(code);
+    if (item == null) return false;
+    pendingSubIndex.value = item.index;
+    return true;
+  }
+
+  /// Quay lại từ trang con Thiết lập.
   static void goBack(BuildContext context) {
     final cb = internalBackCallback;
     if (cb != null) {
@@ -89,35 +117,46 @@ class SettingsHubScreen extends StatefulWidget {
 }
 
 class _SettingsHubScreenState extends State<SettingsHubScreen> {
+  static const _recentKey = 'settings_hub_recent';
+
   int? _selectedIndex;
   Map<String, dynamic>? _storeAgentContact;
   SettingsHubSidebarConfig? _sidebarConfig;
   bool _sidebarConfigLoading = true;
+  Map<String, Map<String, dynamic>> _health = {};
+  List<int> _recent = [];
+  String _q = '';
+  final _search = TextEditingController();
 
-  bool get _isSuperAdmin {
-    final role =
-        (Provider.of<AuthProvider>(context, listen: false).currentUser?.role ??
-                '')
-            .toLowerCase();
-    return role == 'superadmin';
-  }
+  bool get _isSuperAdmin =>
+      (Provider.of<AuthProvider>(context, listen: false).currentUser?.role ?? '').toLowerCase() == 'superadmin';
 
   @override
   void initState() {
     super.initState();
     SettingsHubSidebarPrefs.setCache(null);
-    // Consume pending sub-index if set before navigation
     final pending = SettingsHubScreen.pendingSubIndex.value;
     if (pending != null) {
       _selectedIndex = pending;
       SettingsHubScreen.activeSubPageTitle = _labelForIndex(pending);
-      SettingsHubScreen.internalBackCallback = _closeSubPage;
+      SettingsHubScreen.internalBackCallback = _requestClose;
       SettingsHubScreen.pendingSubIndex.value = null;
     }
-    // Listen for future external navigation requests
     SettingsHubScreen.pendingSubIndex.addListener(_onPendingSubIndex);
     _loadStoreAgentContact();
     _loadSidebarConfig();
+    _loadHealth();
+    _loadRecent();
+  }
+
+  @override
+  void dispose() {
+    SettingsHubScreen.pendingSubIndex.removeListener(_onPendingSubIndex);
+    SettingsLeaveGuard.hostHandlesBack = false;
+    SettingsHubScreen.internalBackCallback = null;
+    SettingsHubScreen.activeSubPageTitle = null;
+    _search.dispose();
+    super.dispose();
   }
 
   Future<void> _loadSidebarConfig() async {
@@ -135,9 +174,68 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       final res = await ApiService().getStoreAgentContact();
       if (!mounted) return;
       if (res['isSuccess'] == true && res['data'] != null) {
-        setState(() =>
-            _storeAgentContact = Map<String, dynamic>.from(res['data'] as Map));
+        setState(() => _storeAgentContact = Map<String, dynamic>.from(res['data'] as Map));
       }
+    } catch (_) {}
+  }
+
+  Future<void> _loadHealth() async {
+    if (_isSuperAdmin) return;
+    try {
+      final r = await ApiService().getSettingsHealth();
+      if (!mounted || r['isSuccess'] != true || r['data'] is! List) return;
+      setState(() => _health = {
+            for (final x in (r['data'] as List).whereType<Map>()) '${x['key']}': Map<String, dynamic>.from(x),
+          });
+    } catch (_) {}
+    await _loadPrinterHealth();
+  }
+
+  /// Nhãn ô «Máy in» tính ngay trên thiết bị: máy chủ không biết đang mở ở máy nào nên trước cộng
+  /// máy nội bộ của MỌI thiết bị (C20 chỉ cắm 1 máy USB mà ghi «4 máy in»). Giờ = máy cài trên chính
+  /// máy này + máy đang chia sẻ dùng chung (cloud); máy nội bộ của thiết bị khác không tính.
+  Future<void> _loadPrinterHealth() async {
+    try {
+      final local = (await PosLocalPrintersStore.instance.loadAll()).where((p) => p.enabled).length;
+      final orch = PosPrintOrchestrator.instance;
+      await orch.refreshConfig(force: true);
+      final shared = orch.printers.where((p) => !p.isDeviceLocal).length;
+      final parts = [
+        if (local > 0) tr('$local máy in trên máy này'),
+        if (shared > 0) tr('$shared máy in đang chia sẻ'),
+      ];
+      if (!mounted) return;
+      setState(() => _health = {
+            ..._health,
+            'cloudPrinter': {
+              'key': 'cloudPrinter',
+              'status': parts.isEmpty ? 'info' : 'ok',
+              'text': parts.isEmpty ? tr('Chưa có máy in') : parts.join(' · '),
+            },
+          });
+    } catch (_) {}
+  }
+
+  Future<void> _loadRecent() async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final list = p.getStringList(_recentKey) ?? const [];
+      if (!mounted) return;
+      setState(() => _recent = list
+          .map(int.tryParse)
+          .whereType<int>()
+          .map(SettingsHubCatalog.canonicalIndex)
+          .toSet()
+          .toList());
+    } catch (_) {}
+  }
+
+  Future<void> _remember(int index) async {
+    final i = SettingsHubCatalog.canonicalIndex(index);
+    _recent = [i, ..._recent.where((x) => x != i)].take(6).toList();
+    try {
+      final p = await SharedPreferences.getInstance();
+      await p.setStringList(_recentKey, _recent.map((e) => '$e').toList());
     } catch (_) {}
   }
 
@@ -149,75 +247,40 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     }
   }
 
-  @override
-  void dispose() {
-    SettingsHubScreen.pendingSubIndex.removeListener(_onPendingSubIndex);
-    SettingsHubScreen.internalBackCallback = null;
-    SettingsHubScreen.activeSubPageTitle = null;
-    super.dispose();
-  }
-
-  String? _labelForIndex(int index) =>
-      SettingsHubCatalog.byIndex(index)?.label;
+  String? _labelForIndex(int index) => SettingsHubCatalog.byIndex(index)?.label;
 
   bool _canCustomizeSidebar() {
-    final role =
-        (Provider.of<AuthProvider>(context, listen: false).currentUser?.role ??
-                '')
-            .toLowerCase();
+    final role = (Provider.of<AuthProvider>(context, listen: false).currentUser?.role ?? '').toLowerCase();
     if (role == 'superadmin' || role == 'admin') return true;
-    final perm = Provider.of<PermissionProvider>(context, listen: false);
-    return perm.canEdit('SystemSettings');
+    return Provider.of<PermissionProvider>(context, listen: false).canEdit('SystemSettings');
   }
 
-  List<SettingsHubItemDef> _permittedHubItems() {
-    return _filterItems(SettingsHubCatalog.allItems)
-        .where((i) => PosLiteMode.showSetting(i.label))
+  /// App SBOX POS: chỉ các mục bán hàng, không có nhân sự / lương. Bản khác: Super Admin rút gọn; cửa hàng thấy mọi mục gói đã chọn.
+  List<SettingsHubItemDef> _catalogItems() {
+    // flutter_pos luôn là SBOX POS: chỉ mục bán hàng; Android 6 chế độ gọn giữ đúng các mục đã chọn.
+    final base = SettingsHubCatalog.itemsForCurrentApp
+        .where((i) => !PosLiteMode.enabled || PosLiteMode.settingsIndexes.contains(i.index))
         .toList();
+    return _applyBranchLabel(base);
   }
 
-  List<SettingsHubItemDef> _orderedHubItems() {
-    return SettingsHubCatalog.applyConfig(
-      _permittedHubItems(),
-      _sidebarConfig,
-    );
+  /// Khi cửa hàng mới có 1 chi nhánh: mục «Chi nhánh» đổi thành «Thêm chi nhánh»
+  /// (cây / thống kê nhiều CN ẩn trong màn) để hướng nâng cấp, không gây rối.
+  List<SettingsHubItemDef> _applyBranchLabel(List<SettingsHubItemDef> items) => items;
+
+  List<SettingsHubItemDef> _permittedHubItems() => SettingsHubScreen.debugPermittedItems ?? _filterItems(_catalogItems());
+
+  List<SettingsHubItemDef> _orderedHubItems() => SettingsHubCatalog.applyConfig(_permittedHubItems(), _sidebarConfig);
+
+  bool _isPermitted(int index) {
+    final i = SettingsHubCatalog.canonicalIndex(index);
+    return _permittedHubItems().any((x) => x.index == i);
   }
-
-  List<({String title, IconData icon, Color accent, List<SettingsHubItemDef> items})>
-      _orderedHubGroups() {
-    final ordered = _orderedHubItems();
-    final grouped = SettingsHubCatalog.groupOrderedItems(ordered);
-    return [
-      for (final g in grouped)
-        (
-          title: g.title,
-          icon: _groupIcon(g.title),
-          accent: _groupAccent(g.title),
-          items: g.items,
-        ),
-    ];
-  }
-
-  IconData _groupIcon(String title) => switch (title) {
-        'Chấm công & Ca' => Icons.schedule,
-        'Chính sách lương' => Icons.payments,
-        'Quản trị hệ thống' => Icons.admin_panel_settings,
-        'POS / Bán hàng' => Icons.point_of_sale,
-        'Tích hợp' => Icons.hub,
-        _ => Icons.folder_outlined,
-      };
-
-  Color _groupAccent(String title) => switch (title) {
-        'POS / Bán hàng' => SboxColors.brand600,
-        'Chính sách lương' => HrmPageChrome.primaryNavy,
-        _ => HrmPageChrome.primaryNavy,
-      };
 
   Future<void> _openSidebarConfigDialog() async {
     final permitted = _permittedHubItems();
     if (permitted.isEmpty) return;
-    final initial = _sidebarConfig ??
-        SettingsHubSidebarConfig.defaults(SettingsHubCatalog.defaultOrder);
+    final initial = _sidebarConfig ?? SettingsHubSidebarConfig.defaults(SettingsHubCatalog.defaultOrder);
     final saved = await SettingsHubSidebarConfigDialog.show(
       context,
       initialConfig: initial,
@@ -226,20 +289,28 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
     );
     if (!mounted || saved == null) return;
     setState(() => _sidebarConfig = saved);
-    final visibleIds = SettingsHubCatalog.applyConfig(permitted, saved)
-        .map((e) => e.index)
-        .toSet();
-    if (_selectedIndex != null && !visibleIds.contains(_selectedIndex)) {
-      _closeSubPage();
-    }
+    final visibleIds = SettingsHubCatalog.applyConfig(permitted, saved).map((e) => e.index).toSet();
+    if (_selectedIndex != null && !visibleIds.contains(_selectedIndex)) _closeSubPage();
   }
 
   void _openSubPage(int index) {
     setState(() {
       _selectedIndex = index;
       SettingsHubScreen.activeSubPageTitle = _labelForIndex(index);
-      SettingsHubScreen.internalBackCallback = _closeSubPage;
+      SettingsHubScreen.internalBackCallback = _requestClose;
     });
+    _remember(index);
+  }
+
+  /// Đóng trang con — hỏi trước nếu trang còn thay đổi chưa lưu.
+  Future<void> _requestClose() async {
+    if (await SettingsLeaveGuard.canLeave()) _closeSubPage();
+  }
+
+  /// Chuyển sang mục khác từ menu trái — hỏi trước nếu trang hiện tại chưa lưu.
+  Future<void> _requestOpen(int index) async {
+    if (_selectedIndex == index) return;
+    if (await SettingsLeaveGuard.canLeave()) _openSubPage(index);
   }
 
   void _closeSubPage() {
@@ -254,22 +325,29 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       SettingsHubScreen.activeSubPageTitle = null;
       SettingsHubScreen.internalBackCallback = null;
     });
+    _loadHealth();
   }
 
   void _ensureSubPageCallback() {
     final index = _selectedIndex;
     if (index == null) return;
     SettingsHubScreen.activeSubPageTitle = _labelForIndex(index);
-    SettingsHubScreen.internalBackCallback ??= _closeSubPage;
+    SettingsHubScreen.internalBackCallback ??= _requestClose;
   }
 
-  /// Clear hub chrome flags without setState when already on menu.
   void _syncHubChrome() {
     SettingsHubScreen.activeSubPageTitle = null;
     SettingsHubScreen.internalBackCallback = null;
   }
 
   Widget _getScreen(int index) {
+    // Mở thẳng (lối tắt, thông báo) cũng phải đúng quyền / gói dịch vụ.
+    if (!_isPermitted(index)) {
+      return const _SettingsAccessDeniedScreen(
+        title: 'Không có quyền truy cập',
+        message: 'Tài khoản của bạn chưa được cấp quyền mục thiết lập này, hoặc gói dịch vụ chưa có chức năng này.',
+      );
+    }
     switch (index) {
       case 7:
         return const PosAccountsScreen();
@@ -281,221 +359,438 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const PosSellIndustrySettingsHubScreen(embeddedInSettings: true);
       case 17:
         return const PosStoreSettingsHubScreen();
-      case 28:
-        return const PosPaymentGatewaySettingsScreen();
+      case 18:
+        return const PosPrintersTabsScreen();
+      case 19:
+        return const PosResourceFloorScreen(manageMode: true, embedded: true, showAppBar: false);
+      case 23:
+        return const PosCustomerDisplaySettingsScreen(embeddedInSettings: true);
       case 26:
         return const PosEInvoiceSettingsScreen();
       case 27:
         return const PosShippingSettingsScreen();
-      case 18:
-        return const PosPrintersTabsScreen();
+      case 28:
+        return const PosPaymentGatewaySettingsScreen();
       case 29:
         return const PosPrintersTabsScreen(cloudFirst: true);
-      case 19:
-        return const PosResourceFloorScreen(
-          manageMode: true,
-          embedded: true,
-          showAppBar: false,
-        );
-      case 22:
-        return const PosAppointmentDayScreen();
-      case 23:
-        return const PosCustomerDisplaySettingsScreen(embeddedInSettings: true);
-      case 24:
-        return const PosCustomersScreen();
       case 30:
         return const StoreAccessDevicesScreen();
+      case 32:
+        return const PosQrTableOrderScreen();
+      case 33:
+        return const PosLoyaltySettingsScreen();
+      case 34:
+        return const PosCancelReturnSettingsScreen();
       default:
-        final label = _labelForIndex(index) ?? 'Thiết lập';
-        return HrmModuleUnavailableScreen(title: label);
+        return HrmModuleUnavailableScreen(title: _labelForIndex(index) ?? 'Thiết lập');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final needsOwnChrome = !HrmShellChrome.isVisible(context);
+    // Chỉ tự vẽ thanh tiêu đề khi shell (MainLayout) không có thanh tiêu đề trên cùng route.
+    final ownChrome = !HrmShellChrome.isVisible(context);
+    final wide = MediaQuery.of(context).size.width >= 1100;
+    final sub = _selectedIndex;
+    if (sub != null) _ensureSubPageCallback();
+    if (sub == null) _syncHubChrome();
 
-    if (_selectedIndex != null) {
-      _ensureSubPageCallback();
-      final body = _getScreen(_selectedIndex!);
-      if (!needsOwnChrome) return body;
-      return Scaffold(
+    Widget content;
+    if (wide) {
+      content = Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        SizedBox(width: 290, child: _sideNav()),
+        const VerticalDivider(width: 1, color: SboxColors.border),
+        Expanded(child: sub == null ? _home(wide) : _getScreen(sub)),
+      ]);
+    } else {
+      content = sub == null ? _home(wide) : _getScreen(sub);
+    }
+    content = ColoredBox(color: PosTheme.background, child: content);
+    // Luôn cùng một cấu trúc (Scaffold), chỉ bật / tắt AppBar. Trước đây trả `content` trần khi
+    // shell có thanh tiêu đề, bọc Scaffold khi không — trạng thái này đổi lúc mở menu / hộp
+    // thoại → cả trang con bị dựng lại từ đầu (vd. Máy in cloud: chọn menu ⋮ không chạy).
+    // Mở thành trang riêng (app đồng hành, POS): nút Back của máy cũng về danh sách và hỏi nếu chưa lưu.
+    SettingsLeaveGuard.hostHandlesBack = ownChrome && sub != null;
+    return PopScope(
+      canPop: !ownChrome || sub == null,
+      // Flutter 3.22 (A6): chưa có onPopInvokedWithResult.
+      onPopInvoked: (didPop) {
+        if (!didPop) _requestClose();
+      },
+      child: Scaffold(
         backgroundColor: PosTheme.background,
-        appBar: AppBar(
-          title: Text(tr(SettingsHubScreen.activeSubPageTitle ?? 'Thiết lập SBOX')),
-          elevation: 0,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => SettingsHubScreen.goBack(context),
+        appBar: !ownChrome
+            ? null
+            : AppBar(
+                title: Text(tr(sub == null ? 'Thiết lập SBOX' : (SettingsHubScreen.activeSubPageTitle ?? 'Thiết lập SBOX'))),
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: sub == null ? () => Navigator.maybePop(context) : _requestClose,
+                ),
+              ),
+        body: content,
+      ),
+    );
+  }
+
+  // ─── Tình trạng ────────────────────────────────────────────────
+
+  Map<String, dynamic>? _healthOf(SettingsHubItemDef i) => i.healthKey == null ? null : _health[i.healthKey];
+
+  (SboxTone, IconData)? _toneOf(String? status) => switch (status) {
+        'todo' => (SboxTone.warning, Icons.radio_button_unchecked_rounded),
+        'warn' => (SboxTone.danger, Icons.error_outline_rounded),
+        'ok' => (SboxTone.success, Icons.check_circle_rounded),
+        'info' => (SboxTone.neutral, Icons.info_outline_rounded),
+        _ => null,
+      };
+
+  Widget? _statusChip(SettingsHubItemDef i) {
+    final h = _healthOf(i);
+    final t = _toneOf(h?['status']?.toString());
+    if (h == null || t == null) return null;
+    return SboxStatusChip(label: '${h['text'] ?? ''}', tone: t.$1, icon: t.$2);
+  }
+
+  // ─── Menu bên trái (máy tính) ──────────────────────────────────
+
+  Widget _sideNav() {
+    final ordered = _orderedHubItems();
+    final groups = SettingsHubCatalog.groupOrderedItems(SettingsHubCatalog.search(ordered, _q));
+    return Material(
+      color: SboxColors.surface,
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        // Trang tổng quan đã có ô tìm kiếm lớn; chỉ hiện ô này khi đang mở một trang con.
+        if (_selectedIndex != null)
+          Padding(padding: const EdgeInsets.fromLTRB(12, 12, 12, 8), child: _searchField(dense: true))
+        else
+          const SizedBox(height: 10),
+        Expanded(
+          child: ListView(padding: const EdgeInsets.only(bottom: 16), children: [
+            _navTile(
+              icon: Icons.space_dashboard_outlined,
+              label: 'Tổng quan thiết lập',
+              selected: _selectedIndex == null,
+              onTap: _requestClose,
+            ),
+            for (final g in groups) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 12, 4),
+                child: Text(tr(g.title).toUpperCase(),
+                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: SboxColors.slate400, letterSpacing: 0.4)),
+              ),
+              for (final i in g.items)
+                _navTile(
+                  icon: i.icon,
+                  label: i.label,
+                  selected: _selectedIndex != null && SettingsHubCatalog.canonicalIndex(_selectedIndex!) == i.index,
+                  status: _healthOf(i)?['status']?.toString(),
+                  onTap: () => _requestOpen(i.index),
+                ),
+            ],
+          ]),
+        ),
+        if (_canCustomizeSidebar())
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: TextButton.icon(
+              onPressed: _sidebarConfigLoading ? null : _openSidebarConfigDialog,
+              icon: const Icon(Icons.dashboard_customize_outlined, size: 18),
+              label: Text(tr('Sắp xếp / ẩn mục')),
+            ),
+          ),
+      ]),
+    );
+  }
+
+  Widget _navTile({required IconData icon, required String label, required bool selected, required VoidCallback onTap, String? status}) {
+    final dot = switch (status) {
+      'todo' => SboxColors.warning,
+      'warn' => SboxColors.danger,
+      _ => null,
+    };
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      child: Material(
+        color: selected ? SboxColors.brand50 : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+            child: Row(children: [
+              Icon(icon, size: 19, color: selected ? SboxColors.brand700 : SboxColors.slate500),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(tr(label),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                        fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                        color: selected ? SboxColors.brand700 : SboxColors.slate800)),
+              ),
+              if (dot != null) Container(width: 8, height: 8, decoration: BoxDecoration(color: dot, shape: BoxShape.circle)),
+            ]),
           ),
         ),
-        body: body,
-      );
-    }
-
-    _syncHubChrome();
-    final home = ColoredBox(
-      color: PosTheme.background,
-      child: _buildHubHome(),
-    );
-    if (!needsOwnChrome) return home;
-    return Scaffold(
-      backgroundColor: PosTheme.background,
-      appBar: AppBar(
-        title: Text(tr('Thiết lập SBOX')),
-        elevation: 0,
-        leading: (ModalRoute.of(context)?.canPop ?? false)
-            ? IconButton(
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => Navigator.maybePop(context),
-              )
-            : null,
       ),
-      body: home,
     );
   }
 
-  /// Hub kiểu trang chủ: header + lưới nhóm 1 cột (tự tăng số ô theo bề ngang).
-  Widget _buildHubHome() {
-    final groups = _orderedHubGroups();
-    final hPad = kIsWeb ? 20.0 : 12.0;
-    final maxContent = kIsWeb ? 1180.0 : double.infinity;
+  Widget _searchField({bool dense = false}) => TextField(
+        controller: _search,
+        onChanged: (v) => setState(() => _q = v),
+        decoration: InputDecoration(
+          isDense: true,
+          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+          suffixIcon: _q.isEmpty
+              ? null
+              : IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  onPressed: () => setState(() {
+                    _q = '';
+                    _search.clear();
+                  }),
+                ),
+          hintText: tr(dense
+              ? 'Tìm thiết lập'
+              : true
+                  ? 'Tìm thiết lập: VAT, máy in, sơ đồ bàn…'
+                  : 'Tìm thiết lập: VAT, BHXH, máy in, ca đêm…'),
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SboxColors.border)),
+          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: SboxColors.border)),
+        ),
+      );
 
-    final scroll = ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(hPad, kIsWeb ? 16 : 8, hPad, 48),
-      children: [
-        _buildSettingsHeaderCard(),
-        if (_storeAgentContact != null) ...[
-          const SizedBox(height: 12),
-          StoreAgentSupportCard.fromMap(_storeAgentContact!),
-        ],
+  // ─── Trang tổng quan ───────────────────────────────────────────
+
+  Widget _home(bool wide) {
+    final ordered = _orderedHubItems();
+    final hPad = wide ? 28.0 : 12.0;
+    final children = <Widget>[
+      _header(wide),
+      if (_storeAgentContact != null) ...[
         const SizedBox(height: 12),
-        if (_sidebarConfigLoading)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 48),
-            child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-          )
-        else
-          ...groups.expand((g) {
-            if (g.items.isEmpty) return <Widget>[];
-            return [
-              PosMobileHubSectionGrid(
-                title: g.title,
-                // Tablet 6 cột làm ô quá cao → khó cuộn thấy Máy in / Print Agent.
-                crossAxisCount: kIsWeb
-                    ? null
-                    : (MediaQuery.sizeOf(context).width >= 860 ? 4 : null),
-                items: g.items
-                    .map(
-                      (item) => PosMobileHubGridItem(
-                        label: item.label,
-                        icon: item.icon,
-                        onTap: () => _openSubPage(item.index),
-                      ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: 12),
-            ];
-          }),
+        StoreAgentSupportCard.fromMap(_storeAgentContact!),
+      ],
+      const SizedBox(height: 14),
+    ];
+    if (_sidebarConfigLoading) {
+      children.add(const Padding(padding: EdgeInsets.symmetric(vertical: 48), child: Center(child: CircularProgressIndicator(strokeWidth: 2))));
+    } else if (_q.trim().isNotEmpty) {
+      final found = SettingsHubCatalog.search(ordered, _q);
+      children.add(found.isEmpty
+          ? SboxEmptyState(icon: Icons.search_off_rounded, title: 'Không tìm thấy thiết lập', message: 'Thử từ khóa khác, ví dụ: VAT, BHXH, máy in.')
+          : _grid(found, wide));
+    } else {
+      final todo = _checklist(ordered);
+      if (todo != null) children.addAll([todo, const SizedBox(height: 14)]);
+      final recent = _recent.map((i) => ordered.where((x) => x.index == i).firstOrNull).whereType<SettingsHubItemDef>().toList();
+      if (recent.isNotEmpty) children.addAll([_recentRow(recent), const SizedBox(height: 14)]);
+      for (final g in SettingsHubCatalog.groupOrderedItems(ordered)) {
+        final meta = SettingsHubCatalog.groupOf(g.title);
+        children.addAll([
+          Padding(
+            padding: EdgeInsets.fromLTRB(wide ? 2 : 6, wide ? 8 : 10, 0, wide ? 8 : 6),
+            child: Row(children: [
+              Icon(meta.icon, size: wide ? 18 : 15, color: meta.color),
+              const SizedBox(width: 8),
+              Text(wide ? tr(g.title) : tr(g.title).toUpperCase(),
+                  style: TextStyle(
+                      fontSize: wide ? 15 : 12,
+                      letterSpacing: wide ? 0 : 0.4,
+                      fontWeight: FontWeight.w800,
+                      color: wide ? SboxColors.slate800 : SboxColors.slate500)),
+            ]),
+          ),
+          _grid(g.items, wide),
+          const SizedBox(height: 10),
+        ]);
+      }
+    }
+    return ListView(
+      padding: EdgeInsets.fromLTRB(hPad, wide ? 20 : 10, hPad, 32),
+      children: [
+        Center(child: PageMaxWidth(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children))),
       ],
     );
-
-    if (!kIsWeb) return scroll;
-
-    return Align(
-      alignment: Alignment.topCenter,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: maxContent),
-        child: scroll,
-      ),
-    );
   }
 
-  Widget _buildSettingsHeaderCard() {
-    final user = Provider.of<AuthProvider>(context, listen: false).user;
-    final subtitle = user?.department?.trim().isNotEmpty == true
-        ? user!.department!.trim()
-        : (user?.position?.trim().isNotEmpty == true
-            ? user!.position!.trim()
-            : 'Quản lý cấu hình hệ thống');
+  Widget _header(bool wide) {
+    final title = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(tr('Thiết lập SBOX'), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: SboxColors.slate900)),
+      Text(tr(true
+          ? 'Mọi cấu hình của cửa hàng: bán hàng, thanh toán, in ấn, người dùng'
+          : 'Mọi cấu hình của cửa hàng: bán hàng, thanh toán, in ấn, nhân sự, lương, người dùng'), style: const TextStyle(color: SboxColors.slate500)),
+    ]);
+    final customize = _canCustomizeSidebar() && !wide
+        ? IconButton(
+            tooltip: tr('Sắp xếp / ẩn mục'),
+            onPressed: _sidebarConfigLoading ? null : _openSidebarConfigDialog,
+            icon: const Icon(Icons.dashboard_customize_outlined, color: SboxColors.brand600),
+          )
+        : null;
+    if (wide) {
+      return Row(children: [Expanded(child: title), SizedBox(width: 420, child: _searchField())]);
+    }
+    return Row(children: [Expanded(child: _searchField(dense: true)), if (customize != null) customize]);
+  }
 
-    return Container(
-      decoration: PosTheme.mobileCardDecoration(),
-      padding: const EdgeInsets.all(14),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            // Logo SBOX POS chính thức (cùng trang đăng nhập / menu bán hàng).
-            child: Image.asset(
-              SboxColors.posApp ? 'assets/sbox_pos_mark_gsm.png' : 'assets/sbox_pos_logo_wide.png',
-              width: SboxColors.posApp ? 52 : 96,
-              height: 52,
-              fit: BoxFit.contain,
-              filterQuality: FilterQuality.medium,
-              errorBuilder: (_, __, ___) => CircleAvatar(
-                radius: 26,
-                backgroundColor: PosTheme.kiotBlueLight,
-                child: const Icon(Icons.point_of_sale_rounded,
-                    color: PosTheme.kiotBlue, size: 26),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
+  /// «Việc cần làm»: mục chưa cấu hình / cần chú ý + tiến độ.
+  Widget? _checklist(List<SettingsHubItemDef> items) {
+    final tracked = items.where((i) => _healthOf(i) != null).toList();
+    if (tracked.isEmpty) return null;
+    final pending = tracked.where((i) => ['todo', 'warn'].contains(_healthOf(i)!['status'])).toList()
+      ..sort((a, b) => (_healthOf(a)!['status'] == 'warn' ? 0 : 1).compareTo(_healthOf(b)!['status'] == 'warn' ? 0 : 1));
+    final done = tracked.length - pending.length;
+    return SboxCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          Icon(pending.isEmpty ? Icons.verified_rounded : Icons.checklist_rounded,
+              color: pending.isEmpty ? SboxColors.success : SboxColors.brand600),
+          const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  tr('SBOX HRM - SBOX POS'),
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: PosTheme.kiotBlue,
-                  ),
+            child: Text(tr(pending.isEmpty ? 'Các thiết lập chính đã sẵn sàng' : 'Việc cần làm (${pending.length})'),
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          ),
+          Text('$done/${tracked.length}', style: const TextStyle(fontWeight: FontWeight.w800, color: SboxColors.slate600)),
+        ]),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            value: tracked.isEmpty ? 0 : done / tracked.length,
+            minHeight: 6,
+            backgroundColor: SboxColors.slate100,
+            color: SboxColors.success,
+          ),
+        ),
+        for (final i in pending.take(6))
+          InkWell(
+            onTap: () => _openSubPage(i.index),
+            borderRadius: BorderRadius.circular(10),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(children: [
+                Icon(i.icon, size: 20, color: SboxColors.slate500),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Wrap(spacing: 10, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                    Text(tr(i.label), style: const TextStyle(fontWeight: FontWeight.w700)),
+                    if (_statusChip(i) != null) _statusChip(i)!,
+                  ]),
                 ),
-                Text(
-                  tr(user?.fullName ?? 'Thiết lập SBOX'),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  tr(subtitle),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: PosTheme.textSecondary,
-                  ),
-                ),
-              ],
+                const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
+              ]),
             ),
           ),
-          if (_canCustomizeSidebar())
-            IconButton(
-              tooltip: tr('Tùy chỉnh module'),
-              onPressed:
-                  _sidebarConfigLoading ? null : _openSidebarConfigDialog,
-              icon: const Icon(Icons.dashboard_customize_outlined,
-                  color: PosTheme.kiotBlue),
+      ]),
+    );
+  }
+
+  Widget _recentRow(List<SettingsHubItemDef> recent) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(tr('Mở gần đây'), style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w800, color: SboxColors.slate500)),
+        const SizedBox(height: 6),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final i in recent)
+            ActionChip(
+              avatar: Icon(i.icon, size: 17, color: SboxColors.brand600),
+              label: Text(tr(i.label)),
+              onPressed: () => _openSubPage(i.index),
             ),
+        ]),
+      ]);
+
+  Widget _grid(List<SettingsHubItemDef> items, bool wide) => LayoutBuilder(builder: (context, box) {
+        final cols = box.maxWidth >= 1000 ? 3 : (box.maxWidth >= 620 ? 2 : 1);
+        if (cols == 1) return _groupList(items);
+        final w = (box.maxWidth - (cols - 1) * 12) / cols;
+        return Wrap(spacing: 12, runSpacing: 12, children: [for (final i in items) SizedBox(width: w, child: _card(i))]);
+      });
+
+  /// Điện thoại: các mục của 1 nhóm nằm chung 1 khung, mỗi mục 1 dòng gọn (kiểu cài đặt điện thoại).
+  Widget _groupList(List<SettingsHubItemDef> items) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SboxColors.slate200),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(children: [
+        for (var k = 0; k < items.length; k++) ...[
+          if (k > 0) const Divider(height: 1, indent: 60, color: SboxColors.divider),
+          _row(items[k]),
         ],
+      ]),
+    );
+  }
+
+  Widget _row(SettingsHubItemDef i) {
+    final chip = _statusChip(i);
+    return Material(
+      color: Colors.white,
+      child: InkWell(
+        onTap: () => _openSubPage(i.index),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
+          // Chỉ tên mục; trạng thái (xanh / vàng / đỏ) xuống hàng dưới — không cắt chữ «Tài …», «Máy chấm…».
+          child: Row(children: [
+            SboxIconTile(i.icon, size: 36, iconSize: 20, radius: 10),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(tr(i.label),
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: SboxColors.slate900)),
+                if (chip != null) ...[const SizedBox(height: 5), chip],
+              ]),
+            ),
+            const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
+          ]),
+        ),
       ),
     );
   }
 
-  List<SettingsHubItemDef> _filterItems(List<SettingsHubItemDef> items) {
+  Widget _card(SettingsHubItemDef i) {
+    final chip = _statusChip(i);
+    return SboxCard(
+      onTap: () => _openSubPage(i.index),
+      padding: const EdgeInsets.all(14),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        SboxIconTile(i.icon, size: 40, iconSize: 21, radius: 12),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr(i.label), style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: SboxColors.slate900)),
+            if (chip != null) ...[const SizedBox(height: 8), chip],
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  // ─── Quyền / gói dịch vụ ───────────────────────────────────────
+
+  List<SettingsHubItemDef> _filterItems(List<SettingsHubItemDef> items) =>
+      SettingsHubScreen.visibleItems(context, items);
+}
+
+/// Lọc mục Thiết lập theo quyền / gói — dùng chung cho hub và ô «Tìm chức năng».
+List<SettingsHubItemDef> _settingsVisibleItems(BuildContext context, List<SettingsHubItemDef> allItems) {
+    // Đèn bàn bi-a chỉ dành cho ngành Karaoke / Bi-a / Phòng giờ (chưa tải được ngành thì chưa ẩn).
+    final profile = PosSellSettingsHelper.lastProfile;
+    final items = profile == null || profile == PosSellProfile.roomHourly
+        ? allItems
+        : allItems.where((i) => i.code != 'bidaLight').toList();
     final authUser = Provider.of<AuthProvider>(context, listen: false).user;
     final role = (authUser?.role ?? '').toLowerCase();
-    final isSuperAdmin = role == 'superadmin';
+    if (role == 'superadmin') return items;
     final bypassPackage = StoreRoleHelper.bypassesPackageFilter(authUser?.role);
-    if (isSuperAdmin) return items;
-    final permProvider =
-        Provider.of<PermissionProvider>(context, listen: false);
+    final permProvider = Provider.of<PermissionProvider>(context, listen: false);
     final allowedModules = authUser?.allowedModules;
     bool allowed(String? code) =>
         PermissionNavigation.isAllowedByPackageOrRole(
@@ -506,6 +801,7 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         ) &&
         (code == null || permProvider.canViewExact(code));
     return items.where((item) {
+      // Mục có mã thay thế (Máy in = thiết bị hoặc cloud): đủ một mã là thấy; từng tab tự lọc quyền.
       if (item.altModuleCodes.isNotEmpty) {
         return [item.moduleCode, ...item.altModuleCodes].any(allowed);
       }
@@ -517,56 +813,40 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       )) {
         return false;
       }
-      if (item.moduleCode != null &&
-          !permProvider.canViewExact(item.moduleCode)) {
+      if (item.packageModule != null &&
+          !PermissionNavigation.isAllowedByPackageOrRole(
+            item.packageModule,
+            allowedModules: allowedModules,
+            perm: permProvider,
+            bypassPackageFilter: bypassPackage,
+          )) {
         return false;
       }
+      // Tick đúng chức năng trên Phân quyền — không suy từ PosSell.
+      if (item.moduleCode != null && !permProvider.canViewExact(item.moduleCode!)) return false;
+      if (item.requiresEdit && !permProvider.canEdit(item.moduleCode)) return false;
       return true;
     }).toList();
-  }
 }
 
 class _SettingsAccessDeniedScreen extends StatelessWidget {
+  const _SettingsAccessDeniedScreen({required this.title, required this.message});
+
   final String title;
   final String message;
 
-  const _SettingsAccessDeniedScreen({
-    required this.title,
-    required this.message,
-  });
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: SboxColors.slate50,
-      appBar: AppBar(
-        title: Text(tr('Thiết lập')),
-        backgroundColor: Colors.white,
-        foregroundColor: SboxColors.slate900,
-        elevation: 0,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.lock_outline_rounded,
-                  size: 56, color: SboxColors.slate400),
-              const SizedBox(height: 12),
-              Text(tr(title),
-                  style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: SboxColors.slate900)),
-              const SizedBox(height: 8),
-              Text(tr(message),
-                  textAlign: TextAlign.center,
-                  style:
-                      const TextStyle(fontSize: 14, color: SboxColors.slate500)),
-            ],
-          ),
-        ),
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Icon(Icons.lock_outline_rounded, size: 56, color: SboxColors.slate400),
+          const SizedBox(height: 12),
+          Text(tr(title), style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: SboxColors.slate900)),
+          const SizedBox(height: 8),
+          Text(tr(message), textAlign: TextAlign.center, style: const TextStyle(fontSize: 14, color: SboxColors.slate500)),
+        ]),
       ),
     );
   }

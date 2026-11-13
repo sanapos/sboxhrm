@@ -7,6 +7,10 @@ import '../sbox/sbox_ui.dart';
 
 /// Chặn rời trang thiết lập khi còn thay đổi chưa lưu (nút back của Thiết lập SBOX, chuyển mục).
 class SettingsLeaveGuard {
+  /// Thiết lập SBOX mở thành trang riêng tự xử lý nút Back của máy (hỏi qua [canLeave] rồi về danh sách)
+  /// — trang con không hỏi lần nữa.
+  static bool hostHandlesBack = false;
+
   SettingsLeaveGuard._();
 
   static Future<bool> Function()? _confirm;
@@ -192,10 +196,10 @@ class _SettingsPageState extends State<SettingsPage> with WidgetsBindingObserver
     // inset bàn phím khỏi MediaQuery của thân trang nên viewInsetsOf ở đây luôn 0.
     final showBar = widget.dirty && View.of(context).viewInsets.bottom <= 0;
     return PopScope(
-      canPop: !widget.dirty,
+      canPop: !widget.dirty || SettingsLeaveGuard.hostHandlesBack,
       // Flutter 3.22 (A6): chưa có onPopInvokedWithResult.
       onPopInvoked: (didPop) async {
-        if (didPop) return;
+        if (didPop || !widget.dirty || SettingsLeaveGuard.hostHandlesBack) return;
         if (await _confirmLeave() && context.mounted) {
           SettingsLeaveGuard.set(null);
           Navigator.of(context).maybePop();

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../utils/api_datetime.dart';
 import '../utils/pos_doc_status.dart';
+import '../utils/pos_payment_label.dart';
 import 'pos_product.dart' show parsePosStringList;
 
 class PosSaleLineTopping {
@@ -102,6 +103,10 @@ class PosSaleOrderLine {
   /// Combo nhiều bước: mỗi bước một NV (JSON `[{componentProductId, assignedEmployeeId, assignedEmployeeName}]`).
   final String? staffAssignmentsJson;
 
+  /// Bảo hành của dòng (từ phiếu đăng ký bảo hành lúc bán) — in «BH 12 tháng — đến dd/MM/yyyy».
+  final int? warrantyMonths;
+  final DateTime? warrantyExpiry;
+
   PosSaleOrderLine({
     this.id,
     required this.productId,
@@ -129,6 +134,8 @@ class PosSaleOrderLine {
     this.toppings = const [],
     this.assignedEmployeeId,
     this.staffAssignmentsJson,
+    this.warrantyMonths,
+    this.warrantyExpiry,
   });
 
   factory PosSaleOrderLine.fromJson(Map<String, dynamic> json) {
@@ -171,7 +178,19 @@ class PosSaleOrderLine {
           (json['assignedEmployeeId'] ?? json['AssignedEmployeeId'])?.toString(),
       staffAssignmentsJson:
           (json['staffAssignmentsJson'] ?? json['StaffAssignmentsJson'])?.toString(),
+      warrantyMonths: i(json['warrantyMonths'] ?? json['WarrantyMonths']),
+      warrantyExpiry: parseApiDateTime(json['warrantyExpiry'] ?? json['WarrantyExpiry']),
     );
+  }
+
+  /// «BH 12 tháng — đến 02/11/2027» (trống nếu không bảo hành).
+  String get warrantyLabel {
+    final m = warrantyMonths ?? 0;
+    if (m <= 0) return '';
+    final e = warrantyExpiry?.toLocal();
+    if (e == null) return 'BH $m tháng';
+    String two(int v) => v.toString().padLeft(2, '0');
+    return 'BH $m tháng — đến ${two(e.day)}/${two(e.month)}/${e.year}';
   }
 
   /// Payload gọn cho Print Agent (Sunmi native) — tránh Agent phải gọi lại API.
@@ -189,6 +208,8 @@ class PosSaleOrderLine {
         'returnedQty': returnedQty,
         'serialNumbers': serialNumbers,
         'toppingsJson': toppings.map((t) => t.toJson()).toList(),
+        if (warrantyMonths != null) 'warrantyMonths': warrantyMonths,
+        if (warrantyExpiry != null) 'warrantyExpiry': warrantyExpiry!.toUtc().toIso8601String(),
       };
 }
 
@@ -232,7 +253,8 @@ class PosSaleOrder {
   /// Họ tên người bán / người tạo (API chi tiết đơn) — [soldBy]/[createdBy] có thể là email.
   final String? soldByName;
   final String? createdByName;
-  /// Tên hiển thị người bán: ưu tiên họ tên, không có mới dùng tài khoản (email).
+
+  /// Người bán để hiển thị / in: họ tên nếu API có, không thì [soldBy] rồi [createdBy].
   String? get sellerLabel {
     for (final v in [soldByName, soldBy, createdByName, createdBy]) {
       final t = v?.trim();
@@ -251,6 +273,8 @@ class PosSaleOrder {
   final double pointsRedeemed;
   final double pointsDiscount;
   final double pointsEarned;
+  /// Thẻ tập / gói buổi cấp từ đơn (chi tiết đơn) — vd «The Tap 1 Thang · hạn 21/03/2027».
+  final List<String> sessionGrants;
   final DateTime? createdAt;
   final String? createdBy;
   final int lineCount;
@@ -337,6 +361,7 @@ class PosSaleOrder {
     this.pointsRedeemed = 0,
     this.pointsDiscount = 0,
     this.pointsEarned = 0,
+    this.sessionGrants = const [],
     this.createdAt,
     this.createdBy,
     this.lineCount = 0,
@@ -427,6 +452,7 @@ class PosSaleOrder {
         printNote: printNote,
         saleDate: saleDate,
         soldBy: soldBy,
+        soldByName: soldByName,
         soldByEmployeeId: soldByEmployeeId,
         salesChannel: salesChannel,
         priceListId: priceListId,
@@ -437,6 +463,7 @@ class PosSaleOrder {
         pointsRedeemed: pointsRedeemed,
         pointsDiscount: pointsDiscount,
         pointsEarned: pointsEarned,
+        sessionGrants: sessionGrants,
         createdAt: createdAt,
         createdBy: createdBy,
         lineCount: lineCount,
@@ -486,6 +513,11 @@ class PosSaleOrder {
   }
 
   bool get isReprint => printCount > 1;
+
+  /// Hình thức thanh toán hiển thị / in: thu chưa đủ → «Công nợ» / «Tiền mặt + Công nợ».
+  String get paymentLabel => status == 'Draft' || status == 'Cancelled'
+      ? paymentMethod
+      : posPaymentLabel(paymentMethod, paid: paidAmount, due: balanceDue);
 
   /// Tổng gốc trước khi trả (net + đã trả).
   double get grossTotal => total + returnedAmount;
@@ -588,6 +620,9 @@ class PosSaleOrder {
       pointsRedeemed: n(json['pointsRedeemed'] ?? json['PointsRedeemed']),
       pointsDiscount: n(json['pointsDiscount'] ?? json['PointsDiscount']),
       pointsEarned: n(json['pointsEarned'] ?? json['PointsEarned']),
+      sessionGrants: [
+        for (final g in (json['sessionGrants'] ?? json['SessionGrants'] ?? const []) as List) '$g',
+      ],
       createdAt: parseApiDateTime(json['createdAt'] ?? json['CreatedAt']),
       createdBy: json['createdBy'] ?? json['CreatedBy'] as String?,
       lineCount: i(json['lineCount'] ?? json['LineCount']) > 0
@@ -680,6 +715,7 @@ class PosSaleOrder {
         'note': note,
         'saleDate': saleDate?.toIso8601String(),
         'soldBy': soldBy,
+        'soldByName': soldByName,
         'createdAt': createdAt?.toIso8601String(),
         'printCount': printCount,
         'dailyOrderIndex': dailyOrderIndex,

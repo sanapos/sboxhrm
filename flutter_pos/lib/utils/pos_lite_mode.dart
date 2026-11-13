@@ -36,6 +36,7 @@ class PosLiteMode {
     'Hóa đơn điện tử',
     'Check-in hội viên',
     'Tra cứu BH',
+    'Bảo hành POS',
   };
 
   /// Mục giữ lại trong «Thiết lập SBOX».
@@ -51,4 +52,8 @@ class PosLiteMode {
 
   static bool showMore(String label) => !enabled || !hiddenMoreItems.contains(label);
   static bool showSetting(String label) => !enabled || settingsItems.contains(label);
+
+  /// Mã mục Thiết lập SBOX giữ lại (theo [SettingsHubCatalog]): cửa hàng, ngành hàng, sơ đồ bàn,
+  /// tài khoản nhận tiền, máy in, mẫu in, màn hình phụ.
+  static const settingsIndexes = {17, 16, 19, 28, 18, 15, 23};
 }

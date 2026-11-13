@@ -80,11 +80,11 @@ class PosMobileProfileCard extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 26,
-            backgroundColor: PosTheme.kiotBlueLight,
+            backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : PosTheme.kiotBlueLight,
             child: Text(
               tr(displayName.isNotEmpty ? displayName[0].toUpperCase() : 'S'),
               style: const TextStyle(
-                color: PosTheme.kiotBlue,
+                color: SboxColors.isBoss ? SboxColors.gold : PosTheme.kiotBlue,
                 fontWeight: FontWeight.bold,
                 fontSize: 20,
               ),
@@ -138,11 +138,15 @@ class PosMobileHubGridItem {
     required this.label,
     required this.icon,
     required this.onTap,
+    this.subtitle,
   });
 
   final String label;
   final IconData icon;
   final VoidCallback onTap;
+
+  /// Dòng phụ dưới tên (thẻ màn rộng kiểu Trang chủ SBOX POS) — vd «Thu ngân», «Báo bếp».
+  final String? subtitle;
 }
 
 /// Khối section POS — tiêu đề + nội dung tùy ý (list, metric…).
@@ -196,11 +200,19 @@ class PosMobileHubSectionGrid extends StatelessWidget {
     required this.title,
     required this.items,
     this.crossAxisCount,
+    this.icon,
+    this.subtitle,
   });
 
   final String title;
   final List<PosMobileHubGridItem> items;
   final int? crossAxisCount;
+
+  /// Ô icon cạnh tiêu đề nhóm (kiểu Trang chủ SBOX POS).
+  final IconData? icon;
+
+  /// Mô tả ngắn sau tiêu đề nhóm («· Thu ngân, đơn hàng, bếp, đặt lịch»).
+  final String? subtitle;
 
   static int columnsForWidth(double width) {
     if (width >= 1100) return 6;
@@ -212,6 +224,7 @@ class PosMobileHubSectionGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) return const SizedBox.shrink();
+    if (SboxColors.posApp) return _PosHomeSection(section: this);
     return LayoutBuilder(
       builder: (context, constraints) {
         final cols =
@@ -280,6 +293,174 @@ class _PosMobileHubGridTile extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Ô icon kiểu logo app (giống Trang chủ SBOX POS Android 7): nền chuyển màu thương hiệu, icon trắng.
+class PosHomeIconBox extends StatelessWidget {
+  const PosHomeIconBox({
+    super.key,
+    required this.icon,
+    this.size = 44,
+    this.iconSize = 24,
+    this.radius = SboxRadius.md,
+  });
+
+  final IconData icon;
+  final double size;
+  final double iconSize;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) => Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [SboxColors.iconTileLight, SboxColors.iconTileDark],
+          ),
+          borderRadius: BorderRadius.circular(radius + 2),
+        ),
+        child: Icon(icon, size: iconSize, color: SboxColors.iconOnTile),
+      );
+}
+
+/// Nhóm chức năng kiểu Trang chủ SBOX POS Android 7: tiêu đề có ô icon, màn rộng là lưới thẻ
+/// (ô icon · tên · dòng phụ), màn hẹp là ô icon trên chữ.
+class _PosHomeSection extends StatelessWidget {
+  const _PosHomeSection({required this.section});
+
+  final PosMobileHubSectionGrid section;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(builder: (context, constraints) {
+      final w = constraints.maxWidth;
+      final wide = w >= 700;
+      final header = Row(children: [
+        PosHomeIconBox(icon: section.icon ?? Icons.apps_rounded, size: wide ? 40 : 28, iconSize: wide ? 20 : 16, radius: SboxRadius.sm),
+        const SizedBox(width: SboxSpace.md),
+        Flexible(
+          child: Text(tr(section.title),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: wide ? SboxType.titleStyle() : SboxType.titleSmStyle()),
+        ),
+        if ((section.subtitle ?? '').isNotEmpty && wide) ...[
+          const SizedBox(width: SboxSpace.sm),
+          Flexible(
+            flex: 2,
+            child: Text('· ${tr(section.subtitle!)}',
+                maxLines: 1, overflow: TextOverflow.ellipsis, style: SboxType.bodyStyle(SboxColors.textMuted)),
+          ),
+        ],
+      ]);
+      if (!wide) {
+        final cols = w >= 480 ? 5 : (w >= 280 ? 4 : 3);
+        return Container(
+          decoration: BoxDecoration(
+            color: SboxColors.surface,
+            borderRadius: SboxRadius.lgAll,
+            border: Border.all(color: SboxColors.border),
+          ),
+          padding: const EdgeInsets.fromLTRB(SboxSpace.md, SboxSpace.md, SboxSpace.md, SboxSpace.xs),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            header,
+            const SizedBox(height: SboxSpace.sm),
+            Wrap(children: [
+              for (final it in section.items)
+                SizedBox(
+                  width: (w - SboxSpace.md * 2) / cols,
+                  child: InkWell(
+                    onTap: it.onTap,
+                    borderRadius: SboxRadius.mdAll,
+                    child: SizedBox(
+                      height: 96,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: SboxSpace.xxs, vertical: SboxSpace.sm),
+                        child: Column(children: [
+                          PosHomeIconBox(icon: it.icon),
+                          const SizedBox(height: 6),
+                          Text(tr(it.label),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: SboxType.captionStyle(SboxColors.text).copyWith(height: 1.25)),
+                        ]),
+                      ),
+                    ),
+                  ),
+                ),
+            ]),
+          ]),
+        );
+      }
+      // Cùng số cột với Trang chủ SBOX POS Android 7 ở bề rộng tương ứng.
+      final cols = section.crossAxisCount ?? (w >= 1500 ? 5 : (w >= 900 ? 4 : (w >= 600 ? 3 : 2)));
+      const gap = SboxSpace.lg;
+      final tileW = (w - gap * (cols - 1)) / cols;
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        header,
+        const SizedBox(height: SboxSpace.md),
+        Wrap(spacing: gap, runSpacing: gap, children: [
+          for (final it in section.items) SizedBox(width: tileW, child: _PosHomeMenuCard(item: it)),
+        ]),
+      ]);
+    });
+  }
+}
+
+/// Thẻ chức năng màn rộng (giống _MenuCard Trang chủ SBOX POS Android 7).
+class _PosHomeMenuCard extends StatelessWidget {
+  const _PosHomeMenuCard({required this.item});
+
+  final PosMobileHubGridItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = tr(item.label);
+    final sub = item.subtitle == null ? '' : tr(item.subtitle!);
+    final showSub = sub.isNotEmpty && sub.trim() != label.trim();
+    return Material(
+      color: SboxColors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: SboxRadius.lgAll,
+        side: const BorderSide(color: SboxColors.border),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: item.onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints.tightFor(height: 80),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: SboxSpace.md + 2, vertical: SboxSpace.md),
+            child: Row(children: [
+              PosHomeIconBox(icon: item.icon, size: 42, iconSize: 22),
+              const SizedBox(width: SboxSpace.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(label,
+                        style: SboxType.bodyStrong().copyWith(height: 1.3), maxLines: 2, overflow: TextOverflow.ellipsis),
+                    if (showSub) ...[
+                      const SizedBox(height: SboxSpace.xxs),
+                      Text(sub,
+                          style: SboxType.captionStyle(SboxColors.textMuted).copyWith(fontWeight: SboxType.regular),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis),
+                    ],
+                  ],
+                ),
+              ),
+            ]),
+          ),
         ),
       ),
     );
@@ -756,12 +937,14 @@ class PosMobileExpandableDocCard extends StatelessWidget {
     required this.status,
     required this.fields,
     this.detail,
+    this.trailing,
     this.accentColor = PosTheme.kiotBlue,
   });
 
   final bool expanded;
   final VoidCallback onTap;
   final String code;
+  final Widget? trailing;
   final Widget status;
   final List<PosMobileField> fields;
   final Widget? detail;
@@ -804,6 +987,7 @@ class PosMobileExpandableDocCard extends StatelessWidget {
                         ),
                       ),
                       status,
+                      if (trailing != null) trailing!,
                     ],
                   ),
                   if (!expanded && fields.isNotEmpty) ...[
@@ -869,8 +1053,12 @@ class PosMobilePager extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (total <= pageSize) return const SizedBox.shrink();
-    // Thanh phân trang chuẩn SBOX (tự gọn trên điện thoại).
-    return SboxPager(page: page, pageSize: pageSize, total: total, onPage: onPageChanged);
+    // Thanh phân trang chuẩn SBOX (tự gọn trên điện thoại). Kéo hết chiều ngang: trong Column
+    // căn giữa thanh trắng co theo nội dung, hai bên lộ nền xám.
+    return SizedBox(
+      width: double.infinity,
+      child: SboxPager(page: page, pageSize: pageSize, total: total, onPage: onPageChanged),
+    );
   }
 }
 
@@ -937,13 +1125,13 @@ class PosMobileLineItemCard extends StatelessWidget {
             children: [
               CircleAvatar(
                 radius: 12,
-                backgroundColor: PosTheme.kiotBlueLight,
+                backgroundColor: SboxColors.isBoss ? SboxColors.iconBox : PosTheme.kiotBlueLight,
                 child: Text(
                   tr('$index'),
                   style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: PosTheme.kiotBlue),
+                      color: SboxColors.isBoss ? SboxColors.gold : PosTheme.kiotBlue),
                 ),
               ),
               const SizedBox(width: 8),
@@ -1091,6 +1279,7 @@ class PosMobileKiotHeader extends StatelessWidget {
     this.activeFilterCount = 0,
     this.filterChips,
     this.trailing,
+    this.moreOpensMenu = false,
   });
 
   final String title;
@@ -1103,6 +1292,9 @@ class PosMobileKiotHeader extends StatelessWidget {
   final int activeFilterCount;
   final Widget? filterChips;
   final List<Widget>? trailing;
+  /// ⋯ mở thẳng [onMore] (màn tự liệt kê lọc / sắp xếp / mọi chức năng) — không qua popup
+  /// «Bộ lọc · Sắp xếp · Đồng bộ · Thêm chức năng» hai tầng.
+  final bool moreOpensMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -1130,7 +1322,7 @@ class PosMobileKiotHeader extends StatelessWidget {
       children: [
         Padding(
           padding: EdgeInsets.fromLTRB(
-              inHub ? 4 : (pushed ? 0 : 12), 4, 4, 0),
+              inHub ? 4 : (pushed ? 0 : 12), SboxColors.isBoss ? 0 : 4, 4, 0),
           child: Row(
             children: [
               if (showBack)
@@ -1161,7 +1353,7 @@ class PosMobileKiotHeader extends StatelessWidget {
                   child: Text(
                     tr(title),
                     style: TextStyle(
-                      fontSize: 18,
+                      fontSize: SboxColors.isBoss ? 16 : 18,
                       fontWeight: FontWeight.bold,
                       color: SboxColors.appBarFg(PosTheme.textPrimary),
                     ),
@@ -1211,7 +1403,7 @@ class PosMobileKiotHeader extends StatelessWidget {
             ],
           ),
         ),
-        if (!SboxColors.posApp) const Divider(height: 1, color: PosTheme.border),
+        if (!SboxColors.posApp && !SboxColors.isBoss) const Divider(height: 1, color: PosTheme.border),
       ],
     );
     final bar = Material(
@@ -1223,7 +1415,7 @@ class PosMobileKiotHeader extends StatelessWidget {
             )
           : withFallbackTopInset(context, content),
     );
-    return SboxColors.posApp ? sboxOnChromeScope(bar) : bar;
+    return SboxColors.posApp ? sboxOnChromeScope(bar) : sboxBarScope(bar);
   }
 
   Widget _buildCompactActions(BuildContext context) {
@@ -1249,6 +1441,18 @@ class PosMobileKiotHeader extends StatelessWidget {
             icon: const Icon(Icons.search),
             tooltip: tr('Tìm kiếm'),
           ),
+        if (moreOpensMenu && onMore != null)
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            onPressed: onMore,
+            tooltip: tr('Chức năng'),
+            icon: Badge(
+              isLabelVisible: activeFilterCount > 0,
+              label: Text(tr('$activeFilterCount')),
+              child: const Icon(Icons.more_horiz),
+            ),
+          )
+        else
         PopupMenuButton<String>(
           icon: Badge(
             isLabelVisible: activeFilterCount > 0,
@@ -1290,7 +1494,7 @@ class PosMobileKiotHeader extends StatelessWidget {
   }
 }
 
-/// Dòng hàng hóa mobile: ảnh | tên+mã | giá+tồn.
+/// Dòng hàng hoá mobile: ảnh | tên+mã | giá+tồn.
 class PosMobileProductRow extends StatelessWidget {
   const PosMobileProductRow({
     super.key,
@@ -1312,12 +1516,20 @@ class PosMobileProductRow extends StatelessWidget {
     this.typeBadge,
     this.unitLabel,
     this.onUnitTap,
+    this.stockPill = false,
+    this.stockOut = false,
+    this.onStockTap,
   });
 
   final String name;
   final String code;
   final String priceText;
   final String stockText;
+
+  /// Danh sách Hàng hóa: tồn hiện thành nhãn màu (xanh / đỏ khi hết), bấm được ([onStockTap]).
+  final bool stockPill;
+  final bool stockOut;
+  final VoidCallback? onStockTap;
   final Widget? typeBadge;
   final Widget? image;
   final VoidCallback? onTap;
@@ -1339,6 +1551,8 @@ class PosMobileProductRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final showStepper = (selectedQty ?? 0) > 0 &&
         (onIncrement != null || onDecrement != null);
+    // Đang chọn: tồn chuyển sang dòng mã để cột phải chỉ còn bộ +/- và giá.
+    final stockOnLeft = showStepper && stockText.isNotEmpty;
     return Material(
       color: isSelected ? (SboxColors.posApp ? SboxColors.page : Color(0xFFE8F0FE)) : Colors.white,
       child: InkWell(
@@ -1346,7 +1560,11 @@ class PosMobileProductRow extends StatelessWidget {
         onLongPress: onLongPress,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          child: Row(
+          // Chiều cao dòng cố định dù chọn hay chưa: trước đây chọn 1 món thì dòng cao thêm
+          // ~16dp, các dòng dưới bị đẩy xuống → bấm liền tay trúng nhầm món khác.
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: kiotSellStyle ? 58 : 0),
+            child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               ClipRRect(
@@ -1409,6 +1627,10 @@ class PosMobileProductRow extends StatelessWidget {
                         ],
                       ],
                     ),
+                    if (stockOnLeft) ...[
+                      const SizedBox(height: 2),
+                      _stockLabel(),
+                    ],
                   ],
                 ),
               ),
@@ -1431,7 +1653,7 @@ class PosMobileProductRow extends StatelessWidget {
                           onQtyTap: onQtyTap,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                     ],
                     Text(
                       tr(priceText),
@@ -1440,27 +1662,15 @@ class PosMobileProductRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 16,
+                        height: 1.2,
                         fontWeight: FontWeight.bold,
                         color: PosTheme.kiotBlue,
+                        fontFeatures: [FontFeature.tabularFigures()],
                       ),
                     ),
-                    if (stockText.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        tr(stockText),
-                        textAlign: TextAlign.right,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: kiotSellStyle
-                              ? FontWeight.w600
-                              : FontWeight.w500,
-                          color: stockText.contains('Hết')
-                              ? const Color(0xFFB42318)
-                              : PosTheme.textSecondary,
-                        ),
-                      ),
+                    if (stockText.isNotEmpty && !stockOnLeft) ...[
+                      SizedBox(height: stockPill ? 4 : 2),
+                      if (stockPill) _stockPillLabel() else _stockLabel(alignRight: true),
                     ],
                     if (orderReservedText != null) ...[
                       const SizedBox(height: 2),
@@ -1470,8 +1680,54 @@ class PosMobileProductRow extends StatelessWidget {
                 ),
               ),
             ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _stockPillLabel() {
+    final pill = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: stockOut ? SboxColors.dangerSoft : SboxColors.successSoft,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        tr(stockText),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: stockOut ? SboxColors.dangerText : SboxColors.successText,
+        ),
+      ),
+    );
+    if (onStockTap == null) return Align(alignment: Alignment.centerRight, child: pill);
+    return Align(
+      alignment: Alignment.centerRight,
+      child: InkWell(
+        onTap: onStockTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(padding: const EdgeInsets.symmetric(vertical: 2), child: pill),
+      ),
+    );
+  }
+
+  Widget _stockLabel({bool alignRight = false}) {
+    return Text(
+      tr(stockText),
+      textAlign: alignRight ? TextAlign.right : TextAlign.left,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        fontSize: 11,
+        fontWeight: kiotSellStyle ? FontWeight.w600 : FontWeight.w500,
+        color: stockText.contains('Hết')
+            ? const Color(0xFFB42318)
+            : PosTheme.textSecondary,
       ),
     );
   }
@@ -1635,8 +1891,8 @@ class PosMobileFab extends StatelessWidget {
     return FloatingActionButton(
       onPressed: onPressed,
       tooltip: tr(tooltip),
-      backgroundColor: PosTheme.kiotBlue,
-      foregroundColor: Colors.white,
+      backgroundColor: SboxColors.isBoss ? SboxColors.action : PosTheme.kiotBlue,
+      foregroundColor: SboxColors.isBoss ? SboxColors.onAction : Colors.white,
       elevation: 4,
       child: const Icon(Icons.add, size: 28),
     );

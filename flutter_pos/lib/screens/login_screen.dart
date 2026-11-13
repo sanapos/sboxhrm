@@ -516,11 +516,11 @@ class _LoginScreenState extends State<LoginScreen>
                         ],
 
                         // Store Code
-                        _buildLabel('TÊN CỬA HÀNG'),
+                        _buildLabel('MÃ CỬA HÀNG'),
                         const SizedBox(height: 8),
                         _buildField(
                           controller: _storeCodeController,
-                          hint: 'Ví dụ: SBOX-HQ',
+                          hint: 'Ví dụ: sanapos',
                           icon: Icons.storefront_rounded,
                           validator: (v) => (v == null || v.isEmpty)
                               ? 'Vui lòng nhập mã cửa hàng'
@@ -922,6 +922,17 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   Widget _buildLogo({bool isDesktop = false, bool tight = false}) {
+    // Như SBOX POS Android 7: huy hiệu «S» + chữ «SBOX POS», không slogan. KDS giữ logo chữ cũ.
+    if (SboxColors.posApp) {
+      return const SboxBrandLockup(
+        expandText: false,
+        showSlogan: false,
+        logoSize: 56,
+        titleSize: 26,
+        titleColor: SboxColors.brand600,
+        alignment: MainAxisAlignment.center,
+      );
+    }
     return SboxBrandLockup(
       stacked: true,
       logoSize: tight ? 60 : (isDesktop ? 80 : 68),

@@ -9,6 +9,8 @@ import '../../services/api_service.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/permission_navigation.dart';
 import '../../utils/pos_lite_mode.dart';
+import '../../utils/pos_icon_set.dart';
+import '../../widgets/pos/pos_hub_nav_rail.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../utils/store_role_helper.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
@@ -105,6 +107,9 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
               children: [
+                if (PosHubNavRail.useSidebar(context))
+                  _greeting(user?.fullName ?? 'Cửa hàng')
+                else
                 PosMobileProfileCard(
                   name: user?.fullName ?? 'Cửa hàng',
                   subtitle: (user != null && user.email.isNotEmpty)
@@ -166,118 +171,112 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 12),
+                // Nhóm và dòng phụ theo Trang chủ SBOX POS Android 7.
+                const SizedBox(height: 24),
                 _section(
                   context,
                   perm,
-                  title: 'Kho hàng',
+                  title: 'Bán hàng',
+                  subtitle: 'Thu ngân, đơn hàng, bếp, đặt lịch',
                   items: [
-                    _Item('Trung tâm Kho', Icons.warehouse_outlined, 'PosProducts',
-                        const WhMobileHubScreen()),
+                    _Item('Bán hàng', Icons.shopping_bag_outlined, 'PosSell',
+                        const PosSellScreen(), subtitle: 'Thu ngân'),
+                    _Item('Màn hình bếp (KDS)', Icons.kitchen_outlined, 'PosKds',
+                        const PosKdsScreen(), subtitle: 'Báo bếp'),
+                    _Item('Đơn hàng', Icons.receipt_long_outlined, 'PosSaleOrders',
+                        const PosSaleOrderListScreen(), subtitle: 'Hóa đơn'),
+                    _Item('Menu QR / Online', Icons.restaurant_menu, 'PosQrOrder',
+                        const PosQrMenuScreen(), visible: _qrOn, subtitle: 'Menu QR'),
+                    _Item('Đơn online', Icons.delivery_dining_outlined, 'PosQrOrder',
+                        const PosQrOnlineOrdersScreen(), visible: _qrOn, subtitle: 'QR online'),
+                    _Item('QR order bàn', Icons.qr_code_2, 'PosQrOrder',
+                        const PosQrTableOrderScreen(), visible: _qrOn, subtitle: 'Gọi món tại bàn'),
+                    _Item('Trả hàng bán', Icons.assignment_return_outlined, 'PosSaleReturns',
+                        const PosSaleReturnListScreen(), subtitle: 'Trả hàng'),
+                    _Item('Đặt lịch', Icons.event_available_outlined, 'PosBooking',
+                        const PosAppointmentDayScreen()),
+                    _Item('Check-in hội viên', Icons.fingerprint, 'PosSell',
+                        const PosGymCheckInScreen(), visible: _gymOn, subtitle: 'Gym: quét máy chấm công'),
+                    _Item('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift',
+                        const PosCashierShiftScreen(), visible: _shiftOn, subtitle: 'Mở / đóng ca'),
+                    _Item('Cuối ngày', Icons.nightlight_round, 'PosReportEndOfDay',
+                        const PosEndOfDayScreen(), subtitle: 'Tổng kết cuối ngày'),
+                    _Item('Xác nhận CK', Icons.payments_outlined, 'PosSell',
+                        const PosTransferConfirmScreen(), altModules: const ['PosSell'], subtitle: 'Chuyển khoản chờ xác nhận'),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 24),
                 _section(
                   context,
                   perm,
                   title: 'Thương mại',
+                  subtitle: 'Báo giá, hợp đồng',
                   items: [
                     _Item('Báo giá', Icons.request_quote_outlined, 'PosQuotes',
-                        const PosQuoteListScreen()),
+                        const PosQuoteListScreen(), subtitle: 'Thương mại'),
+                    _Item('Mẫu in báo giá', Icons.article_outlined, 'PosPrintTemplates',
+                        const PosPrintTemplatesScreen(initialDocumentType: 'Quote'), visible: canMod('PosQuotes'), subtitle: 'A4 thương mại'),
                     _Item('Hợp đồng', Icons.handshake_outlined, 'PosContracts',
-                        const PosQuoteListScreen(initialTab: 1)),
-                    _Item('Mẫu in báo giá', Icons.article_outlined,
-                        'PosPrintTemplates',
-                        const PosPrintTemplatesScreen(
-                            initialDocumentType: 'Quote'),
-                        visible: canMod('PosQuotes')),
+                        const PosQuoteListScreen(initialTab: 1), subtitle: 'Thu tiền theo đợt'),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 24),
                 _section(
                   context,
                   perm,
-                  title: 'Giao dịch',
+                  title: 'Khách hàng & khuyến mãi',
+                  subtitle: 'Khách hàng, bảo hành, khuyến mãi, voucher',
                   items: [
-                    _Item('Bán hàng', Icons.shopping_bag_outlined, 'PosSell',
-                        const PosSellScreen()),
-                    _Item('Đặt lịch', Icons.event_available_outlined, 'PosBooking',
-                        const PosAppointmentDayScreen()),
-                    _Item('Check-in hội viên', Icons.fingerprint, 'PosSell',
-                        const PosGymCheckInScreen(),
-                        visible: _gymOn),
-                    _Item('Hóa đơn', Icons.receipt_long_outlined, 'PosSaleOrders',
-                        const PosSaleOrderListScreen()),
-                    _Item('Trả hàng bán', Icons.assignment_return_outlined, 'PosSaleReturns',
-                        const PosSaleReturnListScreen()),
-                    _Item('Lịch sử hủy / trả', Icons.history, 'PosSell',
-                        const PosCancelReturnHistoryScreen(),
-                        altModules: const ['PosSaleOrders', 'PosSaleReturns']),
-                    _Item('Nhập hàng', Icons.move_to_inbox_outlined,
-                        'PosPurchaseReceipts', const WhAdaptivePurchaseReceiptList()),
-                    _Item('Trả hàng nhập', Icons.undo_outlined, 'PosPurchaseReturns',
-                        const WhAdaptivePurchaseReturnList()),
-                    _Item('Hóa đơn điện tử', Icons.receipt_long_outlined, 'PosEInvoice',
-                        const PosEInvoiceReportScreen()),
-                    _Item('Cuối ngày', Icons.nightlight_round, 'PosReportEndOfDay',
-                        const PosEndOfDayScreen()),
-                    _Item('Ca thu ngân', Icons.account_balance_wallet_outlined, 'PosCashierShift',
-                        const PosCashierShiftScreen(),
-                        visible: _shiftOn),
-                    _Item('QR order bàn', Icons.qr_code_2, 'PosQrOrder',
-                        const PosQrTableOrderScreen(),
-                        visible: _qrOn),
-                    _Item('Menu QR / Online', Icons.restaurant_menu, 'PosQrOrder',
-                        const PosQrMenuScreen(),
-                        visible: _qrOn),
-                    _Item('Đơn online', Icons.delivery_dining_outlined, 'PosQrOrder',
-                        const PosQrOnlineOrdersScreen(),
-                        visible: _qrOn),
-                    _Item('Xác nhận CK', Icons.payments_outlined, 'PosSell',
-                        const PosTransferConfirmScreen(),
-                        altModules: const ['PosSell']),
-                    _Item('Màn hình bếp (KDS)', Icons.kitchen_outlined, 'PosKds',
-                        const PosKdsScreen()),
+                    _Item('Khách hàng POS', Icons.people_outline, 'PosCustomers',
+                        const PosCustomersScreen(), subtitle: 'Khách hàng'),
+                    _Item('Bảo hành POS', Icons.verified_outlined, 'PosWarranty',
+                        const PosWarrantyLookupScreen(), subtitle: 'Bảo hành'),
+                    _Item('Voucher', Icons.confirmation_number_outlined, 'PosProducts',
+                        const PosVouchersScreen(), altModules: const ['PosSell'], subtitle: 'Mã giảm giá'),
+                    _Item('Khuyến mãi', Icons.local_offer_outlined, 'PosPromotions',
+                        const PosPromotionsScreen(), subtitle: 'Tự động áp khi bán'),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 24),
                 _section(
                   context,
                   perm,
-                  title: 'Hàng hóa',
+                  title: 'Hàng hóa & kho',
+                  subtitle: 'Hàng hóa, nhập hàng, kiểm kho',
                   items: [
                     _Item('Hàng hóa', Icons.inventory_2_outlined, 'PosProducts',
-                        const PosProductsScreen()),
-                    _Item('Bảng giá', Icons.price_change_outlined, 'PosProducts',
-                        const PosPriceListsScreen(),
-                        altModules: const ['PosSell']),
-                    _Item('Tra cứu BH', Icons.verified_outlined, 'PosWarranty',
-                        const PosWarrantyLookupScreen()),
-                    _Item('Kiểm kho', Icons.fact_check_outlined, 'PosStockCounts',
-                        const WhAdaptiveStockCountList()),
-                    _Item('Xuất hủy', Icons.delete_forever_outlined,
-                        'PosDamageIssues', const WhAdaptiveDamageIssueList()),
-                    _Item('Dùng nội bộ', Icons.build_outlined,
-                        'PosInternalUseIssues', const WhAdaptiveInternalUseList()),
+                        const PosProductsScreen(), subtitle: 'SP, tồn, giá'),
+                    _Item('Trung tâm Kho', Icons.warehouse_outlined, 'PosProducts',
+                        const WhMobileHubScreen(), subtitle: 'Nhập, xuất, kiểm kho'),
                     _Item('Chuyển kho', Icons.local_shipping_outlined, 'PosProducts',
-                        const PosStockTransferScreen()),
+                        const PosStockTransferScreen(), subtitle: 'Giữa chi nhánh'),
+                    _Item('Nhập hàng NCC', Icons.move_to_inbox_outlined, 'PosPurchaseReceipts',
+                        const WhAdaptivePurchaseReceiptList(), subtitle: 'Nhập hàng'),
+                    _Item('Trả hàng nhập', Icons.undo_outlined, 'PosPurchaseReturns',
+                        const WhAdaptivePurchaseReturnList(), subtitle: 'Trả NCC'),
+                    _Item('Kiểm kho', Icons.fact_check_outlined, 'PosStockCounts',
+                        const WhAdaptiveStockCountList(), subtitle: 'Kiểm kê'),
+                    _Item('Xuất hủy', Icons.delete_forever_outlined, 'PosDamageIssues',
+                        const WhAdaptiveDamageIssueList()),
+                    _Item('Xuất dùng nội bộ', Icons.build_outlined, 'PosInternalUseIssues',
+                        const WhAdaptiveInternalUseList(), subtitle: 'Xuất nội bộ'),
+                    _Item('Bảng giá', Icons.price_change_outlined, 'PosProducts',
+                        const PosPriceListsScreen(), altModules: const ['PosSell'], subtitle: 'Giá sỉ / VIP / theo kỳ'),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 24),
                 _section(
                   context,
                   perm,
-                  title: 'Khách hàng',
+                  title: 'Báo cáo kinh doanh',
+                  subtitle: 'Doanh thu, hủy trả, thu chi',
                   items: [
-                    _Item('Khách hàng', Icons.people_outline, 'PosCustomers',
-                        const PosCustomersScreen()),
-                    _Item('Công nợ KH', Icons.account_balance_wallet_outlined,
-                        'PosReportDebt', const PosCustomerDebtReportScreen()),
-                    _Item('Voucher', Icons.confirmation_number_outlined, 'PosProducts',
-                        const PosVouchersScreen(),
-                        altModules: const ['PosSell']),
-                    _Item('Khuyến mãi', Icons.local_offer_outlined, 'PosPromotions',
-                        const PosPromotionsScreen()),
+                    _Item('Báo cáo hủy / trả', Icons.history, 'PosSell',
+                        const PosCancelReturnHistoryScreen(), altModules: const ['PosSaleOrders', 'PosSaleReturns'], subtitle: 'Hủy / trả'),
+                    _Item('Công nợ khách hàng', Icons.account_balance_wallet_outlined, 'PosReportDebt',
+                        const PosCustomerDebtReportScreen(), subtitle: 'Công nợ'),
+                    _Item('Hóa đơn điện tử', Icons.receipt_long_outlined, 'PosEInvoice',
+                        const PosEInvoiceReportScreen(), subtitle: 'Xuất, gửi, thay thế, hủy'),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -462,10 +461,48 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
     );
   }
 
+  /// Lời chào + ngày như Trang chủ SBOX POS Android 7 (màn rộng có menu trái, thẻ tài khoản ở menu).
+  Widget _greeting(String name) {
+    final now = DateTime.now();
+    final h = now.hour;
+    final hello = h < 11 ? 'Chào buổi sáng,' : (h < 18 ? 'Chào buổi chiều,' : 'Chào buổi tối,');
+    const wd = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+    final date = '${wd[now.weekday - 1]}, ${now.day} Th${now.month} ${now.year}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
+      child: Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(tr(hello), style: SboxType.bodyStyle(SboxColors.textMuted)),
+            const SizedBox(height: 2),
+            Text(name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: Color(0xFF2B3437))),
+          ]),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: SboxColors.surface,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: SboxColors.border),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            const Icon(Icons.calendar_today_outlined, size: 15, color: SboxColors.slate600),
+            const SizedBox(width: 8),
+            Text(tr(date), style: SboxType.smallStyle(SboxColors.slate600)),
+          ]),
+        ),
+      ]),
+    );
+  }
+
   Widget _section(
     BuildContext context,
     PermissionProvider perm, {
     required String title,
+    String? subtitle,
     required List<_Item> items,
   }) {
     final auth = Provider.of<AuthProvider>(context, listen: false);
@@ -474,11 +511,14 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
 
     return PosMobileHubSectionGrid(
       title: title,
+      subtitle: subtitle,
+      icon: PosIconSet.ofGroup(title, Icons.apps_rounded),
       items: visible
           .map(
             (item) => PosMobileHubGridItem(
               label: item.label,
-              icon: item.icon,
+              icon: PosIconSet.ofNav(item.label, item.icon),
+              subtitle: item.subtitle,
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute<void>(
@@ -553,7 +593,8 @@ class _PosMoreScreenState extends State<PosMoreScreen> {
 
 class _Item {
   const _Item(this.label, this.icon, this.moduleCode, this.screen,
-      {this.altModules = const [], this.visible = true});
+      {this.altModules = const [], this.visible = true, this.subtitle});
+  final String? subtitle;
   final String label;
   final IconData icon;
   final String moduleCode;

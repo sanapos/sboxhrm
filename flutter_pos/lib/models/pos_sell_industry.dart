@@ -3,7 +3,6 @@ library;
 
 import '../utils/pos_kiot_time_range.dart';
 import 'dart:convert';
-import '../utils/api_datetime.dart';
 
 enum PosSellProfile {
   retail,
@@ -250,6 +249,13 @@ enum PosSellProfile {
       this == PosSellProfile.salon || this == PosSellProfile.roomHourly;
 
   bool get usesKitchenNotify => this == PosSellProfile.restaurant;
+
+  /// Loại hàng F&B (topping, nguyên vật liệu) — chỉ nhà hàng / cafe dùng.
+  bool get usesFnbItemTypes => this == PosSellProfile.restaurant;
+
+  /// Bán theo gói buổi / thẻ tập (spa, gym) — bán lẻ / F&B / phòng giờ không dùng.
+  bool get usesSessionPackages =>
+      this == PosSellProfile.salon || this == PosSellProfile.gym;
 
   bool get usesWarehouseSlip =>
       this == PosSellProfile.retail || this == PosSellProfile.gym;
@@ -1547,10 +1553,52 @@ class PosReservationOccasion {
     'Có trẻ em',
   ];
 
+  /// Salon / spa: dịp và yêu cầu theo dịch vụ làm đẹp, không phải tiệc.
+  static const salonOptions = <(String, String)>[
+    ('first_visit', 'Lần đầu'),
+    ('regular', 'Khách quen'),
+    ('wedding', 'Cưới / sự kiện'),
+    ('birthday', 'Sinh nhật'),
+    ('other', 'Khác'),
+  ];
+
+  static const salonRequestChips = <String>[
+    'Thợ quen',
+    'Da nhạy cảm / dị ứng',
+    'Phòng riêng',
+    'Đi nhóm',
+    'Hóa đơn VAT',
+  ];
+
+  static const gymOptions = <(String, String)>[
+    ('trial', 'Tập thử'),
+    ('pt', 'Buổi PT'),
+    ('assessment', 'Đo chỉ số'),
+    ('other', 'Khác'),
+  ];
+
+  static const gymRequestChips = <String>[
+    'HLV quen',
+    'Chấn thương cần lưu ý',
+    'Hóa đơn VAT',
+  ];
+
+  static List<(String, String)> optionsFor(PosSellProfile profile) => switch (profile) {
+        PosSellProfile.salon => salonOptions,
+        PosSellProfile.gym => gymOptions,
+        _ => options,
+      };
+
+  static List<String> requestChipsFor(PosSellProfile profile) => switch (profile) {
+        PosSellProfile.salon => salonRequestChips,
+        PosSellProfile.gym => gymRequestChips,
+        _ => requestChips,
+      };
+
   static String label(String? code) {
     final c = (code ?? '').trim().toLowerCase();
     if (c.isEmpty) return '';
-    for (final o in options) {
+    for (final o in [...options, ...salonOptions, ...gymOptions]) {
       if (o.$1 == c) return o.$2;
     }
     return code!.trim();
@@ -1687,8 +1735,10 @@ class PosSessionTxnDto {
       remainingAfter:
           (json['remainingAfter'] ?? json['RemainingAfter'] as num?)?.toInt() ??
               0,
-      at: parseApiUtcDateTime(atRaw) ?? DateTime.now(),
-      usedAt: parseApiUtcDateTime(json['usedAt'] ?? json['UsedAt']),
+      // API trả UTC không kèm Z — parse là UTC để .toLocal() ra giờ VN (trước hiện lệch 7 tiếng).
+      at: parsePosApiUtc(atRaw) ?? DateTime.now(),
+      usedAt: parsePosApiUtc(
+          (json['usedAt'] ?? json['UsedAt'] ?? '').toString()),
       employeeId: (json['employeeId'] ?? json['EmployeeId'])?.toString(),
       employeeName: (json['employeeName'] ?? json['EmployeeName'])?.toString(),
       note: (json['note'] ?? json['Note'])?.toString(),
@@ -1726,7 +1776,8 @@ class PosSessionOrderDto {
       total: (json['total'] ?? json['Total'] as num?)?.toDouble() ?? 0,
       paidAmount:
           (json['paidAmount'] ?? json['PaidAmount'] as num?)?.toDouble() ?? 0,
-      saleDate: parseApiUtcDateTime(json['saleDate'] ?? json['SaleDate']),
+      saleDate: parsePosApiUtc(
+          (json['saleDate'] ?? json['SaleDate'] ?? '').toString()),
       items: rawItems is List
           ? rawItems.map((e) => e.toString()).where((e) => e.isNotEmpty).toList()
           : const [],
@@ -2172,5 +2223,114 @@ class PosServiceBillingCalc {
       ));
     }
     return rows;
+  }
+}
+
+/// Một thợ trong danh sách xếp lịch (API staff-availability / staff-day).
+class PosStaffAvailabilityDto {
+  PosStaffAvailabilityDto({
+    required this.employeeId,
+    required this.name,
+    required this.onShift,
+    required this.onLeave,
+    required this.busy,
+    required this.available,
+    this.unavailableReason,
+    this.isRegular = false,
+    this.regularVisits = 0,
+    this.jobsToday = 0,
+    this.bookedMinutesToday = 0,
+    this.shifts = const [],
+    this.busyKind,
+    this.busyFrom,
+    this.busyTo,
+  });
+
+  final String employeeId;
+  final String name;
+  final bool onShift;
+  final bool onLeave;
+  final bool busy;
+  final bool available;
+  final String? unavailableReason;
+  final bool isRegular;
+  final int regularVisits;
+  final int jobsToday;
+  final int bookedMinutesToday;
+
+  /// Ca trong ngày theo giờ VN: [(«08:00», «17:00»)].
+  final List<(String, String)> shifts;
+
+  /// Bận vì «booking» (lịch khác) hay «serving» (đang làm cho khách) — giờ «HH:mm» VN.
+  final String? busyKind;
+  final String? busyFrom;
+  final String? busyTo;
+
+  String get shiftLabel => shifts.map((s) => '${s.$1}–${s.$2}').join(', ');
+
+  factory PosStaffAvailabilityDto.fromJson(Map<String, dynamic> j) {
+    final rawShifts = j['shifts'] ?? j['Shifts'];
+    return PosStaffAvailabilityDto(
+      employeeId: (j['employeeId'] ?? j['EmployeeId'] ?? '').toString(),
+      name: (j['name'] ?? j['Name'] ?? '').toString(),
+      onShift: (j['onShift'] ?? j['OnShift']) == true,
+      onLeave: (j['onLeave'] ?? j['OnLeave']) == true,
+      busy: (j['busy'] ?? j['Busy']) == true,
+      available: (j['available'] ?? j['Available']) == true,
+      unavailableReason: (j['unavailableReason'] ?? j['UnavailableReason'])?.toString(),
+      isRegular: (j['isRegular'] ?? j['IsRegular']) == true,
+      regularVisits: ((j['regularVisits'] ?? j['RegularVisits']) as num?)?.toInt() ?? 0,
+      jobsToday: ((j['jobsToday'] ?? j['JobsToday']) as num?)?.toInt() ?? 0,
+      bookedMinutesToday:
+          ((j['bookedMinutesToday'] ?? j['BookedMinutesToday']) as num?)?.toInt() ?? 0,
+      busyKind: (j['busyKind'] ?? j['BusyKind'])?.toString(),
+      busyFrom: (j['busyFrom'] ?? j['BusyFrom'])?.toString(),
+      busyTo: (j['busyTo'] ?? j['BusyTo'])?.toString(),
+      shifts: rawShifts is List
+          ? [
+              for (final s in rawShifts.whereType<Map>())
+                ((s['start'] ?? s['Start'] ?? '').toString(),
+                    (s['end'] ?? s['End'] ?? '').toString()),
+            ]
+          : const [],
+    );
+  }
+}
+
+/// Kết quả xếp thợ: scheduleKnown = ngày đó cửa hàng đã xếp ca (false → coi mọi thợ có ca).
+class PosStaffAvailabilityResult {
+  PosStaffAvailabilityResult({
+    required this.scheduleKnown,
+    this.recommendedEmployeeId,
+    this.recommendedReason,
+    this.items = const [],
+  });
+
+  final bool scheduleKnown;
+  final String? recommendedEmployeeId;
+  final String? recommendedReason;
+  final List<PosStaffAvailabilityDto> items;
+
+  PosStaffAvailabilityDto? get recommended {
+    for (final i in items) {
+      if (i.employeeId == recommendedEmployeeId) return i;
+    }
+    return null;
+  }
+
+  factory PosStaffAvailabilityResult.fromJson(Map<String, dynamic> j) {
+    final raw = j['items'] ?? j['Items'];
+    return PosStaffAvailabilityResult(
+      scheduleKnown: (j['scheduleKnown'] ?? j['ScheduleKnown']) == true,
+      recommendedEmployeeId:
+          (j['recommendedEmployeeId'] ?? j['RecommendedEmployeeId'])?.toString(),
+      recommendedReason: (j['recommendedReason'] ?? j['RecommendedReason'])?.toString(),
+      items: raw is List
+          ? [
+              for (final e in raw.whereType<Map>())
+                PosStaffAvailabilityDto.fromJson(Map<String, dynamic>.from(e)),
+            ]
+          : const [],
+    );
   }
 }

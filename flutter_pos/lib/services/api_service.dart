@@ -17383,6 +17383,42 @@ class ApiService {
     }
   }
 
+  /// Tình trạng từng mục Thiết lập: [{key, status: ok|todo|warn|info, text}].
+  Future<Map<String, dynamic>> getSettingsHealth() async {
+    try {
+      final r = await _retryOnUnauthorized(() => http
+          .get(Uri.parse('$baseUrl/api/settings-health'), headers: _headers)
+          .timeout(const Duration(seconds: 20)));
+      return _handleResponse(r);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Tổng quan: việc chờ xử lý (HRM + POS) trong một lần gọi.
+  Future<Map<String, dynamic>> getOverviewTodos() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/overview/todos'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
+  /// Tin mới cho Tổng quan: truyền thông, công việc, KPI, phản ánh, sản lượng (404 = máy chủ cũ).
+  Future<Map<String, dynamic>> getOverviewHighlights() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/api/overview/highlights'), headers: _headers)
+          .timeout(const Duration(seconds: 30));
+      return _handleResponse(response);
+    } catch (e) {
+      return _connectionFailure(e);
+    }
+  }
+
   Future<Map<String, dynamic>> getPosStockReportSummary() async {
     try {
       final response = await http

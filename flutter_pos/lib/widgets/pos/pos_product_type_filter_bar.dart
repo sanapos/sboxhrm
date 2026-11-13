@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'pos_web_ime.dart' show posWebHasTouchPoints;
 
 import '../../models/pos_product.dart';
 import 'pos_theme.dart';
-import 'package:sbox_pos/l10n/app_tr.dart';
+import '../../l10n/app_tr.dart';
 
 class _TypeChip {
   const _TypeChip(this.type, this.label, this.shortLabel, this.icon, this.color);
@@ -22,39 +23,52 @@ const _kChips = <_TypeChip>[
   _TypeChip(PosProductType.topping, 'Topping', 'Topping', Icons.icecream_outlined, PosTheme.toppingColor),
 ];
 
-/// Bộ lọc 5 loại hàng — luôn hiện, không giấu trong dropdown.
+/// Bộ lọc loại hàng — luôn hiện, không giấu trong dropdown.
+/// [showFnbTypes] = false sẽ ẩn «NVL» + «Topping» (chỉ nhà hàng / cafe dùng).
 class PosProductTypeFilterBar extends StatelessWidget {
   const PosProductTypeFilterBar({
     super.key,
     required this.value,
     required this.onChanged,
     this.vertical = false,
+    this.showFnbTypes = true,
   });
 
   final PosProductType? value;
   final ValueChanged<PosProductType?> onChanged;
   final bool vertical;
+  final bool showFnbTypes;
+
+  List<_TypeChip> get _chips => showFnbTypes
+      ? _kChips
+      : [
+          for (final c in _kChips)
+            if (c.type != PosProductType.material &&
+                c.type != PosProductType.topping)
+              c,
+        ];
 
   @override
   Widget build(BuildContext context) {
+    final chips = _chips;
     if (vertical) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final c in _kChips) _tile(c),
+          for (final c in chips) _tile(c),
         ],
       );
     }
     return Material(
       color: Colors.white,
       child: SizedBox(
-        height: 48,
+        height: posWebHasTouchPoints() ? 62 : 48,
         child: ListView.separated(
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
           scrollDirection: Axis.horizontal,
-          itemCount: _kChips.length,
+          itemCount: chips.length,
           separatorBuilder: (_, __) => const SizedBox(width: 8),
-          itemBuilder: (_, i) => _pill(_kChips[i]),
+          itemBuilder: (_, i) => _pill(chips[i]),
         ),
       ),
     );
@@ -69,7 +83,7 @@ class PosProductTypeFilterBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: () => onChanged(c.type),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          padding: EdgeInsets.symmetric(horizontal: posWebHasTouchPoints() ? 16 : 12, vertical: posWebHasTouchPoints() ? 12 : 6),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -101,7 +115,7 @@ class PosProductTypeFilterBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(10),
           onTap: () => onChanged(c.type),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: posWebHasTouchPoints() ? 13 : 8),
             child: Row(
               children: [
                 Icon(c.icon, size: 18, color: c.color),
