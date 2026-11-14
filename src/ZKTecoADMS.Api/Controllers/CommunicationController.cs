@@ -1566,9 +1566,11 @@ public class CommunicationController(
                 return Ok(AppResponse<object>.Fail(TenantScopedGeminiAiService.NotReadyMessage(geminiAiService)));
             }
 
-            // Nhiều khóa riêng của cửa hàng → kiểm tra từng khóa, báo khóa nào dùng được.
-            var storeCfg = await GeminiStoreConfigLoader.LoadFromDbAsync(dbContext, RequiredStoreId);
-            if (storeCfg is { ApiKeys.Count: > 1 })
+            // Kiểm tra từng khóa và báo khóa nào dùng được. Bộ kiểm tra chạy các khóa song song và có ngân sách thời
+            // gian nên một khóa gặp model quá tải (Google mất 20–45 giây mới trả 503) không kéo cả nút quá 60 giây.
+            var storeCfg = await GeminiStoreConfigLoader.LoadFromDbAsync(dbContext, RequiredStoreId)
+                ?? await GeminiStoreConfigLoader.LoadPlatformAsync(dbContext);
+            if (storeCfg != null)
             {
                 var keyResults = await GeminiKeyTester.TestAllAsync(
                     storeCfg, HttpContext.RequestServices.GetRequiredService<IConfiguration>(),
@@ -1606,7 +1608,7 @@ public class CommunicationController(
         catch (AiApiException ex) when (ex.IsAuthError)
         {
             logger.LogWarning("Gemini AI test - auth error");
-            return Ok(AppResponse<object>.Fail($"âŒ API Key không hợp lệ: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"❌ API Key không hợp lệ: {ex.Message}"));
         }
         catch (AiApiException ex)
         {
@@ -1784,7 +1786,7 @@ public class CommunicationController(
         catch (AiApiException ex) when (ex.IsAuthError)
         {
             logger.LogWarning("DeepSeek AI test - auth error");
-            return Ok(AppResponse<object>.Fail($"âŒ API Key không hợp lệ: {ex.Message}"));
+            return Ok(AppResponse<object>.Fail($"❌ API Key không hợp lệ: {ex.Message}"));
         }
         catch (AiApiException ex)
         {
