@@ -1729,6 +1729,14 @@ class LandingUsageGuide {
       tip:
           'Trợ lý chỉ thấy và làm những gì tài khoản bạn được phân quyền. Không có khóa AI: vẫn hỏi được dữ liệu cá nhân và hướng dẫn, nhưng không phân tích / thao tác.',
       accent: Color(0xFF7C3AED),
+      shots: [
+        GuideShot('ai-assistant-1', afterBullet: 1, caption: '① Ô hỏi hoặc ra lệnh. ② Nút micro để nói thay gõ. ③ Menu ⋮: rảnh tay, nhật ký thao tác.'),
+        GuideShot('ai-assistant-2', afterBullet: 2, caption: '① Câu trả lời kèm số liệu và gợi ý hành động. ② Biểu đồ dựng từ báo cáo trợ lý vừa đọc. ③ Nút mở đúng màn báo cáo để xem chi tiết.'),
+        GuideShot('ai-assistant-3', afterBullet: 3, caption: '① Thẻ chờ xác nhận: từng dòng của phiếu sắp lập. ② Bấm «Xác nhận» để lưu, «Bỏ» nếu sai.'),
+        GuideShot('ai-assistant-4', afterBullet: 8, caption: '① Trợ lý trả lời theo đúng hướng dẫn sử dụng này. ② Nút mở thẳng bài hướng dẫn tương ứng.'),
+        GuideShot('ai-assistant-5', afterBullet: 10, caption: '① Bật / tắt trợ lý và khai khóa riêng của cửa hàng (nhiều khóa thì hết lượt tự chuyển). ② «Hồ sơ cửa hàng cho trợ lý»: giờ mở cửa, nội quy, tên gọi tắt của món.'),
+        GuideShot('ai-assistant-6', afterBullet: 9, caption: '① Mọi phiếu trợ lý đã lưu: ai ra lệnh, lúc nào, kết quả. ② Việc rủi ro cao (xóa / hủy chứng từ) được đánh dấu riêng.'),
+      ],
     ),
   ];
 

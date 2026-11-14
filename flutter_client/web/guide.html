@@ -23,7 +23,7 @@
     "headline": "Hướng dẫn sử dụng SBOX HRM và POS",
     "description": "Quy trình triển khai chấm công, lương, báo cáo HRM và bán hàng POS trên SBOX.",
     "inLanguage": "vi",
-    "dateModified": "2026-11-02",
+    "dateModified": "2026-11-14",
     "publisher": { "@type": "Organization", "name": "SBOX HRM", "url": "https://sboxhrm.com/" },
     "mainEntityOfPage": "https://sboxhrm.com/guide.html"
   }
@@ -65,7 +65,7 @@
 <header>
   <a class="back" href="/">← Trang chủ SBOX HRM</a>
   <h1>Hướng dẫn sử dụng HRM &amp; POS</h1>
-  <p>Quy trình từng bước, cách xem báo cáo và thiết lập các tình huống phổ biến. Cập nhật 02/11/2026, có ảnh màn hình từng bước. Hotline: 0973 024 042.</p>
+  <p>Quy trình từng bước, cách xem báo cáo và thiết lập các tình huống phổ biến. Cập nhật 14/11/2026, có ảnh màn hình từng bước. Hotline: 0973 024 042.</p>
 </header>
 <div class="wrap">
   <nav class="toc" aria-label="Mục lục">
@@ -216,7 +216,7 @@
       <li>Chọn «Mẫu nhanh» hoặc nhập «Tên ca», «Giờ vào», «Giờ ra» (giờ ra nhỏ hơn giờ vào = ca qua đêm), «Loại ca» (Hành chính / Tăng ca / Qua đêm), «Nghỉ giữa ca»
         <figure class="shot"><a href="/images/guide/shifts-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/shifts-2-mobile.webp" width="390" height="844"><img src="/images/guide/shifts-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Cấu hình ca làm việc: ① Nhập tên ca. ② Chọn giờ vào – giờ ra (giờ ra nhỏ hơn giờ vào là ca qua đêm). ③ Hoặc bấm một mẫu ca có sẵn."></picture></a><figcaption>① Nhập tên ca. ② Chọn giờ vào – giờ ra (giờ ra nhỏ hơn giờ vào là ca qua đêm). ③ Hoặc bấm một mẫu ca có sẵn.</figcaption></figure>
       </li>
-      <li>«Quy tắc chấm công»: Nhận chấm sớm, Miễn trễ, Giới hạn đi trễ, Miễn về sớm, Giới hạn về sớm, Tăng ca trước / sau ca («Nhận chấm sớm» phải lớn hơn «Tăng ca trước ca»)
+      <li>«Quy tắc chấm công»: Nhận chấm sớm, Miễn trễ, Miễn về sớm, Giới hạn về sớm, Tăng ca trước / sau ca («Nhận chấm sớm» phải lớn hơn «Tăng ca trước ca»)
         <figure class="shot"><a href="/images/guide/shifts-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/shifts-3-mobile.webp" width="390" height="844"><img src="/images/guide/shifts-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Cấu hình ca làm việc: ① Miễn trễ và giới hạn đi trễ. ② Miễn về sớm và giới hạn về sớm. ③ Số phút ra sớm / về muộn mới tính tăng ca."></picture></a><figcaption>① Miễn trễ và giới hạn đi trễ. ② Miễn về sớm và giới hạn về sớm. ③ Số phút ra sớm / về muộn mới tính tăng ca.</figcaption></figure>
       </li>
       <li>Bấm «Lưu ca». Trả lương theo ca: mở lại ca vừa lưu → «Lương ca» → «Thêm mức lương» (cố định / nhân hệ số / theo giờ)</li>
@@ -504,7 +504,7 @@
     <h3 id="salary">Thiết lập lương &amp; kiểu chấm công</h3>
     <p>Gán mức lương, phụ cấp và cách tính công cho từng nhân viên. Kiểu chấm công quyết định cần chấm vào/ra hay chỉ một lần/ca.</p>
     <ol>
-      <li>Mở Hồ sơ nhân sự › nút ⋮ trên nhân viên › «Salary Settings» (Thiết lập lương); thẻ «Chưa thiết lập» lọc người chưa có lương
+      <li>Mở Hồ sơ nhân sự › nút ⋮ trên nhân viên › «Thiết lập lương»; thẻ «Chưa thiết lập» lọc người chưa có lương
         <figure class="shot"><a href="/images/guide/salary-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/salary-1-mobile.webp" width="390" height="844"><img src="/images/guide/salary-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Thiết lập lương &amp; kiểu chấm công: ① Chọn nhân viên cần thiết lập; người chưa có lương hiện nhãn «Chưa thiết lập»."></picture></a><figcaption>① Chọn nhân viên cần thiết lập; người chưa có lương hiện nhãn «Chưa thiết lập».</figcaption></figure>
       </li>
       <li>«Lương chính» › Loại lương: Tháng (lương cơ bản + lương hoàn thành) / Ngày / Ca / Giờ
@@ -865,16 +865,28 @@
     <h3 id="ai_assistant">Trợ lý ảo AI: hỏi, ra lệnh bằng chữ hoặc giọng nói</h3>
     <p>Trợ lý đọc báo cáo bán hàng và nhân sự đúng quyền của bạn để trả lời, và làm thay việc hằng ngày: lập phiếu, xin nghỉ, báo giá, đặt bàn, duyệt đơn… Mọi thao tác chỉ ghi khi bạn xác nhận.</p>
     <ol>
-      <li>Mở: biểu tượng ✨ trên thanh trên cùng (điện thoại / máy tính) hoặc POS › Thêm › «Trợ lý ảo»</li>
-      <li>Hỏi số liệu: «Doanh thu tuần này so với tuần trước?», «Ai đi trễ nhiều nhất tháng này?», «Món nào bán chậm?»</li>
-      <li>Ra lệnh: «Phạt An 50k đi trễ hôm nay», «Mai tôi xin nghỉ ca tối», «Báo giá cho chị Lan 10 thùng Coca», «Đặt bàn 5 tối nay 7 giờ cho anh Nam, 6 người», «Thêm nhân viên mới Trần Thị Mai, bếp»</li>
+      <li>Mở: biểu tượng ✨ trên thanh trên cùng (điện thoại / máy tính) hoặc POS › Thêm › «Trợ lý ảo»
+        <figure class="shot"><a href="/images/guide/ai-assistant-1.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ai-assistant-1-mobile.webp" width="390" height="844"><img src="/images/guide/ai-assistant-1.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Trợ lý ảo AI: hỏi, ra lệnh bằng chữ hoặc giọng nói: ① Ô hỏi hoặc ra lệnh. ② Nút micro để nói thay gõ. ③ Menu ⋮: rảnh tay, nhật ký thao tác."></picture></a><figcaption>① Ô hỏi hoặc ra lệnh. ② Nút micro để nói thay gõ. ③ Menu ⋮: rảnh tay, nhật ký thao tác.</figcaption></figure>
+      </li>
+      <li>Hỏi số liệu: «Doanh thu tuần này so với tuần trước?», «Ai đi trễ nhiều nhất tháng này?», «Món nào bán chậm?»
+        <figure class="shot"><a href="/images/guide/ai-assistant-2.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ai-assistant-2-mobile.webp" width="390" height="844"><img src="/images/guide/ai-assistant-2.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Trợ lý ảo AI: hỏi, ra lệnh bằng chữ hoặc giọng nói: ① Câu trả lời kèm số liệu và gợi ý hành động. ② Biểu đồ dựng từ báo cáo trợ lý vừa đọc. ③ Nút mở đúng màn báo cáo để xem chi tiết."></picture></a><figcaption>① Câu trả lời kèm số liệu và gợi ý hành động. ② Biểu đồ dựng từ báo cáo trợ lý vừa đọc. ③ Nút mở đúng màn báo cáo để xem chi tiết.</figcaption></figure>
+      </li>
+      <li>Ra lệnh: «Phạt An 50k đi trễ hôm nay», «Mai tôi xin nghỉ ca tối», «Báo giá cho chị Lan 10 thùng Coca», «Đặt bàn 5 tối nay 7 giờ cho anh Nam, 6 người», «Thêm nhân viên mới Trần Thị Mai, bếp»
+        <figure class="shot"><a href="/images/guide/ai-assistant-3.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ai-assistant-3-mobile.webp" width="390" height="844"><img src="/images/guide/ai-assistant-3.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Trợ lý ảo AI: hỏi, ra lệnh bằng chữ hoặc giọng nói: ① Thẻ chờ xác nhận: từng dòng của phiếu sắp lập. ② Bấm «Xác nhận» để lưu, «Bỏ» nếu sai."></picture></a><figcaption>① Thẻ chờ xác nhận: từng dòng của phiếu sắp lập. ② Bấm «Xác nhận» để lưu, «Bỏ» nếu sai.</figcaption></figure>
+      </li>
       <li>Trợ lý hiện THẺ chờ xác nhận: kiểm tra từng dòng rồi bấm «Xác nhận» (hoặc «Bỏ»); lưu xong có «Hoàn tác» trong ít phút</li>
       <li>Thẻ xóa / hủy chứng từ màu đỏ: hỏi lại một lần nữa và không hoàn tác được</li>
       <li>Nói thay gõ: bấm micro, nói xong im ~2 giây là tự gửi; câu trả lời được đọc to (bật / tắt bằng nút loa)</li>
       <li>Rảnh tay: menu ⋮ › «Rảnh tay» — đọc xong tự nghe tiếp; nói «xác nhận», «bỏ», «hoàn tác», «xác nhận thẻ 2»; thẻ xóa / hủy phải nói «chắc chắn xác nhận»; nói «dừng» để tắt</li>
-      <li>Hỏi cách dùng: «Cách kết nối hóa đơn điện tử?», «Sao máy in bếp không in?» — trợ lý trả lời theo hướng dẫn này và mở đúng bước</li>
-      <li>Nhật ký: menu ⋮ › «Nhật ký thao tác AI» xem mọi phiếu trợ lý đã lưu (ai ra lệnh, lúc nào)</li>
-      <li>Quản trị: Thiết lập SBOX › Trợ lý AI — khóa Gemini riêng của cửa hàng, «Hồ sơ cửa hàng cho trợ lý», «Bản tin sáng tự động»</li>
+      <li>Hỏi cách dùng: «Cách kết nối hóa đơn điện tử?», «Sao máy in bếp không in?» — trợ lý trả lời theo hướng dẫn này và mở đúng bước
+        <figure class="shot"><a href="/images/guide/ai-assistant-4.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ai-assistant-4-mobile.webp" width="390" height="844"><img src="/images/guide/ai-assistant-4.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Trợ lý ảo AI: hỏi, ra lệnh bằng chữ hoặc giọng nói: ① Trợ lý trả lời theo đúng hướng dẫn sử dụng này. ② Nút mở thẳng bài hướng dẫn tương ứng."></picture></a><figcaption>① Trợ lý trả lời theo đúng hướng dẫn sử dụng này. ② Nút mở thẳng bài hướng dẫn tương ứng.</figcaption></figure>
+      </li>
+      <li>Nhật ký: menu ⋮ › «Nhật ký thao tác AI» xem mọi phiếu trợ lý đã lưu (ai ra lệnh, lúc nào)
+        <figure class="shot"><a href="/images/guide/ai-assistant-6.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ai-assistant-6-mobile.webp" width="390" height="844"><img src="/images/guide/ai-assistant-6.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Trợ lý ảo AI: hỏi, ra lệnh bằng chữ hoặc giọng nói: ① Mọi phiếu trợ lý đã lưu: ai ra lệnh, lúc nào, kết quả. ② Việc rủi ro cao (xóa / hủy chứng từ) được đánh dấu riêng."></picture></a><figcaption>① Mọi phiếu trợ lý đã lưu: ai ra lệnh, lúc nào, kết quả. ② Việc rủi ro cao (xóa / hủy chứng từ) được đánh dấu riêng.</figcaption></figure>
+      </li>
+      <li>Quản trị: Thiết lập SBOX › Trợ lý AI — khóa Gemini riêng của cửa hàng, «Hồ sơ cửa hàng cho trợ lý», «Bản tin sáng tự động»
+        <figure class="shot"><a href="/images/guide/ai-assistant-5.webp" target="_blank" rel="noopener"><picture><source media="(max-width: 600px)" srcset="/images/guide/ai-assistant-5-mobile.webp" width="390" height="844"><img src="/images/guide/ai-assistant-5.webp" width="1280" height="800" loading="lazy" decoding="async" alt="Trợ lý ảo AI: hỏi, ra lệnh bằng chữ hoặc giọng nói: ① Bật / tắt trợ lý và khai khóa riêng của cửa hàng (nhiều khóa thì hết lượt tự chuyển). ② «Hồ sơ cửa hàng cho trợ lý»: giờ mở cửa, nội quy, tên gọi tắt của món."></picture></a><figcaption>① Bật / tắt trợ lý và khai khóa riêng của cửa hàng (nhiều khóa thì hết lượt tự chuyển). ② «Hồ sơ cửa hàng cho trợ lý»: giờ mở cửa, nội quy, tên gọi tắt của món.</figcaption></figure>
+      </li>
     </ol>
     <p class="tip">Trợ lý chỉ thấy và làm những gì tài khoản bạn được phân quyền. Không có khóa AI: vẫn hỏi được dữ liệu cá nhân và hướng dẫn, nhưng không phân tích / thao tác.</p>
     <h3 id="tasks">Công việc (Tasks)</h3>
