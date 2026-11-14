@@ -13,6 +13,7 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
     private readonly ITenantProvider _tenant;
     private readonly IHttpContextAccessor _http;
     private readonly ILogger<GeminiAiService> _logger;
+    private readonly IGeminiUsageRecorder? _usage;
     private bool _initialized;
     /// <summary>Khóa + cấu hình theo thứ ưu tiên: khóa của cửa hàng rồi khóa dùng chung (Super Admin).</summary>
     private readonly List<(string Key, GeminiConfig Config)> _chain = [];
@@ -23,13 +24,15 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         ILogger<GeminiAiService> logger,
         ZKTecoDbContext db,
         ITenantProvider tenant,
-        IHttpContextAccessor http)
+        IHttpContextAccessor http,
+        IGeminiUsageRecorder? usage = null)
     {
         _inner = new GeminiAiService(configuration, logger);
         _db = db;
         _tenant = tenant;
         _http = http;
         _logger = logger;
+        _usage = usage;
     }
 
     private void EnsureInitialized()
@@ -119,9 +122,28 @@ public sealed class TenantScopedGeminiAiService : IGeminiAiService
         "Cửa hàng chưa có khóa AI riêng. Vào Thiết lập SBOX › Trợ lý AI để nhập khóa Gemini của cửa hàng, "
         + "hoặc liên hệ SBOX nâng cấp gói có «Dùng AI chung SBOX».";
 
-    private void UseKey((string Key, GeminiConfig Config) entry, string? model = null) =>
+    private void UseKey((string Key, GeminiConfig Config) entry, string? model = null)
+    {
         _inner.UpdateConfig(entry.Key, model ?? entry.Config.Model, entry.Config.MaxOutputTokens,
             entry.Config.Temperature, entry.Config.Enabled);
+        if (_usage is not { } recorder) return;
+        // Chốt cửa hàng / khóa / tính năng ngay lúc chọn khóa — lúc Google trả lời thì lớp trong không biết gì về chúng.
+        var storeId = CurrentStoreId();
+        var mask = GeminiKeyPool.Mask(entry.Key);
+        var shared = entry.Config.IsPlatform;
+        var feature = FeatureName;
+        _inner.UsageRecorded = usage => recorder.Record(storeId, feature, mask, shared, usage);
+    }
+
+    /// <summary>
+    /// Tên tính năng ghi vào nhật ký token: đường dẫn API đang gọi (ví dụ «/api/ai/assistant/chat»).
+    /// Lời gọi chạy nền (bản tin sáng) không có request nên dùng <see cref="BackgroundFeature"/>.
+    /// </summary>
+    private string FeatureName =>
+        _http.HttpContext?.Request.Path.Value is { Length: > 0 } path ? path : BackgroundFeature;
+
+    /// <summary>Tên tính năng cho lời gọi chạy nền — nơi tạo dịch vụ đặt lại cho đúng.</summary>
+    public string BackgroundFeature { get; set; } = "(chạy nền)";
 
     /// <summary>
     /// Model dự phòng khi Google báo model đã chọn không còn cho khóa này (404 — tài khoản mới không

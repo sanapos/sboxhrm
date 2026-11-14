@@ -8,6 +8,7 @@ import '../services/api_service.dart';
 import '../widgets/sbox/sbox_ui.dart';
 import '../widgets/settings/settings_page.dart';
 import 'ai_morning_brief_section.dart';
+import 'ai_token_usage_section.dart';
 
 /// Cấu hình Trợ lý AI (Gemini) của cửa hàng.
 class AiConfig {
@@ -230,6 +231,7 @@ class _AiSettingsScreenState extends State<AiSettingsScreen> {
         _keysSection(edit),
         _modelSection(edit),
         _testSection(),
+        const AiTokenUsageSection(),
       ],
     );
   }

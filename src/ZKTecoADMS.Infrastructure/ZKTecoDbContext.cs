@@ -335,6 +335,7 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<AiStoreProfile> AiStoreProfiles => Set<AiStoreProfile>();
     public DbSet<AiMorningBriefSetting> AiMorningBriefSettings => Set<AiMorningBriefSetting>();
     public DbSet<AiMorningBriefLog> AiMorningBriefLogs => Set<AiMorningBriefLog>();
+    public DbSet<GeminiUsageLog> GeminiUsageLogs => Set<GeminiUsageLog>();
     public DbSet<ZaloBotSetting> ZaloBotSettings => Set<ZaloBotSetting>();
     public DbSet<ZaloBotLink> ZaloBotLinks => Set<ZaloBotLink>();
     public DbSet<ZaloBotMessage> ZaloBotMessages => Set<ZaloBotMessage>();

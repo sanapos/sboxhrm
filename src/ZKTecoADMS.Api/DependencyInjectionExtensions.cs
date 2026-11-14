@@ -235,6 +235,10 @@ public static class DependencyInjectionExtensions
         services.AddScoped<IMarketingService, MarketingService>();
         
         // Gemini AI: per-store config from AppSettings (scoped per request)
+        // Nhật ký token chạy nền, một hàng đợi dùng chung cho cả tiến trình.
+        services.AddSingleton<GeminiUsageRecorder>();
+        services.AddSingleton<IGeminiUsageRecorder>(sp => sp.GetRequiredService<GeminiUsageRecorder>());
+        services.AddHostedService(sp => sp.GetRequiredService<GeminiUsageRecorder>());
         services.AddScoped<TenantScopedGeminiAiService>();
         services.AddScoped<IGeminiAiService>(sp => sp.GetRequiredService<TenantScopedGeminiAiService>());
         services.AddScoped<AiAssistantActions>();

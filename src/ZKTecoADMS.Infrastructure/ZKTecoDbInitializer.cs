@@ -2810,6 +2810,26 @@ public class ZKTecoDbInitializer(
                     CREATE INDEX IF NOT EXISTS ""IX_PosQuickSellNoteItems_Store_Note""
                         ON ""PosQuickSellNoteItems"" (""StoreId"", ""NoteId"");
 
+                    CREATE TABLE IF NOT EXISTS ""GeminiUsageLogs"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NULL,
+                        ""Feature"" character varying(120) NOT NULL DEFAULT '',
+                        ""Model"" character varying(60) NOT NULL DEFAULT '',
+                        ""ApiKeyMask"" character varying(80) NULL,
+                        ""SharedKey"" boolean NOT NULL DEFAULT false,
+                        ""PromptTokens"" integer NOT NULL DEFAULT 0,
+                        ""AnswerTokens"" integer NOT NULL DEFAULT 0,
+                        ""ThoughtTokens"" integer NOT NULL DEFAULT 0,
+                        ""TotalTokens"" integer NOT NULL DEFAULT 0,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL
+                    );
+                    -- Báo cáo luôn lọc theo cửa hàng rồi tới khoảng ngày.
+                    CREATE INDEX IF NOT EXISTS ""IX_GeminiUsageLogs_Store_CreatedAt""
+                        ON ""GeminiUsageLogs"" (""StoreId"", ""CreatedAt"");
+
                     CREATE TABLE IF NOT EXISTS ""PosResourceReservations"" (
                         ""Id"" uuid PRIMARY KEY,
                         ""StoreId"" uuid NOT NULL,

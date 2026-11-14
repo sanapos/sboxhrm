@@ -24,10 +24,15 @@ public interface IAiMorningBriefGemini
     IGeminiAiService Create(ZKTecoDbContext db, Guid storeId);
 }
 
-public sealed class AiMorningBriefGemini(IConfiguration configuration, ILogger<GeminiAiService> logger) : IAiMorningBriefGemini
+public sealed class AiMorningBriefGemini(
+    IConfiguration configuration, ILogger<GeminiAiService> logger, IGeminiUsageRecorder usage) : IAiMorningBriefGemini
 {
     public IGeminiAiService Create(ZKTecoDbContext db, Guid storeId) =>
-        new TenantScopedGeminiAiService(configuration, logger, db, new FixedStoreTenant(storeId), new HttpContextAccessor());
+        new TenantScopedGeminiAiService(configuration, logger, db, new FixedStoreTenant(storeId), new HttpContextAccessor(), usage)
+        {
+            // Chạy nền nên không có đường dẫn API — ghi thẳng tên tính năng cho báo cáo token.
+            BackgroundFeature = "/api/ai/morning-brief",
+        };
 
     sealed class FixedStoreTenant(Guid storeId) : ITenantProvider
     {

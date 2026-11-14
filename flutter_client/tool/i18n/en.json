@@ -786,6 +786,7 @@
   "Bản thân người nộp thuế": "The taxpayer",
   "Bản tin": "Brief",
   "Bản tin là nơi trao đổi công việc trong cửa hàng. Khi viết bình luận, bạn đồng ý:\n\n": "The news feed is where staff discuss work within the store. By posting a comment, you agree:\n\n",
+  "Bản tin sáng": "Morning brief",
   "Bản tin sáng tự động": "Automatic morning brief",
   "Bản trong Tải xuống được giữ lại và sẽ không bị nhập lại vào danh sách.": "The copy in Downloads is kept and will not be imported into the list again.",
   "Bản «cần xem» và «rủi ro cao» vẫn gửi quản lý trực tiếp duyệt.": "“Needs review” and “high risk” items are still sent to the direct manager for approval.",
@@ -1406,6 +1407,7 @@
   "Chưa có lượt chấm": "No punches yet",
   "Chưa có lượt chấm cơm": "No meal check-ins yet",
   "Chưa có lượt có giờ ra": "No visits with a check-out time",
+  "Chưa có lượt gọi AI nào trong khoảng này. Số liệu chỉ tính từ lúc máy chủ bật ghi nhận token.": "No AI calls in this period yet. Figures are counted only from when the server started recording tokens.",
   "Chưa có lượt tập": "No workouts yet",
   "Chưa có lượt tập trong kỳ.": "No workouts in the period.",
   "Chưa có lần bảo hành nào": "No warranty claims yet",
@@ -3297,6 +3299,7 @@
   "Gói: ": "Plan: ",
   "Góp ý chung": "General feedback",
   "Gõ RESET (chữ in hoa) để xác nhận xóa toàn bộ dữ liệu ": "Type RESET (uppercase) to confirm deleting all data ",
+  "Gõ bằng giọng nói": "Voice to text",
   "Gõ tên hoặc mã": "Type name or code",
   "Gõ ít nhất 2 ký tự để tìm hàng": "Type at least 2 characters to search items",
   "Gạch dưới": "Underline",
@@ -3415,6 +3418,7 @@
   "Gửi «P»": "Send «P»",
   "Gửi «R»": "Send «R»",
   "Gửi «W» (CAS, Toledo, nhiều cân Trung Quốc)": "Send «W» (CAS, Toledo, many Chinese scales)",
+  "Gửi đi": "Sent",
   "Gửi đánh giá": "Submit review",
   "Gửi đơn nghỉ": "Submit leave request",
   "Gửi đơn tới quản lý duyệt": "Send the request to the manager for approval",
@@ -4578,6 +4582,7 @@
   "Không tải được quyền module": "Cannot load module permissions",
   "Không tải được số liệu": "Couldn't load data",
   "Không tải được số liệu căn tin": "Cannot load canteen data",
+  "Không tải được số liệu token": "Could not load token figures",
   "Không tải được sổ seri": "Cannot load the serial ledger",
   "Không tải được sổ tay": "Could not load the quick list",
   "Không tải được sổ đối chiếu": "Cannot load the reconciliation ledger",
@@ -4695,6 +4700,7 @@
   "Kiểm tra": "Check",
   "Kiểm tra / nghiệm thu": "Inspection / acceptance",
   "Kiểm tra Viettel Post — tắt Sandbox nếu dùng token production": "Check Viettel Post — turn off Sandbox if using a production token",
+  "Kiểm tra khóa": "Key check",
   "Kiểm tra kết nối rồi mở lại ứng dụng.": "Check your connection, then reopen the app.",
   "Kiểm tra kết nối rồi thử lại.": "Check your connection and try again.",
   "Kiểm tra kỹ thuật": "Technical check",
@@ -5713,6 +5719,7 @@
   "Mỗi lần CK thành công trừ 1 lượt. Hết lượt thì vẫn nhận webhook nhưng không đọc thông báo.": "Each successful bank transfer uses 1 credit. When credits run out, webhooks are still received but notifications are not read aloud.",
   "Mỗi lần chọn trên báo giá là một dòng: rộng × cao (mm) + số bộ.": "Each selection on the quotation becomes one line: width × height (mm) + number of sets.",
   "Mỗi lần sửa / khôi phục / đổi mẫu đều lưu lại bản trước đó.": "Every edit / restore / template change saves the previous version.",
+  "Mỗi lời gọi AI tốn bao nhiêu token — xem chỗ nào ngốn nhiều nhất": "How many tokens each AI call costs — see what uses the most",
   "Mỗi máy chấm công chỉ nên gắn một mạch ESP.": "Attach only one ESP board per attendance device.",
   "Mỗi máy chủ có dữ liệu và tài khoản riêng.": "Each server has its own data and accounts.",
   "Mỗi mạch ESP chỉ nên gắn một máy chấm công (một IP máy / một SN). ": "Attach only one attendance device per ESP board (one device IP / one SN). ",
@@ -6265,6 +6272,7 @@
   "Nhập lương đóng bảo hiểm của một nhân viên": "Enter the insured salary of one employee",
   "Nhập mã voucher": "Enter voucher code",
   "Nhập mô tả lỗi": "Enter the fault description",
+  "Nhập mẫu Word": "Import Word template",
   "Nhập mẫu số": "Enter a number pattern",
   "Nhập mật khẩu hiện tại để bật đăng nhập nhanh trên điện thoại này.": "Enter your current password to turn on quick sign-in on this phone.",
   "Nhập mật khẩu tài khoản chủ cửa hàng hoặc quản lý để khóa / mở bán món.": "Enter the shop owner's or manager's account password to lock / unlock selling an item.",
@@ -6768,6 +6776,7 @@
   "Quét gateway qua Bluetooth": "Scan gateway via Bluetooth",
   "Quét hoặc dán seri — mỗi seri một dòng": "Scan or paste serials — one serial per line",
   "Quét hàng loạt": "Bulk scan",
+  "Quét hóa đơn nhập": "Scan purchase invoice",
   "Quét khách không đến": "Scan no-show guests",
   "Quét máy in LAN": "Scan LAN printers",
   "Quét mã QR trên màn hình để thanh toán": "Scan the QR code on screen to pay",
@@ -6962,6 +6971,8 @@
   "So với cả quán. Đỏ = nhiều dấu hiệu nghiêm trọng / tiền lớn; vàng = cần để ý.": "Compared to the whole shop. Red = serious signs / large amounts; yellow = worth watching.",
   "Soạn mẫu": "Compose template",
   "Soạn mẫu & máy in": "Compose templates & printers",
+  "Soạn nội dung": "Write content",
+  "Soạn thông báo nội bộ": "Write internal announcement",
   "Soạn thảo": "Compose",
   "Soạn thảo toàn màn hình — cuộn để xem hết trang": "Full-screen editing — scroll to see the whole page",
   "Soạn tiếp": "Continue composing",
@@ -6971,6 +6982,7 @@
   "Sunmi T1 (ảnh welcome + bill)": "Sunmi T1 (welcome image + bill)",
   "SuperAdmin bán gói lượt": "SuperAdmin sells credit packs",
   "SuperAdmin vào Lượt CK Tingee → Tạo merchant + shop cho cửa hàng này.": "SuperAdmin: go to Tingee transfer turns → create the merchant + shop for this store.",
+  "Suy nghĩ": "Thinking",
   "Suất đã phục vụ": "Meals served",
   "Sáng tạo, đa dạng — hợp viết bài, ý tưởng": "Creative and varied — good for writing and ideas",
   "Sáng: xem Dashboard / chuông thông báo — duyệt phép, đổi ca, chấm mobile chờ duyệt": "Morning: check the Dashboard / notification bell — approve leave, shift swaps, mobile punches pending",
@@ -7219,6 +7231,7 @@
   "Sửa máy in cloud": "Edit cloud printer",
   "Sửa món trên hóa đơn": "Edit items on the bill",
   "Sửa mẫu in": "Edit print template",
+  "Sửa mẫu in bằng AI": "Edit print template with AI",
   "Sửa mẫu việc": "Edit task template",
   "Sửa mục sổ tay": "Edit quick-list entry",
   "Sửa mức lương ca": "Edit shift pay level",
@@ -7403,6 +7416,7 @@
   "Theo máy": "By device",
   "Theo mã phiếu": "By document code",
   "Theo món": "By dish",
+  "Theo mô hình": "By model",
   "Theo mẫu": "By template",
   "Theo mẫu việc": "By task template",
   "Theo mặt hàng": "By item",
@@ -7442,6 +7456,7 @@
   "Theo thứ trong tuần": "By weekday",
   "Theo tiêu chí": "By criteria",
   "Theo trạng thái và người giữ": "By status and holder",
+  "Theo tính năng": "By feature",
   "Theo từng ngành": "By business type",
   "Theo từng nhân viên": "Per employee",
   "Theo đơn": "By order",
@@ -7646,6 +7661,8 @@
   "Thêm logo": "Add logo",
   "Thêm lại vào đơn": "Add back to order",
   "Thêm lựa chọn": "Add option",
+  "Thêm menu bằng bảng": "Add menu from a sheet",
+  "Thêm menu bằng ảnh": "Add menu from a photo",
   "Thêm máy in bếp trên máy này": "Add a kitchen printer on this device",
   "Thêm máy in dùng chung (LAN / Bluetooth)": "Add shared printer (LAN / Bluetooth)",
   "Thêm máy tem 100×150 (vai trò «Tem vận đơn») trong Máy in nội bộ hoặc Agent.": "Add a 100×150 label printer (role \"Shipping label\") in Internal Printers or Agent.",
@@ -7960,9 +7977,11 @@
   "Tiền đếm két": "Counted cash",
   "Tiền ứng theo ngày": "Advances by day",
   "Tiểu đường": "Diabetes",
+  "Token AI đã dùng": "AI tokens used",
   "Token bí mật 32 ký tự (viettelpost.vn/cau-hinh-tai-khoan): dán vào API Token → Lưu ": "32-character secret token (viettelpost.vn/cau-hinh-tai-khoan): paste into API Token → Save ",
   "Token bí mật 32 ký tự chỉ tra cước — bấm Lưu để hệ thống đổi sang JWT (LoginVTP), ": "The 32-character secret token is for rate lookup only — tap Save and the system exchanges it for a JWT (LoginVTP), ",
   "Token thông báo CK": "Transfer notification token",
+  "Token «suy nghĩ» là phần mô hình tự nghĩ trước khi trả lời: không hiện ra câu trả lời nhưng vẫn tính tiền.": "«Thinking» tokens are what the model works through before answering: they never appear in the reply but are still billed.",
   "Top 10 món bán chạy 7 ngày qua": "Top 10 best-selling dishes in the last 7 days",
   "Top hàng bán chạy": "Top-selling items",
   "Top nhân viên KPI": "Top KPI employees",
@@ -8108,6 +8127,7 @@
   "Trả tiền hết": "Pay in full",
   "Trả tiền phép": "Pay leave allowance",
   "Trả tiền phép còn lại": "Pay out remaining leave",
+  "Trả về": "Returned",
   "Trả đủ": "Pay in full",
   "Trần Quốc Bảo": "Trần Quốc Bảo",
   "Trần Văn Giao": "Trần Văn Giao",
@@ -11071,7 +11091,9 @@
   "Đọc menu bằng AI": "Read menu with AI",
   "Đọc mã vạch cân điện tử": "Read electronic scale barcode",
   "Đọc món cần chế biến. Giữ để chọn giọng": "Reads out items to prepare. Long-press to choose a voice",
+  "Đọc thành giọng nói": "Read aloud",
   "Đọc và tạo hàng xong, xóa ảnh cũ rồi thêm phần menu còn lại.": "Once read and the items are created, remove the old images and add the rest of the menu.",
+  "Đọc đơn từ ảnh": "Read order from a photo",
   "Đọng vốn — cân nhắc giảm nhập": "Capital tied up — consider ordering less",
   "Đỏ / vàng xếp đầu. Bấm để xem dùng cho món nào.": "Red / yellow come first. Tap to see which items use it.",
   "Đối chiếu chấm công": "Attendance reconciliation",
@@ -11461,6 +11483,7 @@
   "① Bấm «Đổi ngành» — lưu ngay và bật sẵn cấu hình mặc định của ngành.": "① Tap “Change industry” — it saves immediately and turns on that industry's default settings.",
   "① Bậc phạt đi trễ: số phút và số tiền từng bậc. ② Bậc phạt về sớm. Kéo xuống để đặt phạt tái phạm, quên chấm công và cách thu tiền.": "① Late penalty tiers: minutes and amount for each tier. ② Early leave penalty tiers. Scroll down to set repeat-offense penalties, missed punches and collection method.",
   "① Bật / tắt cả một nhóm thông báo. ② Hoặc tắt từng loại (vd máy chấm công mất kết nối); tự lưu khi bật / tắt.": "① Turn a whole notification group on / off. ② Or turn off individual types (e.g. attendance device disconnected); saved automatically when toggled.",
+  "① Bật / tắt trợ lý và khai khóa riêng của cửa hàng (nhiều khóa thì hết lượt tự chuyển). ② «Hồ sơ cửa hàng cho trợ lý»: giờ mở cửa, nội quy, tên gọi tắt của món.": "① Turn the assistant on or off and enter the store's own keys (with several keys, a key that runs out switches automatically). ② «Store profile for the assistant»: opening hours, house rules, short names for dishes.",
   "① Bật cách xác thực: khuôn mặt, GPS, Wi-Fi công ty. ② Khi bật nhiều cách: chỉ cần đạt 1 hay phải đạt tất cả.": "① Enable verification methods: face, GPS, company Wi-Fi. ② When several are enabled: pass any 1 or must pass all.",
   "① Bật xuất hóa đơn điện tử. ② «Hỏi thu ngân lúc thanh toán» / «Mặc định xuất hóa đơn». ③ In mã tra cứu + QR trên hóa đơn bán hàng.": "① Turn on e-invoicing. ② “Ask the cashier at payment” / “Issue invoice by default”. ③ Print lookup code + QR on the sales invoice.",
   "① Bật «Ca thu ngân (mở ca / đóng két)» trong Ngành hàng & cách bán.": "① Turn on “Cashier shift (open shift / close drawer)” in Industry & selling mode.",
@@ -11515,6 +11538,7 @@
   "① Chọn vai trò (Quản lý, Kế toán, Thu ngân…). ② Với thu ngân / order: chọn khu vực bán hàng được xem.": "① Choose the role (Manager, Accountant, Cashier…). ② For cashier / order: choose the sales areas they can view.",
   "① Cách tính giá: «Theo buổi / liệu trình», nhập số buổi trong gói (vd 10). ② Hạn dùng gói (ngày).": "① Pricing method: “By session / package”, enter sessions in the package (e.g. 10). ② Package validity (days).",
   "① Cách tính hoa hồng (vd % trên doanh thu dòng) và mức %. ② Gói nhiều buổi: tính «1 lần khi bán» hoặc «Mỗi buổi làm».": "① Commission method (e.g. % of line revenue) and rate %. ② Multi-session packages: count “Once at sale” or “Per session performed”.",
+  "① Câu trả lời kèm số liệu và gợi ý hành động. ② Biểu đồ dựng từ báo cáo trợ lý vừa đọc. ③ Nút mở đúng màn báo cáo để xem chi tiết.": "① Answers come with figures and suggested actions. ② Charts are built from the report the assistant just read. ③ A button opens the matching report screen for the details.",
   "① Công nợ hiện tại của khách. ② «Thu nợ» khi khách trả tiền nợ.": "① The customer's current debt. ② “Collect debt” when the customer pays it back.",
   "① Cấp quyền cho điện thoại nhân viên. ② Máy mới đăng ký hiện «Chờ duyệt». ③ Bấm dấu xanh để duyệt, dấu đỏ để từ chối.": "① Grant access to employees' phones. ② Newly registered devices show «Pending approval». ③ Tap the green check to approve, the red mark to reject.",
   "① Cần chuẩn bị: nguồn USB, IP máy chấm công, WiFi 2.4GHz. ② Bấm «Bắt đầu bằng Bluetooth».": "① You will need: USB power, the attendance device's IP, 2.4GHz WiFi. ② Tap «Start with Bluetooth».",
@@ -11555,6 +11579,7 @@
   "① Mã nhân viên (PIN), phải trùng mã trên máy chấm công. ② Họ tên nhân viên.": "① Employee code (PIN), must match the code on the attendance device. ② Employee full name.",
   "① Mã và tên chi nhánh. ② Chi nhánh cha và quản lý chi nhánh. ③ Bấm «Tạo mới» để lưu.": "① Branch code and name. ② Parent branch and branch manager. ③ Click “Create” to save.",
   "① Mẫu in → «Thêm mẫu» → «Tải file Word của bạn» (.docx).": "① Print templates → “Add template” → “Upload your Word file” (.docx).",
+  "① Mọi phiếu trợ lý đã lưu: ai ra lệnh, lúc nào, kết quả. ② Việc rủi ro cao (xóa / hủy chứng từ) được đánh dấu riêng.": "① Every record the assistant saved: who gave the order, when, and the result. ② High-risk actions (deleting or voiding documents) are marked separately.",
   "① Mỗi hóa đơn một tab: HĐ 1 đang có hàng, HĐ 2 vừa mở. ② Nút «+» (F2) mở thêm hóa đơn mới.": "① One tab per invoice: Invoice 1 has items, Invoice 2 just opened. ② The “+” button (F2) opens a new invoice.",
   "① Mỗi nhóm: các topping kèm giá thêm, số món đang gắn — bấm dòng gạch chân để gắn vào món. ② «Thêm nhóm» để tạo nhóm mới.": "① Each group: its toppings with extra prices and the number of items attached — tap the underlined line to attach to items. ② “Add group” to create a new group.",
   "① Mục người phụ thuộc của nhân viên. ② Chạm vào nhân viên để khai số người phụ thuộc và đính kèm hồ sơ.": "① Employees' dependants section. ② Tap an employee to declare the number of dependants and attach documents.",
@@ -11600,6 +11625,7 @@
   "① Thêm một ngày lễ riêng. ② Thêm nhanh các ngày lễ theo quy định còn thiếu trong năm (Tết âm lịch, Giỗ Tổ…).": "① Add a custom holiday. ② Quickly add the statutory holidays still missing this year (Lunar New Year, Hung Kings' Day…).",
   "① Thêm nguyên vật liệu vào món. ② Lượng dùng cho 1 món theo ĐVT của từng NVL.": "① Add ingredients to the item. ② Quantity used for 1 item, in each ingredient's unit.",
   "① Thêm vị trí chấm công. ② Mỗi vị trí có địa chỉ, bán kính, Wi-Fi và số nhân viên được chấm.": "① Add an attendance location. ② Each location has an address, radius, Wi-Fi and number of employees allowed to punch.",
+  "① Thẻ chờ xác nhận: từng dòng của phiếu sắp lập. ② Bấm «Xác nhận» để lưu, «Bỏ» nếu sai.": "① The card waiting for confirmation: every line of the record about to be created. ② Tap «Confirm» to save, «Discard» if it is wrong.",
   "① Thẻ theo bàn: khu · bàn, số món. ② Từng món: số lượng, ghi chú, phút chờ (đỏ = trễ). ③ «Đang làm» / «Ra món» cho cả bàn.": "① Card per table: area · table, number of dishes. ② Each dish: quantity, note, waiting minutes (red = late). ③ “In progress” / “Serve” for the whole table.",
   "① Thời hạn bảo hành (tháng), tính từ ngày bán. ② Bắt buộc nhập seri máy khi bán.": "① Warranty period (months), counted from the sale date. ② Serial number is required when selling.",
   "① Thời lượng gói (phút). ② Báo trước khi hết giờ. ③ Dịch vụ tính quá giờ — để «Chưa chọn» thì hết giờ chỉ báo, không tự tính tiền.": "① Package duration (minutes). ② Warning before time runs out. ③ Service charged for overtime — leave “Not selected” and when time is up it only alerts, without charging automatically.",
@@ -11609,6 +11635,7 @@
   "① Tiền khách đưa. ② «Tiền trả khách» — số phải thối lại. ③ Hoàn tất (máy tính ghi luôn tiền trả khách trên nút).": "① Amount the customer hands over. ② “Change due to customer” — the amount to give back. ③ Complete (the calculator also shows the change on the button).",
   "① Tiền mặt kỳ vọng = đầu ca + tiền mặt thu trong ca. ② Nhập tiền mặt đếm được. ③ Bấm «Đóng ca».": "① Expected cash = opening cash + cash received during the shift. ② Enter the cash counted. ③ Tap “Close shift”.",
   "① Trên máy chấm công: vào menu Máy chủ đám mây, nhập địa chỉ máy chủ và port như hướng dẫn.": "① On the attendance device: open the Cloud Server menu, enter the server address and port as instructed.",
+  "① Trợ lý trả lời theo đúng hướng dẫn sử dụng này. ② Nút mở thẳng bài hướng dẫn tương ứng.": "① The assistant answers exactly according to this user guide. ② A button opens the matching guide article.",
   "① Trụ sở chính ở gốc cây. ② Các chi nhánh trực thuộc kèm số nhân viên. ③ Mở tất cả / thu gọn cây.": "① Head office at the root of the tree. ② Subordinate branches with their employee counts. ③ Expand all / collapse the tree.",
   "① Tên buổi ăn (Sáng / Trưa / Tối). ② Giá mỗi suất. ③ Giờ bắt đầu – kết thúc của buổi.": "① Meal name (Breakfast / Lunch / Dinner). ② Price per meal. ③ Start – end time of the meal.",
   "① Tên cửa hàng, địa chỉ, SĐT in trên hóa đơn. Thuế VAT khi bán nay đặt ở «Hóa đơn điện tử».": "① Store name, address and phone printed on the invoice. Sales VAT is now set under “E-invoice”.",
@@ -11651,6 +11678,7 @@
   "① «Tạo phiếu kiểm kê». ② Phiếu đang kiểm (phiếu tạm) và tổng chênh lệch.": "① “Create stock count voucher”. ② Vouchers being counted (drafts) and total variance.",
   "① «Tồn kho»: số lượng đầu kỳ khi tạo hàng. ② Định mức tồn thấp nhất / cao nhất để báo sắp hết hàng.": "① “Stock”: opening quantity when creating the product. ② Minimum / maximum stock levels to warn when running low.",
   "① «Tự in phiếu bếp» khi khách gửi món. ② «Bật xác nhận order (QR)»: thu ngân duyệt trước khi báo bếp. ③ «In tất cả QR» để dán bàn. ④ Từng bàn: link QR, nút sao chép / in QR.": "① “Auto-print kitchen ticket” when a customer sends dishes. ② “Enable order confirmation (QR)”: the cashier approves before notifying the kitchen. ③ “Print all QR” to stick on tables. ④ Per table: QR link, copy / print QR buttons.",
+  "① Ô hỏi hoặc ra lệnh. ② Nút micro để nói thay gõ. ③ Menu ⋮: rảnh tay, nhật ký thao tác.": "① The box for a question or an order. ② The microphone button to speak instead of typing. ③ The ⋮ menu: hands-free, action log.",
   "① Ô khách hàng (F4) và nút thêm khách. ② Giảm giá cả đơn theo % / đ. ③ Mã voucher → Áp dụng. ④ Số khách cần trả.": "① Customer field (F4) and the add-customer button. ② Discount the whole order by % / đ. ③ Voucher code → Apply. ④ Amount the customer must pay.",
   "① Ô «Chia sẻ điều gì đó…» (điện thoại: nút bút góc dưới) để viết bài. ② Chọn kênh: Bảng tin, Thông báo, Nội quy & chính sách…": "① The “Share something…” box (phone: pen button at the bottom) to write a post. ② Choose a channel: Feed, Announcements, Rules & policies…",
   "① Điều kiện nhận: không điều kiện, % thời lượng ca hoặc số giờ tối thiểu. ② Tính vào thu nhập chịu thuế TNCN / lương đóng bảo hiểm. ③ Áp dụng cho tất cả nhân viên hoặc chọn riêng.": "① Eligibility: none, % of shift duration, or minimum hours. ② Counted toward personal-income-tax-taxable income / insurance-contribution salary. ③ Apply to all employees or select specific ones.",
@@ -11900,6 +11928,10 @@
   [
    "({0} hoạt động,",
    "({0} active,"
+  ],
+  [
+   "({0} lượt)",
+   "({0} calls)"
   ],
   [
    "({0} món, forceCloud={1})",
@@ -18514,6 +18546,10 @@
    "Print Agent: job {0} finished printing — reporting «printed» to the server"
   ],
   [
+   "Print Agent: job {0} được yêu cầu in lại — in thật",
+   "Print Agent: job {0} was asked to print again — printing for real"
+  ],
+  [
    "Print Agent: không báo hỏng được job {0}: {1}",
    "Print Agent: could not report job {0} as failed: {1}"
   ],
@@ -22040,6 +22076,10 @@
   [
    "tiền {0} · giá vốn {1}",
    "amount {0} · cost {1}"
+  ],
+  [
+   "token · {0} lượt gọi trong {1} ngày",
+   "tokens · {0} calls in {1} days"
   ],
   [
    "trên tổng {0} đ",
@@ -28024,6 +28064,10 @@
   [
    "✓ Đã quét: {0} - Hãy nhập số lượng thực tế",
    "✓ Scanned: {0} - enter the actual quantity"
+  ],
+  [
+   "❌ ApiService: 401 {0}, mã làm mới bị từ chối → hết phiên",
+   "❌ ApiService: 401 {0}, refresh token rejected → session ended"
   ],
   [
    "❌ ApiService: 401 {0}, refresh hỏng → hết phiên",

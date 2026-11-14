@@ -90,6 +90,44 @@ public class GeminiAiService : IGeminiAiService
     public bool IsConfigured => !string.IsNullOrWhiteSpace(_apiKey);
     public bool IsEnabled => _enabled && IsConfigured;
 
+    /// <summary>
+    /// Gọi sau mỗi câu trả lời của Google với số token của lời gọi đó. Lớp bọc theo cửa hàng gắn vào đây để ghi
+    /// nhật ký; lớp này không biết cửa hàng nào nên không tự ghi.
+    /// </summary>
+    public Action<GeminiUsage>? UsageRecorded { get; set; }
+
+    /// <summary>Báo số token (nếu câu trả lời có usageMetadata). Hỏng ở đây không được làm hỏng lời gọi AI.</summary>
+    private void NoteUsage(JsonElement root)
+    {
+        if (UsageRecorded is null) return;
+        if (ReadUsage(root) is { } usage) NoteUsage(usage);
+    }
+
+    private GeminiUsage? ReadUsage(JsonElement root)
+    {
+        try
+        {
+            return GeminiUsage.From(root, _model);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Không đọc được usageMetadata của Gemini");
+            return null;
+        }
+    }
+
+    private void NoteUsage(GeminiUsage usage)
+    {
+        try
+        {
+            UsageRecorded?.Invoke(usage);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Không ghi được token Gemini");
+        }
+    }
+
     public GeminiAiService(IConfiguration configuration, ILogger<GeminiAiService> logger)
     {
         _logger = logger;
@@ -198,6 +236,7 @@ QUAN TRỌNG: Trả lời ĐÚNG theo format JSON sau (không markdown, không c
         // Parse Gemini response
         using var doc = JsonDocument.Parse(responseBody);
         var root = doc.RootElement;
+        NoteUsage(root);
 
         var parts = root
             .GetProperty("candidates")[0]
@@ -316,6 +355,7 @@ QUAN TRỌNG: Trả lời ĐÚNG theo format JSON sau (không markdown, không c
         }
 
         using var doc = JsonDocument.Parse(responseBody);
+        NoteUsage(doc.RootElement);
         if (!doc.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
             throw new AiApiException("AI không trả kết quả (nội dung có thể bị chặn). Thử ảnh / file khác.", 422);
         var candidate = candidates[0];
@@ -454,6 +494,7 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
         }
 
         using var doc = JsonDocument.Parse(responseBody);
+        NoteUsage(doc.RootElement);
         var parts = doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts");
         return AnswerText(parts).Trim();
     }
@@ -519,6 +560,7 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
         }
 
         using var doc = JsonDocument.Parse(responseBody);
+        NoteUsage(doc.RootElement);
         var parts = doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts");
         return AnswerText(parts).Trim();
     }
@@ -549,6 +591,7 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
         }
 
         using var doc = JsonDocument.Parse(responseBody);
+        NoteUsage(doc.RootElement);
         if (!doc.RootElement.TryGetProperty("candidates", out var cands) || cands.GetArrayLength() == 0
             || !cands[0].TryGetProperty("content", out var content))
         {
@@ -591,24 +634,35 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
 
         await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var reader = new StreamReader(stream);
-        while (await reader.ReadLineAsync(cancellationToken) is { } line)
+        // Mỗi đoạn SSE đều kèm usageMetadata, đoạn cuối là tổng của cả lời gọi — giữ đoạn cuối cùng đọc được
+        // rồi mới ghi một lần, kể cả khi người gọi bỏ ngang (finally).
+        GeminiUsage? usage = null;
+        try
         {
-            if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
-            var data = line["data:".Length..].Trim();
-            if (data.Length == 0) continue;
-            JsonElement? content = null;
-            try
+            while (await reader.ReadLineAsync(cancellationToken) is { } line)
             {
-                using var doc = JsonDocument.Parse(data);
-                if (doc.RootElement.TryGetProperty("candidates", out var cands) && cands.GetArrayLength() > 0
-                    && cands[0].TryGetProperty("content", out var c))
-                    content = c.Clone();
+                if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
+                var data = line["data:".Length..].Trim();
+                if (data.Length == 0) continue;
+                JsonElement? content = null;
+                try
+                {
+                    using var doc = JsonDocument.Parse(data);
+                    usage = ReadUsage(doc.RootElement) ?? usage;
+                    if (doc.RootElement.TryGetProperty("candidates", out var cands) && cands.GetArrayLength() > 0
+                        && cands[0].TryGetProperty("content", out var c))
+                        content = c.Clone();
+                }
+                catch (JsonException)
+                {
+                    // Dòng hỏng — bỏ qua, đoạn sau vẫn đọc.
+                }
+                if (content is JsonElement ce) yield return ce;
             }
-            catch (JsonException)
-            {
-                // Dòng hỏng — bỏ qua, đoạn sau vẫn đọc.
-            }
-            if (content is JsonElement ce) yield return ce;
+        }
+        finally
+        {
+            if (usage != null) NoteUsage(usage);
         }
     }
 
@@ -676,48 +730,58 @@ Hãy viết trực tiếp nội dung, KHÔNG bọc trong JSON hay markdown code 
         using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
         using var reader = new System.IO.StreamReader(stream);
 
-        while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
+        // Giữ usageMetadata của đoạn cuối (tổng cả lời gọi) rồi ghi một lần ở finally.
+        GeminiUsage? usage = null;
+        try
         {
-            var line = await reader.ReadLineAsync(cancellationToken);
-            if (line == null) break;
-            if (!line.StartsWith("data: ")) continue;
-
-            var json = line["data: ".Length..];
-            if (string.IsNullOrWhiteSpace(json)) continue;
-
-            string? textChunk = null;
-            try
+            while (!reader.EndOfStream && !cancellationToken.IsCancellationRequested)
             {
-                using var doc = JsonDocument.Parse(json);
-                var candidates = doc.RootElement.GetProperty("candidates");
-                if (candidates.GetArrayLength() == 0) continue;
+                var line = await reader.ReadLineAsync(cancellationToken);
+                if (line == null) break;
+                if (!line.StartsWith("data: ")) continue;
 
-                var parts = candidates[0]
-                    .GetProperty("content")
-                    .GetProperty("parts");
+                var json = line["data: ".Length..];
+                if (string.IsNullOrWhiteSpace(json)) continue;
 
-                for (int i = 0; i < parts.GetArrayLength(); i++)
+                string? textChunk = null;
+                try
                 {
-                    var part = parts[i];
-                    // Skip thinking/thought parts
-                    if (part.TryGetProperty("thought", out var thought) && thought.GetBoolean())
-                        continue;
-                    if (part.TryGetProperty("text", out var textEl))
+                    using var doc = JsonDocument.Parse(json);
+                    usage = ReadUsage(doc.RootElement) ?? usage;
+                    var candidates = doc.RootElement.GetProperty("candidates");
+                    if (candidates.GetArrayLength() == 0) continue;
+
+                    var parts = candidates[0]
+                        .GetProperty("content")
+                        .GetProperty("parts");
+
+                    for (int i = 0; i < parts.GetArrayLength(); i++)
                     {
-                        textChunk = textEl.GetString();
+                        var part = parts[i];
+                        // Skip thinking/thought parts
+                        if (part.TryGetProperty("thought", out var thought) && thought.GetBoolean())
+                            continue;
+                        if (part.TryGetProperty("text", out var textEl))
+                        {
+                            textChunk = textEl.GetString();
+                        }
                     }
                 }
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogWarning(ex, "Failed to parse streaming chunk");
-                continue;
-            }
+                catch (JsonException ex)
+                {
+                    _logger.LogWarning(ex, "Failed to parse streaming chunk");
+                    continue;
+                }
 
-            if (!string.IsNullOrEmpty(textChunk))
-            {
-                yield return textChunk;
+                if (!string.IsNullOrEmpty(textChunk))
+                {
+                    yield return textChunk;
+                }
             }
+        }
+        finally
+        {
+            if (usage != null) NoteUsage(usage);
         }
     }
 
