@@ -11,16 +11,16 @@ public class DeviceCmdService(IRepository<DeviceCommand> deviceCmdRepository, IL
 {
     public async Task<IEnumerable<DeviceCommand>> GetCreatedCommandsAsync(Guid deviceId)
     {
-        logger.LogWarning("[DeviceCmdService] GetCreatedCommandsAsync for DeviceId: {DeviceId}", deviceId);
+        logger.LogDebug("[DeviceCmdService] GetCreatedCommandsAsync for DeviceId: {DeviceId}", deviceId);
         
         var commands = await deviceCmdRepository.GetAllAsync(cmd => cmd.DeviceId == deviceId && cmd.Status == CommandStatus.Created);
         var commandList = commands.ToList();
         
-        logger.LogWarning("[DeviceCmdService] Found {Count} commands with Status=Created for DeviceId: {DeviceId}", commandList.Count, deviceId);
+        logger.LogDebug("[DeviceCmdService] Found {Count} commands with Status=Created for DeviceId: {DeviceId}", commandList.Count, deviceId);
         
         foreach (var cmd in commandList)
         {
-            logger.LogWarning("[DeviceCmdService] Command: Id={Id}, Command={Cmd}, Status={Status}, CommandType={Type}", 
+            logger.LogInformation("[DeviceCmdService] Command: Id={Id}, Command={Cmd}, Status={Status}, CommandType={Type}", 
                 cmd.Id, cmd.Command, cmd.Status, cmd.CommandType);
         }
         

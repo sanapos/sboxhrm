@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using ZKTecoADMS.Domain.Entities;
 using ZKTecoADMS.Domain.Repositories;
 
@@ -73,17 +74,31 @@ public class NotificationCleanupBackgroundService : BackgroundService
             return;
         }
 
-        if (readCount > 0)
+        // Xóa theo lô ngay trong CSDL. Trước đây nạp TOÀN BỘ thông báo hết hạn vào bộ nhớ rồi xóa từng dòng trong một
+        // giao dịch: vài trăm nghìn dòng là tốn hàng GB RAM và khóa bảng rất lâu.
+        var db = scope.ServiceProvider.GetRequiredService<ZKTecoADMS.Infrastructure.ZKTecoDbContext>();
+        async Task DeleteInBatchesAsync(System.Linq.Expressions.Expression<Func<Notification, bool>> expired)
         {
-            await notificationRepository.DeleteAsync(
-                n => n.IsRead && n.Timestamp < readCutoff, stoppingToken);
+            const int batch = 5000;
+            for (var round = 0; round < 2000 && !stoppingToken.IsCancellationRequested; round++)
+            {
+                var ids = await db.Notifications.AsNoTracking()
+                    .Where(expired)
+                    .OrderBy(n => n.Timestamp)
+                    .Select(n => n.Id)
+                    .Take(batch)
+                    .ToListAsync(stoppingToken);
+                if (ids.Count == 0) break;
+                await db.Notifications.Where(n => ids.Contains(n.Id)).ExecuteDeleteAsync(stoppingToken);
+                if (ids.Count < batch) break;
+            }
         }
 
+        if (readCount > 0)
+            await DeleteInBatchesAsync(n => n.IsRead && n.Timestamp < readCutoff);
+
         if (unreadCount > 0)
-        {
-            await notificationRepository.DeleteAsync(
-                n => !n.IsRead && n.Timestamp < unreadCutoff, stoppingToken);
-        }
+            await DeleteInBatchesAsync(n => !n.IsRead && n.Timestamp < unreadCutoff);
 
         _logger.LogInformation("🧹 Cleaned up {ReadCount} read (>{ReadDays}d) + {UnreadCount} unread (>{UnreadDays}d) notifications",
             readCount, ReadRetentionDays, unreadCount, UnreadRetentionDays);

@@ -326,7 +326,7 @@ public sealed class PosPaymentGatewayService(
         }
         if (settings == null)
         {
-            settings = await FindTingeeSettingsByAccountAsync(payload.VaAccountNumber, ct);
+            settings = await FindTingeeSettingsByAccountAsync(payload.VaAccountNumber, payload, ct);
         }
         if (settings == null && !string.IsNullOrWhiteSpace(payload.ClientId))
         {
@@ -444,32 +444,52 @@ public sealed class PosPaymentGatewayService(
         }
         if (intent == null && !string.IsNullOrWhiteSpace(payload.TransferContent))
         {
-            var guess = payload.TransferContent.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            foreach (var token in guess)
-            {
+            // Tìm mã đối soát của lệnh đang chờ trong nội dung chuyển khoản. Ngân hàng hay chèn tiền tố / dấu chấm
+            // («MBVCB.123.TMP05A3F9.CT tu…») nên tách theo mọi ký tự không phải chữ-số, không chỉ dấu cách.
+            var waiting = await db.PosTransferPaymentIntents.AsNoTracking()
+                .Where(x => x.StoreId == settings.StoreId
+                    && x.Status == PosTransferPaymentIntentStatus.Waiting
+                    && x.Deleted == null)
+                .OrderByDescending(x => x.CreatedAt)
+                .Take(300)
+                .Select(x => new WaitingCode(x.Id, x.ExternalOrderId, x.OrderNo))
+                .ToListAsync(ct);
+            // Số đơn nháp «TMP{ô}» dùng lại giữa các đơn: lệnh đã có mã riêng thì không khớp theo số đơn nháp nữa.
+            var hit = PosTransferCode.PickByContent(payload.TransferContent, waiting, w =>
+                Controllers.PosDraftInvoiceSlots.IsTempOrderNo(w.OrderNo)
+                && !string.Equals(w.OrderNo, w.ExternalOrderId, StringComparison.OrdinalIgnoreCase)
+                    ? [w.ExternalOrderId]
+                    : [w.ExternalOrderId, w.OrderNo]);
+            if (hit != null)
                 intent = await db.PosTransferPaymentIntents.AsTracking()
-                    .FirstOrDefaultAsync(x => x.StoreId == settings.StoreId
-                        && x.Status == PosTransferPaymentIntentStatus.Waiting
-                        && x.Deleted == null
-                        && (x.ExternalOrderId == token || x.OrderNo == token), ct);
-                if (intent != null) break;
-            }
+                    .FirstOrDefaultAsync(x => x.Id == hit.Id && x.Status == PosTransferPaymentIntentStatus.Waiting, ct);
         }
+        // Tiền về KHÔNG có mã: không tự gắn vào đơn nào. Trước đây gắn vào lệnh chờ duy nhất cùng số tiền rồi tự hoàn
+        // tất đơn đó — khách khác chuyển đúng số tiền ấy là bàn đang chờ thành «đã thanh toán». Nay chỉ gợi ý cho
+        // thu ngân (đọc loa / thông báo) để kiểm tra rồi tự bấm thanh toán.
+        string? sameAmountHint = null;
         if (intent == null && payload.Amount is decimal paid && paid > 0)
         {
             var since = DateTime.UtcNow.AddHours(-2);
-            var sameAmount = await db.PosTransferPaymentIntents.AsTracking()
+            var sameAmount = await db.PosTransferPaymentIntents.AsNoTracking()
                 .Where(x => x.StoreId == settings.StoreId
                     && x.Status == PosTransferPaymentIntentStatus.Waiting
                     && x.Deleted == null
                     && x.CreatedAt >= since
                     && x.AmountExpected == paid)
                 .OrderByDescending(x => x.CreatedAt)
+                .Select(x => new { x.TableName, x.OrderNo })
                 .Take(2)
                 .ToListAsync(ct);
             if (sameAmount.Count == 1)
-                intent = sameAmount[0];
+            {
+                var guess = !string.IsNullOrWhiteSpace(sameAmount[0].TableName)
+                    ? sameAmount[0].TableName!.Trim()
+                    : (string.IsNullOrWhiteSpace(sameAmount[0].OrderNo) ? null : $"đơn {sameAmount[0].OrderNo!.Trim()}");
+                if (guess != null) sameAmountHint = guess;
+            }
         }
+        var unmatched = intent == null;
 
         if (intent == null)
         {
@@ -529,6 +549,14 @@ public sealed class PosPaymentGatewayService(
         var spoken = warning ?? (intent.Status == PosTransferPaymentIntentStatus.Completed
             ? $"Đã thanh toán{amountText}{suffix}"
             : $"Đã nhận chuyển khoản{amountText}{suffix}");
+        // Tiền về không có mã và không tự hoàn tất đơn nào → nói rõ cho thu ngân.
+        if (warning == null && unmatched && intent.SaleOrderId == null
+            && intent.Status == PosTransferPaymentIntentStatus.Confirmed)
+        {
+            spoken = $"Đã nhận chuyển khoản{amountText} không ghi mã đơn, chưa khớp đơn nào"
+                + (sameAmountHint == null ? "" : $". Có thể là {sameAmountHint}, cùng số tiền")
+                + ". Thu ngân kiểm tra rồi bấm thanh toán";
+        }
 
         PosFloorRealtimeHelper.Notify(
             hub,
@@ -546,28 +574,69 @@ public sealed class PosPaymentGatewayService(
     }
 
     async Task<PosPaymentGatewaySetting?> FindTingeeSettingsByAccountAsync(
-        string? account, CancellationToken ct)
+        string? account, PaymentWebhookPayload payload, CancellationToken ct)
     {
         var needle = (account ?? "").Trim();
         if (needle.Length == 0) return null;
         var lower = needle.ToLower();
         var byVa = await db.PosPaymentGatewaySettings.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.TingeeEnabled && x.Deleted == null
+            .Where(x => x.TingeeEnabled && x.Deleted == null
                 && x.TingeeVaAccountNumber != null
-                && x.TingeeVaAccountNumber.ToLower() == lower, ct);
-        if (byVa != null) return byVa;
+                && x.TingeeVaAccountNumber.ToLower() == lower)
+            .OrderBy(x => x.CreatedAt)
+            .Take(20)
+            .ToListAsync(ct);
+        if (byVa.Count > 0) return await PickAmongSharedAccountAsync(byVa, payload, ct);
 
-        var storeId = await db.BankAccounts.AsNoTracking()
-            .Where(b => b.IsActive && b.Deleted == null && b.AccountNumber.ToLower() == lower)
-            .Select(b => b.StoreId)
-            .FirstOrDefaultAsync(ct);
-        if (storeId == null || storeId == Guid.Empty) return null;
-        return await db.PosPaymentGatewaySettings.AsNoTracking()
-            .FirstOrDefaultAsync(x => x.StoreId == storeId && x.TingeeEnabled && x.Deleted == null, ct);
+        var storeIds = await db.BankAccounts.AsNoTracking()
+            .Where(b => b.IsActive && b.Deleted == null && b.AccountNumber.ToLower() == lower && b.StoreId != null)
+            .Select(b => b.StoreId!.Value)
+            .Distinct()
+            .Take(20)
+            .ToListAsync(ct);
+        if (storeIds.Count == 0) return null;
+        var byBank = await db.PosPaymentGatewaySettings.AsNoTracking()
+            .Where(x => storeIds.Contains(x.StoreId) && x.TingeeEnabled && x.Deleted == null)
+            .OrderBy(x => x.CreatedAt)
+            .ToListAsync(ct);
+        return byBank.Count == 0 ? null : await PickAmongSharedAccountAsync(byBank, payload, ct);
     }
 
-    async Task<PosPaymentGatewaySetting?> FindTingeeSettingsByIntentAsync(
-        PaymentWebhookPayload payload, CancellationToken ct)
+    /// <summary>
+    /// Số tài khoản không có ràng buộc duy nhất giữa các cửa hàng. Nhiều cửa hàng cùng khai một số tài khoản →
+    /// chọn cửa hàng đang có lệnh chờ khớp mã đơn trong nội dung chuyển khoản (hoặc, không có mã, là cửa hàng DUY
+    /// NHẤT có lệnh chờ đúng số tiền). Trước đây lấy đại cửa hàng đầu tiên → tiền của cửa hàng A ghi cho cửa hàng B.
+    /// Không phân định được → giữ cách cũ (cửa hàng khai trước).
+    /// </summary>
+    async Task<PosPaymentGatewaySetting> PickAmongSharedAccountAsync(
+        List<PosPaymentGatewaySetting> candidates, PaymentWebhookPayload payload, CancellationToken ct)
+    {
+        if (candidates.Count == 1) return candidates[0];
+        var ids = candidates.Select(c => c.StoreId).Distinct().ToList();
+        var tokens = WebhookTokens(payload);
+        if (tokens.Count > 0)
+        {
+            var byToken = await db.PosTransferPaymentIntents.AsNoTracking()
+                .Where(x => x.Deleted == null && ids.Contains(x.StoreId)
+                    && x.Status == PosTransferPaymentIntentStatus.Waiting
+                    && (tokens.Contains(x.ExternalOrderId!) || tokens.Contains(x.OrderNo!)))
+                .Select(x => x.StoreId).Distinct().Take(2).ToListAsync(ct);
+            if (byToken.Count == 1) return candidates.First(c => c.StoreId == byToken[0]);
+        }
+        if (payload.Amount is decimal amount && amount > 0)
+        {
+            var since = DateTime.UtcNow.AddHours(-2);
+            var byAmount = await db.PosTransferPaymentIntents.AsNoTracking()
+                .Where(x => x.Deleted == null && ids.Contains(x.StoreId)
+                    && x.Status == PosTransferPaymentIntentStatus.Waiting
+                    && x.AmountExpected == amount && x.CreatedAt >= since)
+                .Select(x => x.StoreId).Distinct().Take(2).ToListAsync(ct);
+            if (byAmount.Count == 1) return candidates.First(c => c.StoreId == byAmount[0]);
+        }
+        return candidates[0];
+    }
+
+    static List<string> WebhookTokens(PaymentWebhookPayload payload)
     {
         var tokens = new List<string>();
         if (!string.IsNullOrWhiteSpace(payload.ExternalOrderId))
@@ -577,21 +646,31 @@ public sealed class PosPaymentGatewayService(
             tokens.AddRange(payload.TransferContent.Split(
                 ' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
         }
-        foreach (var token in tokens.Distinct(StringComparer.OrdinalIgnoreCase))
+        return tokens.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+
+    async Task<PosPaymentGatewaySetting?> FindTingeeSettingsByIntentAsync(
+        PaymentWebhookPayload payload, CancellationToken ct)
+    {
+        foreach (var token in WebhookTokens(payload))
         {
-            var intent = await db.PosTransferPaymentIntents.AsNoTracking()
+            // Mã «TMP{ô}» và số hóa đơn trùng nhau giữa các cửa hàng: lệnh chờ khớp mã ở nhiều cửa hàng thì
+            // không đoán (trước đây lấy lệnh mới nhất → đơn của cửa hàng khác tự hoàn tất).
+            var stores = await db.PosTransferPaymentIntents.AsNoTracking()
                 .Where(x => x.Deleted == null
                     && x.Status == PosTransferPaymentIntentStatus.Waiting
                     && (x.ExternalOrderId == token || x.OrderNo == token))
-                .OrderByDescending(x => x.CreatedAt)
-                .FirstOrDefaultAsync(ct);
-            if (intent == null) continue;
+                .Select(x => x.StoreId).Distinct().Take(2).ToListAsync(ct);
+            if (stores.Count != 1) continue;
+            var storeId = stores[0];
             var settings = await db.PosPaymentGatewaySettings.AsNoTracking()
-                .FirstOrDefaultAsync(x => x.StoreId == intent.StoreId && x.TingeeEnabled && x.Deleted == null, ct);
+                .FirstOrDefaultAsync(x => x.StoreId == storeId && x.TingeeEnabled && x.Deleted == null, ct);
             if (settings != null) return settings;
         }
         return null;
     }
+
+    sealed record WaitingCode(Guid Id, string? ExternalOrderId, string? OrderNo);
 
     private static PaymentGatewaySettingDto MapSetting(
         PosPaymentGatewaySetting s,

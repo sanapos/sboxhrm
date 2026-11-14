@@ -60,7 +60,7 @@ public sealed class PosTingeePaidOrderService(
         var (bank, tingee) = await ResolvePayBankAsync(storeId, ct);
         if (bank == null) return null;
 
-        var addInfo = TransferMemo(order?.OrderNo, tableLabel, tingee);
+        var addInfo = TransferMemo(order == null ? null : ExternalIdOf(order), tableLabel, tingee);
         var qrUrl = VietQRBanks.GenerateVietQRUrl(
             bank.BankCode,
             bank.AccountNumber,
@@ -174,6 +174,9 @@ public sealed class PosTingeePaidOrderService(
                 .ToList();
             foreach (var token in tokens)
             {
+                // Số đơn nháp «TMP{ô}» dùng lại cho mọi đơn của cùng ô: không tìm đơn theo nó (tiền về trễ của đơn
+                // trước sẽ tự hoàn tất đơn mới cùng ô). Đơn nháp chỉ được khớp qua lệnh chờ có mã riêng.
+                if (Controllers.PosDraftInvoiceSlots.IsTempOrderNo(token)) continue;
                 order = await db.PosSaleOrders.AsTracking()
                     .Include(o => o.Lines)
                     .Where(o => o.StoreId == storeId && o.Deleted == null
@@ -416,11 +419,8 @@ public sealed class PosTingeePaidOrderService(
         return n.Length > 0 && n.Any(char.IsLetter);
     }
 
-    static string ExternalIdOf(PosSaleOrder order)
-    {
-        var no = (order.OrderNo ?? "").Trim();
-        return no.Length > 0 ? no : order.Id.ToString("N");
-    }
+    /// <summary>Mã đối soát riêng của đơn (số đơn + 4 ký tự mã định danh) — xem <see cref="PosTransferCode"/>.</summary>
+    static string ExternalIdOf(PosSaleOrder order) => PosTransferCode.For(order.OrderNo, order.Id);
 
     static string TransferMemo(string? orderNo, string? table, bool tingee)
     {

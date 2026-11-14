@@ -33,12 +33,21 @@ public class PosKdsController(
     public class PrepDto
     {
         public string? Status { get; set; }
+        /// <summary>Số đã báo bếp màn bếp đang hiện cho món này (app cũ không gửi).</summary>
+        public decimal? SeenSentQty { get; set; }
     }
 
     public class PrepBatchDto
     {
         public List<Guid>? Ids { get; set; }
         public string? Status { get; set; }
+        /// <summary>Số đã báo bếp màn bếp đang hiện, theo từng món (app cũ không gửi).</summary>
+        public Dictionary<Guid, decimal>? SeenSentQty { get; set; }
+    }
+
+    public class BumpDto
+    {
+        public Dictionary<Guid, decimal>? SeenSentQty { get; set; }
     }
 
     public class AckVoidsDto
@@ -536,7 +545,8 @@ public class PosKdsController(
         foreach (var line in lines)
         {
             if (line.KitchenSentQty <= 0) continue;
-            PosKitchenKdsHelper.ApplyStatus(line, status);
+            PosKitchenKdsHelper.ApplyStatus(line, status,
+                dto?.SeenSentQty != null && dto.SeenSentQty.TryGetValue(line.Id, out var seenQty) ? seenQty : null);
             line.UpdatedAt = DateTime.UtcNow;
             line.UpdatedBy = CurrentUserEmail;
         }
@@ -563,7 +573,7 @@ public class PosKdsController(
             return BadRequest(AppResponse<object>.Fail("Món chưa báo bếp"));
 
         var lineWasServed = IsServed(line);
-        PosKitchenKdsHelper.ApplyStatus(line, status);
+        PosKitchenKdsHelper.ApplyStatus(line, status, dto?.SeenSentQty);
         line.UpdatedAt = DateTime.UtcNow;
         line.UpdatedBy = CurrentUserEmail;
         await db.SaveChangesAsync();
@@ -580,7 +590,7 @@ public class PosKdsController(
 
     [HttpPost("tickets/{orderId:guid}/bump")]
     [RequireModulePermission("PosKds", ModulePermissionAction.Create)]
-    public async Task<ActionResult<AppResponse<object>>> Bump(Guid orderId)
+    public async Task<ActionResult<AppResponse<object>>> Bump(Guid orderId, [FromBody] BumpDto? dto = null)
     {
         var storeId = RequiredStoreId;
         var lines = await db.PosSaleOrderLines.AsTracking()
@@ -592,13 +602,14 @@ public class PosKdsController(
         var bumpWasServed = lines.ToDictionary(l => l.Id, IsServed);
         foreach (var line in lines)
         {
-            PosKitchenKdsHelper.Bump(line);
+            PosKitchenKdsHelper.Bump(line,
+                dto?.SeenSentQty != null && dto.SeenSentQty.TryGetValue(line.Id, out var seenQty) ? seenQty : null);
             line.UpdatedAt = DateTime.UtcNow;
             line.UpdatedBy = CurrentUserEmail;
         }
         await db.SaveChangesAsync();
         PosFloorRealtimeHelper.Notify(hub, storeId, "kds", orderId: orderId);
-        await NotifyServedAsync(storeId, lines.Where(l => !bumpWasServed[l.Id]));
+        await NotifyServedAsync(storeId, lines.Where(l => !bumpWasServed[l.Id] && IsServed(l)));
         return Ok(AppResponse<object>.Success(new { bumped = lines.Count }));
     }
 

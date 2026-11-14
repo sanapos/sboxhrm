@@ -34,6 +34,11 @@ class PosProductPrinterService {
     }
     final res = await _api.getPosProductPrinterMap();
     final map = <String, _PrinterMapEntry>{};
+    // Tải lỗi (mất mạng / máy chủ lỗi): KHÔNG lưu bản rỗng. Trước đây lưu rỗng suốt thời gian đệm → mọi món dồn về
+    // máy bếp mặc định (đồ uống in ở bếp). Dùng bản cũ nếu có; lần gọi sau tải lại.
+    if (res['isSuccess'] != true || res['data'] is! List) {
+      return _cache ?? map;
+    }
     if (res['isSuccess'] == true && res['data'] is List) {
       for (final raw in res['data'] as List) {
         if (raw is! Map) continue;

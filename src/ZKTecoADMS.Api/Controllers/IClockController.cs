@@ -85,7 +85,8 @@ public class ClockController(
     public async Task<IActionResult> GetRequest([FromQuery] string SN, [FromQuery] string? INFO)
     {
         var clientIp = HttpContext.Connection.RemoteIpAddress?.ToString();
-        logger.LogWarning("[ICLOCK IN] GET /iclock/getrequest SN={SN} IP={IP}", SN, clientIp);
+        // Mỗi máy gọi 5 giây một lần: để mức Debug (trước là Warning → ~1 dòng / máy / 5 giây, đầy ổ đĩa log).
+        logger.LogDebug("[ICLOCK IN] GET /iclock/getrequest SN={SN} IP={IP}", SN, clientIp);
         
         var command = new GetRequestQuery(SN, INFO);
         var response = await bus.Send(command);

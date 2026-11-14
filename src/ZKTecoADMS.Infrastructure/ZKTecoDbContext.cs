@@ -10,15 +10,17 @@ namespace ZKTecoADMS.Infrastructure;
 
 public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>
 {
-    // Tenant context — EF Core re-reads these fields per query via global filters
-    private readonly Guid? _tenantId;
-    private readonly bool _isSuperAccess;
+    // Tenant context — EF Core đọc lại hai giá trị này mỗi lần chạy truy vấn (qua bộ lọc chung).
+    // Hỏi tenant provider lúc truy vấn, KHÔNG chốt trong constructor: DbContext của request được tạo ngay lúc
+    // xác thực JWT (chưa có User) — chốt lúc đó là «thấy mọi cửa hàng» cho cả request, bộ lọc cửa hàng tắt.
+    private readonly ITenantProvider? _tenantProvider;
+    private Guid? TenantId => _tenantProvider?.StoreId;
+    private bool IsSuperAccess => _tenantProvider?.IsSuperAccess ?? true;
 
-    public ZKTecoDbContext(DbContextOptions<ZKTecoDbContext> options, ITenantProvider? tenantProvider = null) 
+    public ZKTecoDbContext(DbContextOptions<ZKTecoDbContext> options, ITenantProvider? tenantProvider = null)
         : base(options)
     {
-        _tenantId = tenantProvider?.StoreId;
-        _isSuperAccess = tenantProvider?.IsSuperAccess ?? true;
+        _tenantProvider = tenantProvider;
     }
     // Authentication & Identity
     public DbSet<UserRefreshToken> UserRefreshTokens => Set<UserRefreshToken>();
@@ -391,7 +393,9 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
 
     /// <summary>
     /// Applies combined tenant isolation + soft delete query filters using reflection.
-    /// EF Core re-evaluates _tenantId and _isSuperAccess from the current DbContext instance per query.
+    /// EF Core re-evaluates TenantId and IsSuperAccess from the current DbContext instance per query.
+    /// Dòng chưa gắn cửa hàng (StoreId null: dữ liệu dùng chung, thiết bị chưa nhận…) vẫn hiện với mọi cửa hàng
+    /// như trước nay; bộ lọc chỉ chặn dòng của CỬA HÀNG KHÁC.
     /// </summary>
     private void ApplyTenantAndSoftDeleteFilter(ModelBuilder builder, Type clrType)
     {
@@ -418,20 +422,25 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
             filter = Expression.Equal(deletedExpr, nullExpr);
         }
 
-        // Tenant filter: _isSuperAccess || e.StoreId == _tenantId
+        // Tenant filter: IsSuperAccess || e.StoreId == TenantId || e.StoreId == null
         if (hasStoreId)
         {
+            const BindingFlags own = BindingFlags.Instance | BindingFlags.NonPublic;
             var entityStoreId = Expression.Property(param, storeIdProp!);
             var contextRef = Expression.Constant(this);
-            var tenantIdExpr = Expression.Field(contextRef, nameof(_tenantId));
-            var superAccessExpr = Expression.Field(contextRef, nameof(_isSuperAccess));
+            var tenantIdExpr = Expression.Property(contextRef, typeof(ZKTecoDbContext).GetProperty(nameof(TenantId), own)!);
+            var superAccessExpr = Expression.Property(contextRef, typeof(ZKTecoDbContext).GetProperty(nameof(IsSuperAccess), own)!);
 
             // Handle non-nullable Guid StoreId by converting to Guid?
-            Expression storeIdForComparison = storeIdProp!.PropertyType == typeof(Guid)
-                ? Expression.Convert(entityStoreId, typeof(Guid?))
-                : entityStoreId;
+            var nullableStoreId = storeIdProp!.PropertyType == typeof(Guid?);
+            Expression storeIdForComparison = nullableStoreId
+                ? entityStoreId
+                : Expression.Convert(entityStoreId, typeof(Guid?));
 
-            var equalsExpr = Expression.Equal(storeIdForComparison, tenantIdExpr);
+            Expression equalsExpr = Expression.Equal(storeIdForComparison, tenantIdExpr);
+            if (nullableStoreId)
+                equalsExpr = Expression.OrElse(equalsExpr,
+                    Expression.Equal(entityStoreId, Expression.Constant(null, typeof(Guid?))));
             var tenantFilter = Expression.OrElse(superAccessExpr, equalsExpr);
 
             filter = filter != null

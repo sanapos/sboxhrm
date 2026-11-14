@@ -129,23 +129,54 @@ public partial class PosSalesController
             .Where(l => l.Deleted == null)
             .Select(l => (l.ProductId, l.Qty, l.VariantId, l.UnitId, l.ToppingsJson))
             .ToList();
-        if (priorLines.Count > 0)
+
+        await using (var tx = await dbContext.Database.BeginTransactionAsync())
         {
-            var releaseErr = await PosSaleStockHelper.SyncDraftStockReservationAsync(
-                dbContext, storeId, priorLines, [], allowNegativeStock: true);
-            if (releaseErr != null)
-                return BadRequest(AppResponse<object>.Fail(releaseErr));
+            // Xóa đơn bằng một lệnh có điều kiện: chỉ khi đơn VẪN là nháp đúng như lúc nạp. Trước đây ghi theo bản
+            // nạp cũ → máy khác vừa thêm món / vừa thanh toán ô này trong lúc đó thì món mới hoặc hóa đơn đã thu
+            // tiền bị xóa mềm theo.
+            var now = DateTime.UtcNow;
+            var by = CurrentUserEmail;
+            var orderId = order.Id;
+            var loadedVersion = order.LockVersion;
+            var removed = await dbContext.PosSaleOrders
+                .Where(x => x.Id == orderId && x.StoreId == storeId && x.Deleted == null
+                    && x.Status == PosSaleOrderStatus.Draft && x.LockVersion == loadedVersion)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.LockedByUserId, (Guid?)null)
+                    .SetProperty(x => x.LockedByEmployeeId, (Guid?)null)
+                    .SetProperty(x => x.LockedByDisplayName, (string?)null)
+                    .SetProperty(x => x.LockedByDeviceId, (string?)null)
+                    .SetProperty(x => x.LockedByDeviceName, (string?)null)
+                    .SetProperty(x => x.LockedAt, (DateTime?)null)
+                    .SetProperty(x => x.LockExpiresAt, (DateTime?)null)
+                    .SetProperty(x => x.LockVersion, x => x.LockVersion + 1)
+                    .SetProperty(x => x.InvoiceSlot, (int?)null)
+                    .SetProperty(x => x.Deleted, now)
+                    .SetProperty(x => x.UpdatedAt, now)
+                    .SetProperty(x => x.UpdatedBy, by));
+            if (removed == 0)
+            {
+                await tx.RollbackAsync();
+                return Conflict(AppResponse<object>.Fail("Hóa đơn vừa thay đổi ở máy khác — tải lại rồi thử lại"));
+            }
+
+            if (priorLines.Count > 0)
+            {
+                var releaseErr = await PosSaleStockHelper.SyncDraftStockReservationAsync(
+                    dbContext, storeId, priorLines, [], allowNegativeStock: true);
+                if (releaseErr != null)
+                {
+                    await tx.RollbackAsync();
+                    return BadRequest(AppResponse<object>.Fail(releaseErr));
+                }
+            }
+
+            if (order.Lines != null && order.Lines.Count > 0)
+                dbContext.PosSaleOrderLines.RemoveRange(order.Lines.Where(l => l.Deleted == null));
+            await dbContext.SaveChangesAsync();
+            await tx.CommitAsync();
         }
-
-        if (order.Lines != null && order.Lines.Count > 0)
-            dbContext.PosSaleOrderLines.RemoveRange(order.Lines.Where(l => l.Deleted == null));
-
-        PosDraftLockHelper.Release(order);
-        order.InvoiceSlot = null;
-        order.Deleted = DateTime.UtcNow;
-        order.UpdatedAt = DateTime.UtcNow;
-        order.UpdatedBy = CurrentUserEmail;
-        await dbContext.SaveChangesAsync();
 
         return Ok(AppResponse<object>.Success(await BuildInvoiceSlotsPayloadAsync(storeId, deviceId, deviceName)));
     }
@@ -270,8 +301,7 @@ public partial class PosSalesController
     async Task PruneEmptySurplusSlotsAsync(Guid storeId, int keepAtLeast)
     {
         keepAtLeast = Math.Max(PosDraftInvoiceSlots.MinCount, keepAtLeast);
-        // DbContext mặc định NoTracking — bắt buộc AsTracking để SaveChangesAsync thực sự prune.
-        var drafts = await InBranchSlots(dbContext.PosSaleOrders.AsTracking())
+        var drafts = await InBranchSlots(dbContext.PosSaleOrders.AsNoTracking())
             .Include(o => o.Lines)
             .Where(o => o.StoreId == storeId && o.Deleted == null
                 && o.Status == PosSaleOrderStatus.Draft && o.InvoiceSlot != null)
@@ -301,18 +331,35 @@ public partial class PosSalesController
             toPrune.AddRange(fresh.Take(surplus - toPrune.Count));
         if (toPrune.Count == 0) return;
 
+        var by = CurrentUserEmail;
         foreach (var o in toPrune)
         {
             if (drafts.Count <= PosDraftInvoiceSlots.MinCount) break;
-            PosDraftLockHelper.Release(o, now);
-            o.InvoiceSlot = null;
-            o.Deleted = now;
-            o.UpdatedAt = now;
-            o.UpdatedBy = CurrentUserEmail;
+            // Xóa có điều kiện ngay trong một lệnh: chỉ khi đơn VẪN là nháp trống đúng như lúc nạp. Trước đây
+            // ghi theo bản nạp cũ → máy khác vừa thêm món đầu tiên (hoặc vừa thanh toán thẳng ô này) trong
+            // lúc đó thì đơn có món / hóa đơn đã thu tiền bị xóa mềm.
+            var loadedVersion = o.LockVersion;
+            var orderId = o.Id;
+            await dbContext.PosSaleOrders
+                .Where(x => x.Id == orderId && x.StoreId == storeId && x.Deleted == null
+                    && x.Status == PosSaleOrderStatus.Draft
+                    && x.LockVersion == loadedVersion
+                    && !dbContext.PosSaleOrderLines.Any(l => l.SaleOrderId == x.Id && l.Deleted == null))
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(x => x.LockedByUserId, (Guid?)null)
+                    .SetProperty(x => x.LockedByEmployeeId, (Guid?)null)
+                    .SetProperty(x => x.LockedByDisplayName, (string?)null)
+                    .SetProperty(x => x.LockedByDeviceId, (string?)null)
+                    .SetProperty(x => x.LockedByDeviceName, (string?)null)
+                    .SetProperty(x => x.LockedAt, (DateTime?)null)
+                    .SetProperty(x => x.LockExpiresAt, (DateTime?)null)
+                    .SetProperty(x => x.LockVersion, x => x.LockVersion + 1)
+                    .SetProperty(x => x.InvoiceSlot, (int?)null)
+                    .SetProperty(x => x.Deleted, now)
+                    .SetProperty(x => x.UpdatedAt, now)
+                    .SetProperty(x => x.UpdatedBy, by));
             drafts.Remove(o);
         }
-        if (dbContext.ChangeTracker.HasChanges())
-            await dbContext.SaveChangesAsync();
     }
 
     /// <summary>Sau khi TT slot — tạo lại Draft trống cho cùng số hóa đơn (giữ tab).</summary>

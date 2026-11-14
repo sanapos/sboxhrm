@@ -20,6 +20,15 @@ public class DeviceActiveCheckBehaviour<TRequest, TResponse>(
 {
     // Prevent duplicate online notifications when multiple requests arrive simultaneously
     private static readonly ConcurrentDictionary<string, DateTime> _recentOnlineNotifications = new();
+
+    /// <summary>Lần ghi «đang online» gần nhất của từng máy (trong tiến trình này).</summary>
+    private static readonly ConcurrentDictionary<string, DateTime> _lastHeartbeatWrite = new();
+
+    /// <summary>
+    /// Máy gọi 5 giây một lần; ngưỡng coi là offline là 2 phút. Máy đang Online thì 20 giây mới ghi một lần
+    /// (trước đây mỗi lần gọi là một lệnh UPDATE: 1.000 máy ≈ 200 lệnh ghi / giây).
+    /// </summary>
+    private static readonly TimeSpan HeartbeatWriteEvery = TimeSpan.FromSeconds(20);
     
     public async Task<TResponse> Handle(
         TRequest request,
@@ -28,7 +37,7 @@ public class DeviceActiveCheckBehaviour<TRequest, TResponse>(
     {
         var serialNumber = request.SN;
 
-        logger.LogInformation(
+        logger.LogDebug(
             "[Device Active Check] Validating device with SN: {SerialNumber} for request: {RequestType}",
             serialNumber,
             typeof(TRequest).Name);
@@ -53,8 +62,16 @@ public class DeviceActiveCheckBehaviour<TRequest, TResponse>(
                 serialNumber, device.Id);
         }
 
-        // Luôn cập nhật heartbeat để biết thiết bị đang online
-        await deviceService.UpdateDeviceHeartbeatAsync(serialNumber);
+        // Cập nhật heartbeat để biết thiết bị đang online. Đang offline / mới tạo → ghi ngay; đang Online → giãn nhịp.
+        var beatNow = DateTime.UtcNow;
+        var beatDue = wasOffline
+            || !_lastHeartbeatWrite.TryGetValue(serialNumber, out var lastBeat)
+            || beatNow - lastBeat >= HeartbeatWriteEvery;
+        if (beatDue)
+        {
+            _lastHeartbeatWrite[serialNumber] = beatNow;
+            await deviceService.UpdateDeviceHeartbeatAsync(serialNumber);
+        }
 
         // Gửi thông báo online ngay lập tức khi thiết bị chuyển từ offline → online
         // Dùng ConcurrentDictionary để tránh gửi trùng khi nhiều request đến cùng lúc
@@ -97,7 +114,7 @@ public class DeviceActiveCheckBehaviour<TRequest, TResponse>(
             await deviceService.AutoActivateDeviceAsync(serialNumber);
         }
 
-        logger.LogInformation(
+        logger.LogDebug(
             "[Device Active Check] Device with SN: {SerialNumber} (ID: {DeviceId}) - StoreId: {StoreId}, IsActive: {IsActive}. Proceeding to handler.",
             serialNumber, device.Id, device.StoreId, device.IsActive);
 

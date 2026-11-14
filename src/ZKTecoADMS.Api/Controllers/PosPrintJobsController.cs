@@ -522,6 +522,9 @@ public partial class PosPrintJobsController(
         payloadFormat = job.PayloadFormat.ToString(),
         payload = job.Payload,
         job.Copies,
+        // Mốc của lần gửi in: chỉ đổi khi tạo lệnh hoặc người dùng bấm «In lại» / «Chuyển máy» (đặt lại hạn).
+        // Agent so với mốc lúc nó đã in: khác → in thật; giống → lệnh bị giao lại, chỉ báo «in xong».
+        dispatchKey = job.ExpiresAt.Ticks.ToString(),
     };
 
     [HttpPost("{id:guid}/printing")]

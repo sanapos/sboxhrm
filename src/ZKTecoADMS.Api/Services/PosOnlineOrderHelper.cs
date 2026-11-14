@@ -157,6 +157,12 @@ public static class PosOnlineOrderHelper
         var due = order.PayableTotal > 0 ? order.PayableTotal : order.Total;
         var paid = Math.Max(0m, paidAmount ?? due);
 
+        // Phiên bản đơn lúc nạp (giá trị gốc trong CSDL, trước khi nhả khóa tăng số trong bộ nhớ).
+        var loadedEntry = db.Entry(order);
+        var loadedLockVersion = loadedEntry.State == EntityState.Detached
+            ? order.LockVersion
+            : loadedEntry.Property(x => x.LockVersion).OriginalValue;
+
         PosDraftLockHelper.Release(order);
         order.Status = PosSaleOrderStatus.Completed;
         order.SaleDate = DateTime.UtcNow;
@@ -182,6 +188,25 @@ public static class PosOnlineOrderHelper
             {
                 await tx.RollbackAsync(ct);
                 return await AfterLostClaimAsync(db, order, ct);
+            }
+            // Đơn bị ghi xong giữa lúc nạp và lúc nhận đơn (khách vừa gọi thêm món, thu ngân vừa sửa giỏ) → bản dòng
+            // đang cầm đã cũ: tự hoàn tất theo nó thì món vừa thêm nằm trên hóa đơn mà không trừ kho, bàn bị đóng.
+            // Không tự hoàn tất; tiền đã về vẫn được báo cho thu ngân để kiểm tra rồi thanh toán.
+            var claimedOrderId = order.Id;
+            var liveLockVersion = await db.PosSaleOrders.AsNoTracking()
+                .Where(o => o.Id == claimedOrderId)
+                .Select(o => o.LockVersion)
+                .FirstAsync(ct);
+            if (liveLockVersion != loadedLockVersion)
+            {
+                await tx.RollbackAsync(ct);
+                // Trả đơn về đúng như lúc nạp để lần lưu sau của nơi gọi không ghi nhầm «đã hoàn tất».
+                if (loadedEntry.State != EntityState.Detached)
+                {
+                    loadedEntry.CurrentValues.SetValues(loadedEntry.OriginalValues);
+                    loadedEntry.State = EntityState.Unchanged;
+                }
+                return (false, "Đơn vừa thay đổi (khách gọi thêm / thu ngân sửa) — chưa tự hoàn tất");
             }
             await PosSaleStockHelper.EnsureLineUnitIdsAsync(db, order.Lines);
             var lineInputs = order.Lines
@@ -221,7 +246,7 @@ public static class PosOnlineOrderHelper
             var actorId = await ResolveActorIdAsync(db, storeId, userEmail, ct);
             if (actorId != Guid.Empty)
                 await PosFinanceSyncHelper.SyncSaleOnCompleteAsync(db, order, actorId);
-            PosKitchenKdsHelper.CloseOpenOnPaid(order.Lines);
+            PosKitchenKdsHelper.OnOrderPaid(order, order.Lines);
             await db.SaveChangesAsync(ct);
             await tx.CommitAsync(ct);
             return (true, null);

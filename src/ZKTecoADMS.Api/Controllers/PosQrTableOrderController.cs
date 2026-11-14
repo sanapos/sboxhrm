@@ -179,6 +179,12 @@ public class PosQrTableOrderController(
         });
 
         var reqId = (dto?.ClientRequestId ?? "").Trim();
+        // Cùng mã yêu cầu gửi hai lần gần như đồng thời (khách bấm đúp, trang tự gửi lại khi lần đầu chưa trả về):
+        // mã chỉ được ghi nhớ ở cuối, nên cả hai lượt đều không thấy nhau → món nhân đôi + hai phiếu bếp, đơn online
+        // thành hai đơn. Lượt sau chờ lượt trước xong rồi nhận lại đúng kết quả của nó.
+        using var reqGate = reqId.Length is > 8 and < 80
+            ? await QrRequestGate.EnterAsync($"{store.Id:N}:{reqId}")
+            : null;
         if (reqId.Length is > 8 and < 80)
         {
             if (TryGetQrRequest(token, store.Id, reqId, out var cachedQr))
@@ -2783,6 +2789,56 @@ public class PosQrTableOrderController(
             : $"{resource.Area!.Name} · {resource.Name}";
 
     string ClientIp() => HttpContext.Connection.RemoteIpAddress?.ToString() ?? "?";
+
+    /// <summary>
+    /// Xếp hàng các lượt gửi cùng mã yêu cầu trong tiến trình API (mỗi lần một lượt). Chờ tối đa 30 giây; quá hạn
+    /// thì cho chạy tiếp như trước đây chứ không chặn khách đặt món.
+    /// </summary>
+    sealed class QrRequestGate : IDisposable
+    {
+        sealed class Slot
+        {
+            public readonly SemaphoreSlim Sem = new(1, 1);
+            public int Refs;
+        }
+
+        static readonly Dictionary<string, Slot> Slots = new();
+
+        readonly string _key;
+        readonly Slot _slot;
+        readonly bool _entered;
+
+        QrRequestGate(string key, Slot slot, bool entered)
+        {
+            _key = key;
+            _slot = slot;
+            _entered = entered;
+        }
+
+        public static async Task<QrRequestGate> EnterAsync(string key)
+        {
+            Slot slot;
+            lock (Slots)
+            {
+                if (!Slots.TryGetValue(key, out slot!))
+                    Slots[key] = slot = new Slot();
+                slot.Refs++;
+            }
+            var entered = false;
+            try { entered = await slot.Sem.WaitAsync(TimeSpan.FromSeconds(30)); }
+            catch { /* không chặn đặt món */ }
+            return new QrRequestGate(key, slot, entered);
+        }
+
+        public void Dispose()
+        {
+            if (_entered) _slot.Sem.Release();
+            lock (Slots)
+            {
+                if (--_slot.Refs == 0) Slots.Remove(_key);
+            }
+        }
+    }
 
     /// <summary>Mã yêu cầu đã xử lý: tìm bộ nhớ trước, rồi nhật ký trong CSDL (còn sau khi khởi động lại / nhiều máy chủ).</summary>
     bool TryGetQrRequest(string token, Guid storeId, string reqId, out object? result)

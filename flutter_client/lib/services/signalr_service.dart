@@ -602,6 +602,16 @@ class SignalRService {
     }
   }
 
+  /// Đăng xuất: ngắt kết nối và quên nhóm cửa hàng / người dùng đang theo dõi. Trước đây kết nối còn sống ở
+  /// màn đăng nhập và tự vào lại nhóm cửa hàng cũ sau khi tài khoản khác đăng nhập.
+  Future<void> forgetSession() async {
+    _currentStoreId = null;
+    _currentUserId = null;
+    _currentDeviceIds.clear();
+    _printAgentJoined = false;
+    await disconnect();
+  }
+
   /// Disconnect from the SignalR hub
   Future<void> disconnect() async {
     // Hủy cả vòng kết nối lại đang chờ (trước đây vẫn chạy tiếp sau khi ngắt / đăng xuất).

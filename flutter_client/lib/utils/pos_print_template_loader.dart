@@ -10,6 +10,14 @@ import '../services/pos_network_monitor.dart';
 /// Mẫu in lưu trên máy — mất mạng (bán offline) vẫn in đúng mẫu cửa hàng.
 const _tplDiskPrefix = 'pos_tpl_cache_v1_';
 
+/// Bỏ mẫu in lưu trên máy khi máy chuyển sang cửa hàng khác (khóa không gắn mã cửa hàng).
+Future<void> clearPosPrintTemplateDiskCache() async {
+  final prefs = await SharedPreferences.getInstance();
+  for (final k in prefs.getKeys().where((k) => k.startsWith(_tplDiskPrefix)).toList()) {
+    await prefs.remove(k);
+  }
+}
+
 Future<List<PosPrintTemplate>> _readDiskTemplates(String documentType) async {
   try {
     final raw = (await SharedPreferences.getInstance()).getString(_tplDiskPrefix + documentType);

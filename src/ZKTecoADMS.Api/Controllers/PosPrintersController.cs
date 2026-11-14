@@ -336,8 +336,13 @@ public partial class PosPrintersController(
         ZKTecoADMS.Api.Controllers.Filters.ActivityTrail.Deleted(HttpContext, "PosStorePrinter", id, printerName);
 
         // Lệnh chưa in của máy vừa xóa → hủy (trước đây nằm «Chờ in» mãi → phiếu treo không bao giờ hết).
-        await db.PosPrintJobs
+        var cancelledJobIds = await db.PosPrintJobs.AsNoTracking()
             .Where(j => j.PrinterId == id && j.StoreId == storeId && j.Deleted == null
+                && (j.Status == PosPrintJobStatus.Queued || j.Status == PosPrintJobStatus.Claimed))
+            .Select(j => j.Id)
+            .ToListAsync();
+        await db.PosPrintJobs
+            .Where(j => cancelledJobIds.Contains(j.Id)
                 && (j.Status == PosPrintJobStatus.Queued || j.Status == PosPrintJobStatus.Claimed))
             .ExecuteUpdateAsync(s => s
                 .SetProperty(j => j.Status, PosPrintJobStatus.Cancelled)
@@ -345,6 +350,16 @@ public partial class PosPrintersController(
                 .SetProperty(j => j.ErrorMessage, "Máy in đã bị xóa")
                 .SetProperty(j => j.CompletedAt, now)
                 .SetProperty(j => j.UpdatedAt, now));
+        // Phiếu bếp máy chủ tự gửi (QR / online) vừa bị hủy theo máy in: trả món về «chưa báo bếp» và báo máy bán.
+        // Trước đây món vẫn hiện «đã báo» dù phiếu không bao giờ in.
+        try
+        {
+            await dispatch.RevertUnprintedKitchenAsync(cancelledJobIds);
+        }
+        catch
+        {
+            // Không trả được món không làm hỏng việc xóa máy in.
+        }
 
         // Gỡ route chứng từ gắn máy.
         await db.PosPrinterDocumentRoutes

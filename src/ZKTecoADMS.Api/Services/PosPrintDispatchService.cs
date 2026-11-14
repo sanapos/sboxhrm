@@ -36,6 +36,8 @@ public interface IPosPrintDispatchService
     /// <summary>Phiếu bếp server tự gửi không in được → trả dòng món về «chưa báo bếp», báo các máy bán.</summary>
     Task RevertKitchenLinesAsync(Guid storeId, Guid orderId, IReadOnlyCollection<KitchenLineRef> rows,
         string? referenceNo, CancellationToken ct = default);
+    /// <summary>Các lệnh bếp vừa bị hủy / lỗi mà chắc chắn chưa in → trả món về «chưa báo bếp» (mỗi lệnh một lần).</summary>
+    Task RevertUnprintedKitchenAsync(IReadOnlyCollection<Guid> jobIds, CancellationToken ct = default);
 }
 
 /// <summary>Một dòng món (và số lượng) mà phiếu bếp server tự gửi đã đánh dấu «đã báo bếp».</summary>
@@ -1882,6 +1884,9 @@ public class PosPrintDispatchService(
 
     /// <summary>Lệnh bếp server tự gửi vừa hủy / lỗi mà chắc chắn chưa in → trả món về «chưa báo bếp».
     /// Lỗi khi in (trừ PRINT_TIMEOUT — có thể đã in) coi là chưa ra giấy, giống cách máy bán xử lý lệnh Failed.</summary>
+    public Task RevertUnprintedKitchenAsync(IReadOnlyCollection<Guid> jobIds, CancellationToken ct = default) =>
+        RevertUnprintedKitchenJobsAsync(jobIds, ct);
+
     async Task RevertUnprintedKitchenJobsAsync(IReadOnlyCollection<Guid> jobIds, CancellationToken ct)
     {
         if (jobIds.Count == 0) return;
@@ -1932,6 +1937,24 @@ public class PosPrintDispatchService(
             if (tx != null) await tx.RollbackAsync(ct);
             logger.LogWarning("Kitchen ticket {Ref} not printed — no line left to revert on order {OrderId}",
                 referenceNo, orderId);
+            // Đơn ĐÃ THANH TOÁN (đơn online trả bằng chuyển khoản, đơn tại quầy): món không trả về «chưa báo» được,
+            // nhưng bếp vẫn chưa có phiếu. Trước đây chỉ ghi log → khách đã trả tiền mà không ai biết bếp chưa nhận.
+            if (order?.Status == PosSaleOrderStatus.Completed)
+            {
+                string? paidTable = null;
+                if (order.ServiceResourceId is Guid paidRid)
+                    paidTable = await db.PosServiceResources.AsNoTracking()
+                        .Where(r => r.Id == paidRid).Select(r => r.Name).FirstOrDefaultAsync(ct);
+                var paidLabel = paidTable
+                    ?? (string.IsNullOrWhiteSpace(order.CustomerName) ? order.OrderNo : $"{order.OrderNo} · {order.CustomerName}");
+                PosFloorRealtimeHelper.Notify(hubContext, storeId, "kitchenUnprinted",
+                    orderId: orderId,
+                    resourceId: order.ServiceResourceId,
+                    tableName: paidTable,
+                    orderNo: order.OrderNo,
+                    message: $"Phiếu bếp của đơn ĐÃ THANH TOÁN {paidLabel} chưa in được — bếp chưa nhận phiếu. "
+                        + "Kiểm tra máy in bếp rồi in lại trong danh sách lệnh in.");
+            }
             return;
         }
         // Đổi phiên bản đơn → máy đang mở bàn tải lại, thấy món «chưa báo bếp».

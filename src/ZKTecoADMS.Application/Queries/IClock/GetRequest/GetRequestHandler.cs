@@ -35,20 +35,27 @@ public class GetRequestHandler(
             return ClockResponses.Ok;
         }
 
-        logger.LogWarning("[GetRequest] Device found: SN={SN}, DeviceId={DeviceId}", sn, device.Id);
+        logger.LogDebug("[GetRequest] Device found: SN={SN}, DeviceId={DeviceId}", sn, device.Id);
 
         if (!string.IsNullOrEmpty(request.Info))
         {
             await UpdateDeviceInfoAsync(device.Id, request.Info);
         }
 
-        await AutoCompleteStaleSyncAttendancesAsync(device.Id, sn);
+        // Máy hỏi lệnh 5 giây một lần, và gần như lần nào cũng không có gì chờ. Không có lệnh Created / Sent nào thì
+        // mọi bước bên dưới đều không làm gì — trả OK ngay sau MỘT truy vấn. Trước đây mỗi lần hỏi còn đếm lại toàn
+        // bộ log chấm công của máy (COUNT tăng theo số dòng) và đọc bảng lệnh thêm ba lần.
+        var pendingNow = (await deviceCmdService.GetPendingCommandsAsync(device.Id)).ToList();
+        if (pendingNow.Count == 0)
+            return ClockResponses.Ok;
+
+        await AutoCompleteStaleSyncAttendancesAsync(device.Id, sn, pendingNow);
         await AutoCompleteStampSyncMarkersAsync(device.Id, sn);
 
         var commands = await deviceCmdService.GetCreatedCommandsAsync(device.Id);
         var deviceCommands = commands.ToList();
 
-        logger.LogWarning("[GetRequest] Device {SN} (ID: {DeviceId}) - Found {Count} pending commands", sn, device.Id, deviceCommands.Count);
+        logger.LogDebug("[GetRequest] Device {SN} (ID: {DeviceId}) - Found {Count} pending commands", sn, device.Id, deviceCommands.Count);
 
         if (deviceCommands.Count > 0)
         {
@@ -152,7 +159,7 @@ public class GetRequestHandler(
         var bioStamp = syncBio ? "0" : "9999";
         var photoStamp = syncBio ? "0" : "9999";
 
-        logger.LogWarning(
+        logger.LogInformation(
             "[GetRequest] Stamp config for {SN}: SyncUsers={Users} SyncAtt={Att} SyncBio={Bio} OPERLOGStamp={Op} ATTLOGStamp={AttStamp} BIODATAStamp={BioStamp} PhotoStamp={Photo}",
             sn, syncUsers, syncAtt, syncBio, operStamp, attStamp, bioStamp, photoStamp);
 
@@ -207,18 +214,23 @@ public class GetRequestHandler(
         }
     }
 
-    private async Task AutoCompleteStaleSyncAttendancesAsync(Guid deviceId, string sn)
+    private async Task AutoCompleteStaleSyncAttendancesAsync(
+        Guid deviceId, string sn, IReadOnlyCollection<DeviceCommand> pending)
     {
+        var candidates = pending.Where(c =>
+                c.CommandType == DeviceCommandTypes.SyncAttendances
+                && c.Status == CommandStatus.Sent
+                && c.SentAt.HasValue
+                && !AdmsEngineProfiles.ShouldSkipDeviceDelivery(c.CommandType, c.Command))
+            .ToList();
+        // Chỉ đếm log chấm công khi thật sự có lệnh đồng bộ đang chờ hoàn tất.
+        if (candidates.Count == 0) return;
+
         var serverCount = await attendanceRepository.CountAsync(a => a.DeviceId == deviceId);
         var deviceInfo = await deviceInfoRepository.GetSingleAsync(di => di.DeviceId == deviceId);
         var localCount = deviceInfo?.AttendanceCount ?? 0;
 
-        var pending = await deviceCmdService.GetPendingCommandsAsync(deviceId);
-        foreach (var cmd in pending.Where(c =>
-                     c.CommandType == DeviceCommandTypes.SyncAttendances
-                     && c.Status == CommandStatus.Sent
-                     && c.SentAt.HasValue
-                     && !AdmsEngineProfiles.ShouldSkipDeviceDelivery(c.CommandType, c.Command)))
+        foreach (var cmd in candidates)
         {
             if (!AttendanceBulkSyncTracker.ShouldAutoCompleteStaleSync(
                     deviceId, cmd.SentAt!.Value, localCount, serverCount))

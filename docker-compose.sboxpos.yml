@@ -85,7 +85,7 @@ services:
       - JwtSettings__Issuer=${JWT_ISSUER:-https://sboxpos.com}
       - JwtSettings__Audience=${JWT_AUDIENCE:-https://sboxpos.com}
       - JwtSettings__AccessTokenExpirationMinutes=${JWT_ACCESS_EXPIRATION:-1500}
-      - JwtSettings__RefreshTokenExpirationMinutes=${JWT_REFRESH_EXPIRATION:-120}
+      - JwtSettings__RefreshTokenExpirationMinutes=${JWT_REFRESH_EXPIRATION:-43200}
       - AllowedOrigins__0=http://${SERVER_HOST}:${FLUTTER_PORT:-3000}
       - AllowedOrigins__1=https://${SERVER_HOST}
       - AllowedOrigins__2=http://${SERVER_HOST}

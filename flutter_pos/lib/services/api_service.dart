@@ -285,7 +285,14 @@ class ApiService {
   /// (mất mạng đúng lúc token hết hạn → thu ngân bị đá ra màn đăng nhập).
   static bool lastRefreshRejected = false;
 
-  Future<Map<String, dynamic>?> refreshToken() async {
+  static Future<Map<String, dynamic>?>? _refreshInFlight;
+
+  /// Nhiều lệnh gọi gặp 401 cùng lúc chỉ làm mới MỘT lần. Trước đây mỗi lệnh tự làm mới: lệnh thứ hai gửi mã
+  /// làm mới đã bị lệnh thứ nhất đổi → máy chủ từ chối → máy bị đăng xuất.
+  Future<Map<String, dynamic>?> refreshToken() =>
+      _refreshInFlight ??= _refreshTokenOnce().whenComplete(() => _refreshInFlight = null);
+
+  Future<Map<String, dynamic>?> _refreshTokenOnce() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       lastRefreshRejected = false;
@@ -11772,8 +11779,10 @@ class ApiService {
     unawaited(() async {
       try {
         final r = await refreshToken();
-        if (r == null) {
-          debugPrint('❌ ApiService: 401 $path, refresh hỏng → hết phiên');
+        // Chỉ đăng xuất khi máy chủ TỪ CHỐI mã làm mới. Trước đây làm mới hỏng vì mất mạng / đang nghỉ thử lại
+        // cũng đăng xuất → thu ngân bị văng ra giữa ca dù phiên còn dùng được.
+        if (r == null && lastRefreshRejected) {
+          debugPrint('❌ ApiService: 401 $path, mã làm mới bị từ chối → hết phiên');
           await _triggerSessionExpired();
         }
       } finally {
@@ -16147,7 +16156,9 @@ class ApiService {
 
   Future<Map<String, dynamic>> createPosSale(Map<String, dynamic> body) async {
     try {
-      final response = await http
+      // Mã truy cập vừa hết hạn (401) → làm mới rồi gửi lại. Trước đây lệnh tạo đơn không gửi lại: thu ngân
+      // bấm thanh toán nhận «phiên hết hạn», phải bấm lần nữa.
+      final response = await _retryOnUnauthorized(() => http
           .post(
             Uri.parse('$baseUrl/api/pos/sales'),
             headers: _headers,
@@ -16157,7 +16168,7 @@ class ApiService {
             seconds: body['issueEInvoice'] == true || body['complete'] == true
                 ? 120
                 : 60,
-          ));
+          )));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -18302,7 +18313,7 @@ class ApiService {
       String id, Map<String, dynamic> body) async {
     return _posGuarded(() async {
       try {
-        final response = await http
+        final response = await _retryOnUnauthorized(() => http
             .put(
               Uri.parse('$baseUrl/api/pos/sales/$id'),
               headers: _headers,
@@ -18312,7 +18323,7 @@ class ApiService {
               seconds: body['issueEInvoice'] == true || body['complete'] == true
                   ? 120
                   : 60,
-            ));
+            )));
         return _handleResponse(response);
       } catch (e) {
         return _connectionFailure(e);
@@ -18323,9 +18334,9 @@ class ApiService {
   Future<Map<String, dynamic>> completePosSale(String id) async {
     return _posGuarded(() async {
       try {
-        final response = await http
+        final response = await _retryOnUnauthorized(() => http
             .post(Uri.parse('$baseUrl/api/pos/sales/$id/complete'), headers: _headers)
-            .timeout(const Duration(seconds: 120));
+            .timeout(const Duration(seconds: 120)));
         return _handleResponse(response);
       } catch (e) {
         return _connectionFailure(e);
@@ -22339,13 +22350,16 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> setPosKdsLinePrep(
-      String lineId, String status) async {
+      String lineId, String status, {double? seenSentQty}) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/kds/lines/$lineId/prep'),
             headers: _headers,
-            body: jsonEncode({'status': status}),
+            body: jsonEncode({
+              'status': status,
+              if (seenSentQty != null) 'seenSentQty': seenSentQty,
+            }),
           )
           .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
@@ -22355,7 +22369,7 @@ class ApiService {
   }
 
   Future<Map<String, dynamic>> setPosKdsLinesPrep(
-      List<String> lineIds, String status) async {
+      List<String> lineIds, String status, {Map<String, double>? seenSentQty}) async {
     try {
       final ids = lineIds.where((e) => e.trim().isNotEmpty).toList();
       if (ids.isEmpty) {
@@ -22365,7 +22379,11 @@ class ApiService {
           .post(
             Uri.parse('$baseUrl/api/pos/kds/lines/prep-batch'),
             headers: _headers,
-            body: jsonEncode({'ids': ids, 'status': status}),
+            body: jsonEncode({
+              'ids': ids,
+              'status': status,
+              if (seenSentQty != null && seenSentQty.isNotEmpty) 'seenSentQty': seenSentQty,
+            }),
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -22374,12 +22392,15 @@ class ApiService {
     }
   }
 
-  Future<Map<String, dynamic>> bumpPosKdsTicket(String orderId) async {
+  Future<Map<String, dynamic>> bumpPosKdsTicket(String orderId, {Map<String, double>? seenSentQty}) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/kds/tickets/$orderId/bump'),
             headers: _headers,
+            body: jsonEncode({
+              if (seenSentQty != null && seenSentQty.isNotEmpty) 'seenSentQty': seenSentQty,
+            }),
           )
           .timeout(const Duration(seconds: 20));
       return _handleResponse(response);

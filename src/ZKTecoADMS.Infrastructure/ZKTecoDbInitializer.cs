@@ -745,11 +745,17 @@ public class ZKTecoDbInitializer(
                         -- trong bảng nhưng GenerateCodeAsync đếm qua EF (có global filter ẩn bản ghi
                         -- đã xóa) nên cứ đoán lại đúng số đã xóa đó — số đó bị chặn vĩnh viễn,
                         -- sinh đơn bán/thu chi mới luôn trùng mã 23505 dù đã retry nhiều lần.
+                        -- Chỉ xóa–tạo lại khi chỉ mục CHƯA đúng dạng (duy nhất, chỉ tính dòng chưa xóa). Trước đây lần khởi
+                        -- động nào cũng xóa rồi dựng lại: khóa cả bảng, thời gian ngừng khi deploy tăng theo số dòng.
                         DROP INDEX IF EXISTS ""IX_CashTransactions_TransactionCode"";
-                        DROP INDEX IF EXISTS ""IX_CashTransactions_StoreId_TransactionCode"";
-                        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_CashTransactions_StoreId_TransactionCode""
-                            ON ""CashTransactions"" (""StoreId"", ""TransactionCode"")
-                            WHERE ""Deleted"" IS NULL;
+                        IF NOT EXISTS (SELECT 1 FROM pg_indexes
+                                       WHERE indexname = 'IX_CashTransactions_StoreId_TransactionCode'
+                                         AND indexdef LIKE '%UNIQUE%' AND indexdef LIKE '%""Deleted"" IS NULL%') THEN
+                            DROP INDEX IF EXISTS ""IX_CashTransactions_StoreId_TransactionCode"";
+                            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_CashTransactions_StoreId_TransactionCode""
+                                ON ""CashTransactions"" (""StoreId"", ""TransactionCode"")
+                                WHERE ""Deleted"" IS NULL;
+                        END IF;
 
                         -- Slot hóa đơn tạm TMP-nn được tái sử dụng sau khi đơn cũ bị soft-delete
                         -- (EnsureInvoiceSlotsAsync tạo lại slot rỗng mỗi lần poll), nhưng unique
@@ -757,7 +763,10 @@ public class ZKTecoDbInitializer(
                         -- bị xóa trước đó chặn vĩnh viễn việc tái tạo slot đó (lỗi duplicate key
                         -- lặp lại liên tục mỗi lần poll invoice-slots). Đổi sang partial unique
                         -- index chỉ áp cho các đơn còn sống.
-                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PosSaleOrders') THEN
+                        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'PosSaleOrders')
+                           AND NOT EXISTS (SELECT 1 FROM pg_indexes
+                                           WHERE indexname = 'IX_PosSaleOrders_StoreId_OrderNo'
+                                             AND indexdef LIKE '%UNIQUE%' AND indexdef LIKE '%""Deleted"" IS NULL%') THEN
                             DROP INDEX IF EXISTS ""IX_PosSaleOrders_StoreId_OrderNo"";
                             CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosSaleOrders_StoreId_OrderNo""
                                 ON ""PosSaleOrders"" (""StoreId"", ""OrderNo"")
@@ -769,10 +778,14 @@ public class ZKTecoDbInitializer(
                         -- quán với CashTransactions/PosSaleOrders.
                         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'FundTransfers') THEN
                             DROP INDEX IF EXISTS ""IX_FundTransfers_TransferCode"";
-                            DROP INDEX IF EXISTS ""IX_FundTransfers_StoreId_TransferCode"";
-                            CREATE UNIQUE INDEX IF NOT EXISTS ""IX_FundTransfers_StoreId_TransferCode""
-                                ON ""FundTransfers"" (""StoreId"", ""TransferCode"")
-                                WHERE ""Deleted"" IS NULL;
+                            IF NOT EXISTS (SELECT 1 FROM pg_indexes
+                                           WHERE indexname = 'IX_FundTransfers_StoreId_TransferCode'
+                                             AND indexdef LIKE '%UNIQUE%' AND indexdef LIKE '%""Deleted"" IS NULL%') THEN
+                                DROP INDEX IF EXISTS ""IX_FundTransfers_StoreId_TransferCode"";
+                                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_FundTransfers_StoreId_TransferCode""
+                                    ON ""FundTransfers"" (""StoreId"", ""TransferCode"")
+                                    WHERE ""Deleted"" IS NULL;
+                            END IF;
                         END IF;
 
                         CREATE TABLE IF NOT EXISTS ""PayslipAttendanceSnapshots"" (

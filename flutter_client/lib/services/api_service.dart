@@ -13570,8 +13570,10 @@ class ApiService implements PayrollApi {
     unawaited(() async {
       try {
         final r = await refreshToken();
-        if (r == null) {
-          debugPrint('❌ ApiService: 401 $path, refresh hỏng → hết phiên');
+        // Chỉ đăng xuất khi máy chủ TỪ CHỐI mã làm mới. Trước đây làm mới hỏng vì mất mạng / đang nghỉ thử lại
+        // cũng đăng xuất → thu ngân bị văng ra giữa ca dù phiên còn dùng được.
+        if (r == null && lastRefreshRejected) {
+          debugPrint('❌ ApiService: 401 $path, mã làm mới bị từ chối → hết phiên');
           await _triggerSessionExpired();
         }
       } finally {
@@ -18072,7 +18074,9 @@ class ApiService implements PayrollApi {
 
   Future<Map<String, dynamic>> createPosSale(Map<String, dynamic> body) async {
     try {
-      final response = await http
+      // Mã truy cập vừa hết hạn (401) → làm mới rồi gửi lại. Trước đây lệnh tạo đơn không gửi lại: thu ngân
+      // bấm thanh toán nhận «phiên hết hạn», phải bấm lần nữa.
+      final response = await _retryOnUnauthorized(() => http
           .post(
             Uri.parse('$baseUrl/api/pos/sales'),
             headers: _headers,
@@ -18082,7 +18086,7 @@ class ApiService implements PayrollApi {
             seconds: body['issueEInvoice'] == true || body['complete'] == true
                 ? 120
                 : 60,
-          ));
+          )));
       return _handleResponse(response);
     } catch (e) {
       return _connectionFailure(e);
@@ -20306,7 +20310,7 @@ class ApiService implements PayrollApi {
       String id, Map<String, dynamic> body) async {
     return _posGuarded(() async {
       try {
-        final response = await http
+        final response = await _retryOnUnauthorized(() => http
             .put(
               Uri.parse('$baseUrl/api/pos/sales/$id'),
               headers: _headers,
@@ -20316,7 +20320,7 @@ class ApiService implements PayrollApi {
               seconds: body['issueEInvoice'] == true || body['complete'] == true
                   ? 120
                   : 60,
-            ));
+            )));
         return _handleResponse(response);
       } catch (e) {
         return _connectionFailure(e);
@@ -20327,9 +20331,9 @@ class ApiService implements PayrollApi {
   Future<Map<String, dynamic>> completePosSale(String id) async {
     return _posGuarded(() async {
       try {
-        final response = await http
+        final response = await _retryOnUnauthorized(() => http
             .post(Uri.parse('$baseUrl/api/pos/sales/$id/complete'), headers: _headers)
-            .timeout(const Duration(seconds: 120));
+            .timeout(const Duration(seconds: 120)));
         return _handleResponse(response);
       } catch (e) {
         return _connectionFailure(e);
@@ -25405,13 +25409,16 @@ class ApiService implements PayrollApi {
   }
 
   Future<Map<String, dynamic>> setPosKdsLinePrep(
-      String lineId, String status) async {
+      String lineId, String status, {double? seenSentQty}) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/kds/lines/$lineId/prep'),
             headers: _headers,
-            body: jsonEncode({'status': status}),
+            body: jsonEncode({
+              'status': status,
+              if (seenSentQty != null) 'seenSentQty': seenSentQty,
+            }),
           )
           .timeout(const Duration(seconds: 20));
       return _handleResponse(response);
@@ -25421,7 +25428,7 @@ class ApiService implements PayrollApi {
   }
 
   Future<Map<String, dynamic>> setPosKdsLinesPrep(
-      List<String> lineIds, String status) async {
+      List<String> lineIds, String status, {Map<String, double>? seenSentQty}) async {
     try {
       final ids = lineIds.where((e) => e.trim().isNotEmpty).toList();
       if (ids.isEmpty) {
@@ -25431,7 +25438,11 @@ class ApiService implements PayrollApi {
           .post(
             Uri.parse('$baseUrl/api/pos/kds/lines/prep-batch'),
             headers: _headers,
-            body: jsonEncode({'ids': ids, 'status': status}),
+            body: jsonEncode({
+              'ids': ids,
+              'status': status,
+              if (seenSentQty != null && seenSentQty.isNotEmpty) 'seenSentQty': seenSentQty,
+            }),
           )
           .timeout(const Duration(seconds: 30));
       return _handleResponse(response);
@@ -25440,12 +25451,15 @@ class ApiService implements PayrollApi {
     }
   }
 
-  Future<Map<String, dynamic>> bumpPosKdsTicket(String orderId) async {
+  Future<Map<String, dynamic>> bumpPosKdsTicket(String orderId, {Map<String, double>? seenSentQty}) async {
     try {
       final response = await http
           .post(
             Uri.parse('$baseUrl/api/pos/kds/tickets/$orderId/bump'),
             headers: _headers,
+            body: jsonEncode({
+              if (seenSentQty != null && seenSentQty.isNotEmpty) 'seenSentQty': seenSentQty,
+            }),
           )
           .timeout(const Duration(seconds: 20));
       return _handleResponse(response);

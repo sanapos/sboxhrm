@@ -1088,6 +1088,9 @@ class _PosSellScreenState extends State<PosSellScreen>
   final List<PendingWarehousePrintJob> _failedWarehousePrints = [];
   final List<PendingSalePrintJob> _failedSalePrints = [];
   final List<PendingKitchenPrintJob> _failedKitchenPrints = [];
+  /// Phiếu bếp đang in dở (chưa biết kết quả): được lưu xuống máy cùng hàng chờ in, không hiện trên màn.
+  /// App bị tắt giữa chừng → lần mở sau chúng hiện ra như phiếu chờ in.
+  final List<PendingKitchenPrintJob> _inflightKitchenPrints = [];
   final List<PendingCupLabelPrintJob> _failedCupPrints = [];
   /// Hủy bếp chờ gộp (món đã xóa khỏi giỏ sau khi báo).
   final List<KitchenTicketLine> _pendingKitchenCancels = [];
@@ -1340,8 +1343,13 @@ class _PosSellScreenState extends State<PosSellScreen>
         eventOrderId.toLowerCase() == draftId.toLowerCase()) {
       return true;
     }
+    // Sự kiện ghi rõ là của ĐƠN KHÁC → không phải hóa đơn này, dù trùng số đơn nháp «TMP{ô}» (số này dùng lại
+    // cho mọi đơn cùng ô — tiền về trễ của đơn trước từng chốt nhầm đơn đang mở).
+    if (eventOrderId.isNotEmpty && draftId.isNotEmpty) return false;
     if (eventOrderNo.isNotEmpty) {
-      if (draftNo.isNotEmpty && eventOrderNo == draftNo) return true;
+      // Số đơn nháp trần chỉ được khớp khi hóa đơn này chưa có mã riêng (chưa lưu thành đơn): đã có mã riêng
+      // thì sự kiện phải mang đúng mã đó hoặc đúng mã định danh đơn.
+      if (draftNo.isNotEmpty && eventOrderNo == draftNo && extId == draftNo) return true;
       if (extId.isNotEmpty && eventOrderNo == extId) return true;
     }
     if (eventExternal.isNotEmpty && extId.isNotEmpty && eventExternal == extId) {
@@ -1364,7 +1372,7 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   String _tingeeExternalIdOf(_SellInvoiceTab tab) {
     final no = (tab.draftOrderNo ?? '').trim();
-    if (no.isNotEmpty) return no;
+    if (no.isNotEmpty) return PosVietQrHelper.transferCode(no, tab.draftOrderId);
     return (tab.tingeeTransferExternalId ?? '').trim();
   }
 
@@ -1694,6 +1702,10 @@ class _PosSellScreenState extends State<PosSellScreen>
         state == AppLifecycleState.hidden ||
         state == AppLifecycleState.detached) {
       _appInBackground = true;
+      // App xuống nền khi còn món chưa lưu lên máy chủ → giữ một bản trên máy phòng hệ điều hành tắt app.
+      for (final t in _tabs) {
+        if (t.localDirty && t.cart.isNotEmpty && !t.draftReadOnly) _snapshotTabOffline(t);
+      }
     } else if (state == AppLifecycleState.resumed) {
       _appInBackground = false;
     }
@@ -3479,8 +3491,9 @@ class _PosSellScreenState extends State<PosSellScreen>
   String _tingeeExternalOrderId() {
     final no = (_tab.draftOrderNo ?? '').trim();
     if (no.isNotEmpty) {
-      _tab.tingeeTransferExternalId = no;
-      return no;
+      final code = PosVietQrHelper.transferCode(no, _tab.draftOrderId);
+      _tab.tingeeTransferExternalId = code;
+      return code;
     }
     final existing = (_tab.tingeeTransferExternalId ?? '').trim();
     if (existing.isNotEmpty) return existing;
@@ -4571,6 +4584,9 @@ class _PosSellScreenState extends State<PosSellScreen>
 
   Future<void> _kitchenSendCurrentTable() async {
     if (_kitchenSending || _checkingOut || _parking) return;
+    // Chốt hóa đơn lúc bấm: trong lúc chờ máy chủ, thu ngân có thể đã sang bàn khác — phiếu giấy phải ghi đúng
+    // bàn vừa báo, không phải bàn đang mở.
+    final sendTab = _tab;
     // Theo «Nút dưới hóa đơn» (mặc định nhà hàng) — trước đây khóa cứng nhà hàng, karaoke bấm không có gì.
     if (!_kitchenNotifyOn) return;
     final sid = _tab.resourceSessionId;
@@ -4810,6 +4826,7 @@ class _PosSellScreenState extends State<PosSellScreen>
         relatedEntityType: kPosPrintNotifyKind,
       );
       unawaited(_dispatchKitchenNotifyPrint(
+        tab: sendTab,
         shouldPrint: shouldPrint,
         sendTicketLines: sendTicketLines,
         pendingLines: List<_SellCartLine>.from(pendingLines),
@@ -4866,18 +4883,73 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   /// In phiếu bếp / tem ly sau khi server đã nhận món — không chặn nút Thông báo.
+  /// In phiếu bếp nền sau khi đã báo bếp. Món đã được ghi «đã báo bếp» TRƯỚC khi in, nên phiếu được ghi xuống hàng
+  /// chờ in trên máy trước: app bị tắt / hết pin / lỗi giữa chừng thì mở lại vẫn còn phiếu để in lại. Trước đây
+  /// phiếu chỉ nằm trong bộ nhớ, mất là không còn gì để in lại mà món vẫn hiện «đã báo».
   Future<void> _dispatchKitchenNotifyPrint({
+    _SellInvoiceTab? tab,
+    required bool shouldPrint,
+    required List<KitchenTicketLine> sendTicketLines,
+    required List<_SellCartLine> pendingLines,
+  }) async {
+    final src = tab ?? _tab;
+    final PendingKitchenPrintJob? wal = shouldPrint && sendTicketLines.isNotEmpty
+        ? PendingKitchenPrintJob(
+            id: 'kitchen_wal_${DateTime.now().microsecondsSinceEpoch}',
+            isCancel: false,
+            tableName: formatPosTableLabel(
+              areaName: src.serviceAreaName,
+              tableName: src.serviceResourceName,
+            ),
+            senderName: _kitchenSenderName(),
+            orderNo: src.draftOrderNo,
+            lines: sendTicketLines,
+          )
+        : null;
+    if (wal != null) {
+      _inflightKitchenPrints.add(wal);
+      unawaited(_persistPendingPrintQueue());
+    }
+    var keepWal = false;
+    try {
+      await _dispatchKitchenNotifyPrintCore(
+        tab: tab,
+        shouldPrint: shouldPrint,
+        sendTicketLines: sendTicketLines,
+        pendingLines: pendingLines,
+      );
+    } catch (e) {
+      debugPrint('Kitchen notify print: $e');
+      if (wal != null) {
+        // Lỗi giữa lúc in: đưa phiếu ra hàng chờ in để thu ngân in lại. Màn đã đóng thì giữ bản lưu trên máy.
+        if (mounted) {
+          _enqueueFailedKitchenPrint(wal);
+        } else {
+          keepWal = true;
+        }
+      }
+    } finally {
+      if (wal != null && !keepWal) {
+        _inflightKitchenPrints.removeWhere((j) => j.id == wal.id);
+        unawaited(_persistPendingPrintQueue());
+      }
+    }
+  }
+
+  Future<void> _dispatchKitchenNotifyPrintCore({
+    _SellInvoiceTab? tab,
     required bool shouldPrint,
     required List<KitchenTicketLine> sendTicketLines,
     required List<_SellCartLine> pendingLines,
   }) async {
     var kitchenOk = true;
     // Chốt bàn / đơn / người gửi lúc gửi — phiếu treo dựng sau 60s, lúc đó thu ngân có thể đã sang bàn khác.
+    final src = tab ?? _tab;
     final hangTable = formatPosTableLabel(
-      areaName: _tab.serviceAreaName,
-      tableName: _tab.serviceResourceName,
+      areaName: src.serviceAreaName,
+      tableName: src.serviceResourceName,
     );
-    final hangOrderNo = _tab.draftOrderNo;
+    final hangOrderNo = src.draftOrderNo;
     final hangSender = _kitchenSenderName();
     if (shouldPrint) {
       var enqueuedPerPrinterFail = false;
@@ -5349,6 +5421,12 @@ class _PosSellScreenState extends State<PosSellScreen>
     var voidRes = const <String, dynamic>{};
     if (PosNetworkMonitor.instance.reachable.value) {
       voidRes = await _api.createPosKitchenVoids(body);
+      // Máy chủ đang lỗi / khởi động lại (5xx): thử lại một lần — không ghi được thì màn bếp không có thẻ hủy.
+      final voidCode = voidRes['statusCode'];
+      if (voidRes['isSuccess'] != true && voidCode is int && voidCode >= 500) {
+        await Future<void>.delayed(const Duration(milliseconds: 1500));
+        voidRes = await _api.createPosKitchenVoids(body);
+      }
     } else {
       unawaited(_api.createPosKitchenVoids(body));
     }
@@ -9377,6 +9455,8 @@ class _PosSellScreenState extends State<PosSellScreen>
     final snapshotFp = _cartSyncFingerprint(tab);
     _autosavingDraft = true;
     var saveOk = false;
+    // Lưu hỏng vì máy chủ lỗi / đường truyền (không phải máy chủ từ chối nội dung) → giữ giỏ xuống máy.
+    var keepOnDevice = false;
     try {
       await _ensureDeviceReady();
       if (identical(tab, _tab)) {
@@ -9429,6 +9509,8 @@ class _PosSellScreenState extends State<PosSellScreen>
       }
 
       if (res['isSuccess'] != true) {
+        final failCode = res['statusCode'];
+        if (failCode is! int || failCode >= 500) keepOnDevice = true;
         // Giữ dirty để lần sau thử lại — không kéo đè giỏ local.
         if (_isLockConflict(res) && showLockError) {
           await _handleMutationLockConflict(res, title: 'Không lưu được đơn tạm');
@@ -9531,9 +9613,13 @@ class _PosSellScreenState extends State<PosSellScreen>
       return true;
     } catch (_) {
       // im lặng — lần sau autosave/heartbeat sẽ thử lại
+      keepOnDevice = true;
       return false;
     } finally {
       _autosavingDraft = false;
+      // Món vừa thêm chưa lên được máy chủ (máy chủ đang lỗi / khởi động lại): trước đây chỉ nằm trong bộ nhớ,
+      // app bị tắt hay văng ra màn đăng nhập là mất. Giữ một bản trên máy; lưu được lên máy chủ thì tự gỡ.
+      if (!saveOk && keepOnDevice && mounted && !tab.draftReadOnly) _snapshotTabOffline(tab);
       _draftSaveFailStreak = saveOk ? 0 : (_draftSaveFailStreak + 1).clamp(0, 8);
       if (mounted && tab.localDirty && !_suspendDraftAutosave) {
         final retryMs = saveOk
@@ -12078,6 +12164,10 @@ class _PosSellScreenState extends State<PosSellScreen>
     final started = tab.serviceStartedAt;
     final clientRequestId =
         tab.draftOrderId == null ? _saleRequestIdFor(tab, complete: complete) : null;
+    // Đơn tại quầy (không gắn bàn) của quán có báo bếp: thanh toán cũng là lúc báo bếp. Ghi món chưa báo là «đã
+    // báo bếp» để lên màn bếp (KDS) — trước đây đơn tại quầy chỉ in phiếu giấy, màn bếp không bao giờ thấy.
+    // Đơn có bàn vẫn báo bếp bằng nút «Báo bếp» như cũ.
+    final kitchenOnPay = complete && !tab.isTableBound && _kitchenNotifyOn;
     return <String, dynamic>{
       if (clientRequestId != null) 'clientRequestId': clientRequestId,
       'lines': tab.cart.map((c) {
@@ -12089,9 +12179,15 @@ class _PosSellScreenState extends State<PosSellScreen>
           'unitPrice': c.unitPrice,
           'discountAmount': c.discountAmount,
           'lineNote': c.lineNote,
-          'kitchenSentQty': c.kitchenSentQty,
-          if (c.kitchenSentContent != null) 'kitchenSentContent': c.kitchenSentContent,
-          if (c.kitchenRound > 0) 'kitchenRound': c.kitchenRound,
+          if (kitchenOnPay && c.kitchenHasPending) ...{
+            'kitchenSentQty': c.qty,
+            'kitchenSentContent': c.kitchenContentNow,
+            'kitchenRound': c.kitchenRound > 0 ? c.kitchenRound : 1,
+          } else ...{
+            'kitchenSentQty': c.kitchenSentQty,
+            if (c.kitchenSentContent != null) 'kitchenSentContent': c.kitchenSentContent,
+            if (c.kitchenRound > 0) 'kitchenRound': c.kitchenRound,
+          },
           if (c.toppings.isNotEmpty)
             'toppingsJson': jsonEncode(c.toppings
                 .map((t) => {
@@ -13946,7 +14042,11 @@ class _PosSellScreenState extends State<PosSellScreen>
     await PosPendingPrintStore.save(PosPendingPrintSnapshot(
       warehouse: List.unmodifiable(_failedWarehousePrints),
       sales: List.unmodifiable(_failedSalePrints),
-      kitchen: List.unmodifiable(_failedKitchenPrints),
+      kitchen: List.unmodifiable([
+        ..._failedKitchenPrints,
+        for (final j in _inflightKitchenPrints)
+          if (!_failedKitchenPrints.any((f) => f.id == j.id)) j,
+      ]),
       cups: List.unmodifiable(_failedCupPrints),
     ), storeId: _storeId);
   }

@@ -16,6 +16,8 @@ import '../utils/store_role_helper.dart';
 import '../services/global_location_reporter.dart';
 import '../services/notification_preferences_cache.dart';
 import '../services/session_reset.dart';
+import '../services/pos_print_agent_service.dart';
+import '../services/signalr_service.dart';
 import '../config/sbox_app_variant.dart';
 import '../models/user.dart';
 
@@ -73,6 +75,7 @@ class AuthProvider extends ChangeNotifier {
     await _apiService.writeTokenPair(token, null);
     _token = token;
     _user = _decodeUserFromToken(token);
+    await SessionReset.ensureDeviceStore(_user?.storeId);
     _impersonationLabel = label;
     await _fetchAllowedModules(freshSession: true);
     BranchSession.instance.load();
@@ -280,6 +283,7 @@ class AuthProvider extends ChangeNotifier {
 
     _token = savedToken;
     _user = _decodeUserFromToken(savedToken);
+    await SessionReset.ensureDeviceStore(_user?.storeId);
 
     if (_isTokenExpiringSoon(savedToken)) {
       debugPrint(
@@ -402,6 +406,7 @@ class AuthProvider extends ChangeNotifier {
 
           // Decode user từ JWT token
           _user = _decodeUserFromToken(_token!);
+          await SessionReset.ensureDeviceStore(_user?.storeId);
           debugPrint(
               '✅ AuthProvider: User decoded - ${_user?.fullName} (${_user?.role})');
 
@@ -573,6 +578,14 @@ class AuthProvider extends ChangeNotifier {
 
   Future<void> logout() async {
     unawaited(PosNetworkMonitor.instance.stop());
+    // Dừng nhận lệnh in và ngắt realtime của tài khoản này TRƯỚC khi xóa token (báo Agent offline cần token).
+    // Trước đây cả hai còn chạy ở màn đăng nhập và sang phiên của tài khoản kế tiếp.
+    try {
+      await PosPrintAgentService.instance.stop().timeout(const Duration(seconds: 4));
+    } catch (e) {
+      debugPrint('Print agent stop on logout: $e');
+    }
+    unawaited(SignalRService().forgetSession().catchError((_) {}));
     await PosOfflineService.instance.onLogout();
     _isLoading = true;
     notifyListeners();

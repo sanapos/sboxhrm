@@ -17,19 +17,24 @@ services:
     networks:
       - zkteconet
     restart: unless-stopped
+    # Mặc định cho máy chủ 16 nhân / 32 GB (PostgreSQL 8 nhân / 16 GB, API 6 nhân / 8 GB, còn lại cho Redis, nginx,
+    # hệ điều hành). Máy nhỏ hơn: đặt PG_CPUS / PG_MEMORY / PG_SHARED_BUFFERS / PG_EFFECTIVE_CACHE trong .env —
+    # Docker từ chối khởi động container nếu cpus lớn hơn số nhân của máy.
     deploy:
       resources:
         limits:
-          cpus: '4'
-          memory: 8G
+          cpus: '${PG_CPUS:-8}'
+          memory: ${PG_MEMORY:-16G}
         reservations:
           cpus: '2'
           memory: 4G
+    # max_connections 400 (trước 1500): mỗi kết nối tốn ~10 MB + work_mem; lúc nghẽn 1.000 kết nối cùng mở sẽ làm
+    # PostgreSQL hết bộ nhớ thay vì cho request xếp hàng. Phải lớn hơn «Maximum Pool Size» của API bên dưới.
     command: >
       postgres
-      -c max_connections=1500
-      -c shared_buffers=2GB
-      -c effective_cache_size=6GB
+      -c max_connections=${PG_MAX_CONNECTIONS:-400}
+      -c shared_buffers=${PG_SHARED_BUFFERS:-4GB}
+      -c effective_cache_size=${PG_EFFECTIVE_CACHE:-12GB}
       -c work_mem=16MB
       -c maintenance_work_mem=512MB
       -c checkpoint_completion_target=0.9
@@ -69,8 +74,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4'
-          memory: 8G
+          cpus: '${API_CPUS:-6}'
+          memory: ${API_MEMORY:-8G}
         reservations:
           cpus: '2'
           memory: 4G
@@ -78,14 +83,14 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:7070
       - DOTNET_ThreadPool_MinThreads=200
-      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-ZKTecoADMS};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD};Minimum Pool Size=50;Maximum Pool Size=1000;Connection Idle Lifetime=600;Pooling=true;Timeout=60;
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=${POSTGRES_DB:-ZKTecoADMS};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD};Minimum Pool Size=20;Maximum Pool Size=${DB_POOL_MAX:-200};Connection Idle Lifetime=600;Pooling=true;Timeout=60;
       - ConnectionStrings__Redis=zkteco_redis:6379,password=${REDIS_PASSWORD:-redis123}
       - JwtSettings__AccessTokenSecret=${JWT_ACCESS_SECRET}
       - JwtSettings__RefreshTokenSecret=${JWT_REFRESH_SECRET}
       - JwtSettings__Issuer=${JWT_ISSUER:-http://${SERVER_HOST}:${API_PORT:-7070}}
       - JwtSettings__Audience=${JWT_AUDIENCE:-http://${SERVER_HOST}:${API_PORT:-7070}}
       - JwtSettings__AccessTokenExpirationMinutes=${JWT_ACCESS_EXPIRATION:-1500}
-      - JwtSettings__RefreshTokenExpirationMinutes=${JWT_REFRESH_EXPIRATION:-120}
+      - JwtSettings__RefreshTokenExpirationMinutes=${JWT_REFRESH_EXPIRATION:-43200}
       - AllowedOrigins__0=http://${SERVER_HOST}:${FLUTTER_PORT:-3000}
       - AllowedOrigins__1=https://${SERVER_HOST}
       - AllowedOrigins__2=http://${SERVER_HOST}

@@ -1423,7 +1423,10 @@ Future<bool> _printKitchenCompactSlipDefault({
       if (readyLocals.isNotEmpty) {
         if (lines.length > 1 && readyLocals.any((p) => p.cutPerItem)) {
           var splitOk = false;
-          for (final line in lines) {
+          // Mã chống trùng theo thứ tự dòng: hai dòng cùng tên món (khác ghi chú / topping) trong một lần
+          // báo trước đây trùng mã → dòng sau bị coi là «in trùng», không ra phiếu mà vẫn báo thành công.
+          for (var li = 0; li < lines.length; li++) {
+            final line = lines[li];
             final ok = await _printKitchenCompactSlipDefault(
               tableName: tableName,
               isCancel: isCancel,
@@ -1433,7 +1436,7 @@ Future<bool> _printKitchenCompactSlipDefault({
               orderNo: orderNo,
               skipDedup: skipDedup,
               dedupRef: kitchenRefFit(
-                  '${dedupRef ?? orderNo ?? 'k'}|${line.productName}'),
+                  '${dedupRef ?? orderNo ?? 'k'}|${li + 1}|${line.productName}'),
               waitForCompletion: waitForCompletion,
               showFeedback: false,
               onCloudHang: onCloudHang,

@@ -469,7 +469,8 @@ public sealed class SboxApiClient
             root.TryGetProperty("payloadFormat", out var pf) ? ReadString(pf) ?? "" : "",
             root.TryGetProperty("payload", out var p) ? ReadString(p) : null,
             root.TryGetProperty("copies", out var c) ? ReadInt(c, 1) : 1,
-            root.TryGetProperty("referenceNo", out var rn) ? ReadString(rn) : null);
+            root.TryGetProperty("referenceNo", out var rn) ? ReadString(rn) : null,
+            root.TryGetProperty("dispatchKey", out var dk) ? ReadString(dk) : null);
     }
 
     async Task<JsonDocument> GetDataAsync(string path, CancellationToken ct)

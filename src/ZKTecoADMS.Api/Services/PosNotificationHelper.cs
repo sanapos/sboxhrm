@@ -103,6 +103,41 @@ internal static class PosNotificationHelper
         }
     }
 
+    /// <summary>
+    /// Đơn bàn đã được thanh toán ở nơi khác (máy khác / chuyển khoản tự hoàn tất) mà máy mất mạng cũng đã thu
+    /// tiền và in hóa đơn offline cho chính bàn đó → báo quản lý + chủ để kiểm tra có thu hai lần không.
+    /// </summary>
+    public static async Task NotifyOfflineDoublePaymentAsync(
+        ISystemNotificationService notifications,
+        ZKTecoDbContext db,
+        Guid storeId,
+        Guid orderId,
+        string title,
+        string message,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var userIds = await GetPosManagerUserIdsAsync(db, storeId, cancellationToken);
+            if (await OwnerAtStoreAsync(db, storeId, cancellationToken) is Guid owner && !userIds.Contains(owner))
+                userIds.Add(owner);
+            if (userIds.Count == 0) return;
+            await notifications.CreateAndSendToUsersAsync(
+                userIds,
+                NotificationType.Warning,
+                title,
+                message,
+                relatedEntityId: orderId,
+                relatedEntityType: "PosSaleOrder",
+                categoryCode: "pos",
+                storeId: storeId);
+        }
+        catch
+        {
+            // Lỗi gửi thông báo không làm hỏng việc đồng bộ đơn offline.
+        }
+    }
+
     public static async Task NotifyPurchaseReceiptCompletedAsync(
         ISystemNotificationService notifications,
         ZKTecoDbContext db,

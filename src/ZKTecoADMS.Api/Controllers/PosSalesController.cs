@@ -1497,7 +1497,7 @@ public partial class PosSalesController(
             }
 
             if (dto.Complete)
-                PosKitchenKdsHelper.CloseOpenOnPaid(lines);
+                PosKitchenKdsHelper.OnOrderPaid(order, lines, offlineSync: offlineNo != null);
 
             order.ClientRequestId = clientRequestId;
             PosOfflineSaleRules.Stamp(order, offlineNo, dto.OfflineAt, dto.OfflineDeviceKey);
@@ -1536,6 +1536,15 @@ public partial class PosSalesController(
                 var winner = await FindOrderByClientRequestAsync(storeId, clientRequestId);
                 if (winner != null) return Ok(AppResponse<SaleOrderDto>.Success(winner));
                 throw;
+            }
+            catch (DbUpdateException ex) when (outerAttempt < 4
+                && (IsUniqueOrderNoConflict(ex) || IsUniqueCashCodeConflict(ex)))
+            {
+                // Trùng số hóa đơn / mã phiếu thu vì quầy khác vừa lưu cùng số. Cấp lại số ngay trong giao dịch này
+                // (RepeatableRead) luôn ra đúng số cũ vì không thấy đơn vừa lưu → làm lại cả giao dịch để đọc số mới.
+                // Trước đây thu ngân nhận «lỗi hệ thống» / «bấm lại».
+                await tx.RollbackAsync();
+                saved = false;
             }
             catch (Exception ex) when (outerAttempt < 4 && IsSerializationFailure(ex))
             {

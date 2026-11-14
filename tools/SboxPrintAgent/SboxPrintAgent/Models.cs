@@ -86,7 +86,9 @@ public sealed record ClaimJob(
     string PayloadFormat,
     string? Payload,
     int Copies,
-    string? ReferenceNo);
+    string? ReferenceNo,
+    // Mốc lần gửi in do máy chủ cấp: đổi khi người dùng bấm «In lại» / «Chuyển máy» (máy chủ cũ không gửi).
+    string? DispatchKey = null);
 
 public sealed record AgentInfo(
     Guid AgentId,

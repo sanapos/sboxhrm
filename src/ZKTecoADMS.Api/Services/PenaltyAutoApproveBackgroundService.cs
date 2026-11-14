@@ -59,6 +59,9 @@ public class PenaltyAutoApproveBackgroundService : BackgroundService
                 && pt.Status == "Pending"
                 && pt.TransactionDate.Date < cutoffDate
                 && pt.Note != null && pt.Note.Contains("Tự động tạo từ chấm công"))
+            // Mỗi lượt (15 phút) xử lý tối đa 500 phiếu cũ nhất — không nạp cả tập vào bộ nhớ một lần.
+            .OrderBy(pt => pt.TransactionDate)
+            .Take(500)
             .ToListAsync(stoppingToken);
 
         if (pendingPenalties.Count == 0) return;

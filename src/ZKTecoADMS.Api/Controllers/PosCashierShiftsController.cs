@@ -206,10 +206,27 @@ public class PosCashierShiftsController(ZKTecoDbContext db) : AuthenticatedContr
         if (shift.OpenedByUserId != CurrentUserId && !IsAdmin && !IsManager)
             return BadRequest(AppResponse<object>.Fail("Chỉ đóng được ca của chính bạn"));
 
-        var expected = await ExpectedCashAsync(storeId, shift);
         var counted = Math.Max(0, dto?.CountedCash ?? 0);
         var now = DateTime.UtcNow;
+        // Chốt giờ đóng ca TRƯỚC bằng một lệnh có điều kiện, rồi mới tính «tiền mặt phải có» theo giờ đã chốt.
+        // Trước đây tính trước, đóng sau: phiếu thu ghi xong giữa hai bước nằm trong giờ ca nhưng không vào số
+        // đã chốt; hai máy cùng bấm đóng một ca cũng cùng thành công.
+        var closingUserId = CurrentUserId;
+        var closingBy = CurrentUserEmail;
+        var shiftId = shift.Id;
+        var claimedClose = await db.PosCashierShifts
+            .Where(s => s.Id == shiftId && s.StoreId == storeId && s.Status == "Open")
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(x => x.Status, "Closed")
+                .SetProperty(x => x.ClosedAt, (DateTime?)now)
+                .SetProperty(x => x.ClosedByUserId, (Guid?)closingUserId)
+                .SetProperty(x => x.ClosedByName, closingBy)
+                .SetProperty(x => x.UpdatedAt, now)
+                .SetProperty(x => x.UpdatedBy, closingBy));
+        if (claimedClose == 0)
+            return BadRequest(AppResponse<object>.Fail("Ca đã đóng"));
         shift.ClosedAt = now;
+        var expected = await ExpectedCashAsync(storeId, shift);
         shift.ClosedByUserId = CurrentUserId;
         shift.ClosedByName = CurrentUserEmail;
         shift.CountedCash = counted;

@@ -598,6 +598,10 @@ class PosPrinterTransport {
     for (final b in bad) {
       if (s.contains(b)) return false;
     }
+    // Plugin Sunmi 4.x trả tên enum: READY / OFFLINE / COMM / ERR_PAPER_OUT / ERR_COVER / ERR_PRINTER_HOT…
+    // Các từ khóa ở trên (out_of_paper, cover_open, error) không khớp «ERR_PAPER_OUT», «ERR_COVER» nên máy hết
+    // giấy / mở nắp vẫn bị coi là in tốt. Mọi trạng thái ERR_* và COMM đều là chưa in được.
+    if (s.contains('err_') || s == 'comm' || s.endsWith('.comm')) return false;
     return true;
   }
 

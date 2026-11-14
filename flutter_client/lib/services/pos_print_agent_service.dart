@@ -74,6 +74,12 @@ class PosPrintAgentService {
   /// Job đã complete/fail → timeout không được ghi đè thành Failed sau khi giấy đã in.
   /// Persist nhẹ để tránh restart Agent → reclaim → in chồng.
   final _settledJobIds = <String>{};
+  /// Mốc lần gửi in (dispatchKey máy chủ cấp) của lần Agent đã xử lý xong từng lệnh.
+  final _settledDispatch = <String, String>{};
+  /// Mốc lần gửi in của lệnh đang xử lý.
+  final _claimDispatch = <String, String>{};
+  /// Lệnh Agent đã báo lỗi khi CHƯA ra giấy — «In lại» phải in thật.
+  final _notPrintedJobIds = <String>{};
   bool _settledLoaded = false;
   Timer? _claimDebounce;
   String? _lastRegisterError;
@@ -511,12 +517,31 @@ class PosPrintAgentService {
 
       // Đã/đang xử lý job này → KHÔNG fail (tránh báo «không in được»
       // trong khi lần claim đầu đã in ra giấy, rồi reclaim/claim lại).
+      // Mốc lần gửi in: máy chủ đổi khi người dùng bấm «In lại» / «Chuyển máy» (máy chủ cũ không gửi).
+      final dispatch =
+          data['dispatchKey']?.toString() ?? data['DispatchKey']?.toString() ?? '';
       if (_settledJobIds.contains(jobId)) {
-        // App chủ/Agent claim lại job đã in: complete trên server để không
-        // reclaim → Queued → in lại phiếu bếp khi in hóa đơn sau.
-        debugPrint('Print Agent: job $jobId đã in xong — báo lại «in xong» lên server');
-        await _reportComplete(jobId);
-        return;
+        final doneDispatch = _settledDispatch[jobId];
+        final userReprint = _notPrintedJobIds.contains(jobId) ||
+            (dispatch.isNotEmpty && doneDispatch != null && doneDispatch != dispatch);
+        if (!userReprint) {
+          // App chủ/Agent claim lại job đã in: complete trên server để không
+          // reclaim → Queued → in lại phiếu bếp khi in hóa đơn sau.
+          debugPrint('Print Agent: job $jobId đã in xong — báo lại «in xong» lên server');
+          await _reportComplete(jobId);
+          return;
+        }
+        // «In lại» dùng lại đúng mã lệnh cũ. Trước đây Agent thấy mã đã xử lý nên chỉ báo «in xong»
+        // mà không in — máy bếp hết giấy, thay giấy rồi bấm «In lại» vẫn không ra phiếu.
+        debugPrint('Print Agent: job $jobId được yêu cầu in lại — in thật');
+        _settledJobIds.remove(jobId);
+        _settledDispatch.remove(jobId);
+        _notPrintedJobIds.remove(jobId);
+        _pendingCompletes.remove(jobId);
+      }
+      if (dispatch.isNotEmpty) {
+        if (_claimDispatch.length > 200) _claimDispatch.clear();
+        _claimDispatch[jobId] = dispatch;
       }
       if (_activeJobIds.contains(jobId)) {
         debugPrint('Print Agent: bỏ claim trùng job $jobId (đang xử lý)');
@@ -630,6 +655,9 @@ class PosPrintAgentService {
       // nếu send có timeout riêng.
       try {
         await _executeJob(data, jobId).timeout(const Duration(seconds: 75));
+        // Xử lý xong (in được hoặc đã báo lỗi) → rời danh sách «đang xử lý». Vài nhánh báo lỗi sớm trước đây để
+        // sót mã lệnh ở đây: bấm «In lại» thì Agent tưởng lệnh còn đang in và bỏ qua, lệnh kẹt.
+        _activeJobIds.remove(jobId);
       } on TimeoutException {
         debugPrint('Print Agent: job $jobId timeout 75s');
         if (_settledJobIds.contains(jobId)) return;
@@ -768,13 +796,23 @@ class PosPrintAgentService {
     }
   }
 
-  void _markJobSettled(String jobId) {
+  /// [printed] false = chắc chắn chưa ra giấy (lỗi trước / trong lúc gửi máy in).
+  void _markJobSettled(String jobId, {bool printed = true}) {
     _activeJobIds.remove(jobId);
     _settledJobIds.add(jobId);
+    if (printed) {
+      _notPrintedJobIds.remove(jobId);
+    } else {
+      _notPrintedJobIds.add(jobId);
+    }
+    final dispatch = _claimDispatch.remove(jobId);
+    if (dispatch != null && dispatch.isNotEmpty) _settledDispatch[jobId] = dispatch;
     if (_settledJobIds.length > 120) {
       final drop = _settledJobIds.take(_settledJobIds.length - 100).toList();
       for (final id in drop) {
         _settledJobIds.remove(id);
+        _settledDispatch.remove(id);
+        _notPrintedJobIds.remove(id);
       }
     }
     unawaited(_persistSettledJobIds());
@@ -786,9 +824,17 @@ class PosPrintAgentService {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getStringList(_settledPrefsKey) ?? const [];
-      _settledJobIds
-        ..clear()
-        ..addAll(raw.where((e) => e.trim().isNotEmpty).take(120));
+      _settledJobIds.clear();
+      _settledDispatch.clear();
+      // «mã lệnh» hoặc «mã lệnh|mốc lần gửi in».
+      for (final e in raw.take(120)) {
+        final t = e.trim();
+        if (t.isEmpty) continue;
+        final cut = t.indexOf('|');
+        final id = cut > 0 ? t.substring(0, cut) : t;
+        _settledJobIds.add(id);
+        if (cut > 0 && cut + 1 < t.length) _settledDispatch[id] = t.substring(cut + 1);
+      }
     } catch (e) {
       debugPrint('Print Agent load settled ids: $e');
     }
@@ -799,7 +845,12 @@ class PosPrintAgentService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setStringList(
         _settledPrefsKey,
-        _settledJobIds.take(100).toList(growable: false),
+        // Lệnh chưa ra giấy không lưu: mở lại app rồi «In lại» vẫn phải in thật.
+        _settledJobIds
+            .where((id) => !_notPrintedJobIds.contains(id))
+            .take(100)
+            .map((id) => _settledDispatch[id] == null ? id : '$id|${_settledDispatch[id]}')
+            .toList(growable: false),
       );
     } catch (_) {}
   }
@@ -870,7 +921,7 @@ class PosPrintAgentService {
         errorCode: 'NO_PRINTER',
         errorMessage: 'Không tìm thấy cấu hình máy in',
       );
-      _markJobSettled(jobId);
+      _markJobSettled(jobId, printed: false);
       return;
     }
 
@@ -1159,7 +1210,7 @@ class PosPrintAgentService {
             errorCode: 'BAD_TEMPLATE',
             errorMessage: 'Không parse được mẫu V2 preview',
           );
-          _markJobSettled(jobId);
+          _markJobSettled(jobId, printed: false);
           return;
         }
         final v2 = v2raw.copyWith(
@@ -1300,7 +1351,7 @@ class PosPrintAgentService {
           errorMessage:
               'Sunmi không in EscPosBase64 (lỗi font VN). Dùng SaleOrderJson / TestPrintJson.',
         );
-        _markJobSettled(jobId);
+        _markJobSettled(jobId, printed: false);
         return;
       } else {
         List<int> bytes;
@@ -1326,7 +1377,7 @@ class PosPrintAgentService {
               errorMessage:
                   'Máy tem TSPL nhận lệnh ESC/POS — cập nhật app gửi tem (TSPL)',
             );
-            _markJobSettled(jobId);
+            _markJobSettled(jobId, printed: false);
             return;
           }
         }
@@ -1370,7 +1421,7 @@ class PosPrintAgentService {
         errorCode: 'UNSUPPORTED_FORMAT',
         errorMessage: 'Agent không hỗ trợ $format',
       );
-      _markJobSettled(jobId);
+      _markJobSettled(jobId, printed: false);
       return;
     }
 
@@ -1387,7 +1438,7 @@ class PosPrintAgentService {
         duration: const Duration(seconds: 2),
       );
     } else {
-      _markJobSettled(jobId);
+      _markJobSettled(jobId, printed: false);
       await _api.failPosPrintJob(
         jobId,
         _agentId!,

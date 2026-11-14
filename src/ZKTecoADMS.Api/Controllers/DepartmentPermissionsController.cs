@@ -19,6 +19,12 @@ namespace ZKTecoADMS.Api.Controllers;
 public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScopeService dataScopeService) : AuthenticatedControllerBase
 {
     /// <summary>
+    /// Cửa hàng được thao tác: chỉ SuperAdmin / Đại lý chọn được cửa hàng khác. Trước đây lấy thẳng storeId do máy gửi
+    /// → người có quyền ở cửa hàng A truyền mã cửa hàng B là đọc / gán / thu hồi quyền phòng ban của B.
+    /// </summary>
+    Guid? ScopedStore(Guid? requested) => IsCrossStoreNotificationUser ? requested ?? CurrentStoreId : CurrentStoreId;
+
+    /// <summary>
     /// Lấy cây phòng ban kèm thông tin quyền
     /// </summary>
     [HttpGet("department-tree")]
@@ -27,7 +33,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     public async Task<ActionResult<AppResponse<List<DepartmentTreeNodeDto>>>> GetDepartmentTree(
         [FromQuery] Guid? storeId = null)
     {
-        var effectiveStoreId = storeId ?? CurrentStoreId;
+        var effectiveStoreId = ScopedStore(storeId);
 
         var departments = await context.Departments
             .Where(d => d.StoreId == effectiveStoreId && d.Deleted == null)
@@ -88,7 +94,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     public async Task<ActionResult<AppResponse<UserDepartmentPermissionGroupDto>>> GetByUser(Guid userId,
         [FromQuery] Guid? storeId = null)
     {
-        var effectiveStoreId = storeId ?? CurrentStoreId;
+        var effectiveStoreId = ScopedStore(storeId);
 
         var user = await context.Users
             .Where(u => u.Id == userId)
@@ -150,7 +156,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     public async Task<ActionResult<AppResponse<List<DepartmentPermissionDto>>>> GetByDepartment(Guid departmentId,
         [FromQuery] Guid? storeId = null)
     {
-        var effectiveStoreId = storeId ?? CurrentStoreId;
+        var effectiveStoreId = ScopedStore(storeId);
 
         var permissions = await context.DepartmentPermissions
             .Include(dp => dp.Permission)
@@ -198,7 +204,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     public async Task<ActionResult<AppResponse<object>>> AssignPermissions(
         [FromBody] CreateDepartmentPermissionRequest request)
     {
-        var effectiveStoreId = request.StoreId ?? CurrentStoreId;
+        var effectiveStoreId = ScopedStore(request.StoreId);
 
         // Xóa quyền cũ của user trong department + store
         var oldPermissions = await context.DepartmentPermissions
@@ -253,7 +259,7 @@ public class DepartmentPermissionsController(ZKTecoDbContext context, IDataScope
     public async Task<ActionResult<AppResponse<object>>> RevokePermissions(
         Guid userId, Guid departmentId, [FromQuery] Guid? storeId = null)
     {
-        var effectiveStoreId = storeId ?? CurrentStoreId;
+        var effectiveStoreId = ScopedStore(storeId);
 
         var permissions = await context.DepartmentPermissions
             .Where(dp => dp.UserId == userId &&

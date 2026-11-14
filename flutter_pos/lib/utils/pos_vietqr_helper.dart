@@ -88,6 +88,16 @@ class PosVietQrHelper {
     return parts.isEmpty ? 'Thanh toan POS' : parts.join(' ');
   }
 
+  /// Mã đối soát in trong nội dung chuyển khoản: mỗi ĐƠN một mã riêng = số đơn + 4 ký tự đầu của mã định danh
+  /// đơn (vd. «TMP05A3F9»). Số đơn nháp «TMP{ô}» dùng lại cho mọi đơn cùng ô hóa đơn, nên chỉ in số đơn thì tiền
+  /// về trễ của đơn trước khớp nhầm sang đơn sau. Phải giống quy tắc máy chủ (PosTransferCode.For).
+  static String transferCode(String orderNo, String? orderId) {
+    final no = orderNo.trim();
+    final hex = (orderId ?? '').replaceAll('-', '').trim();
+    if (no.isEmpty || hex.length < 4) return no;
+    return no + hex.substring(0, 4).toUpperCase();
+  }
+
   static String? qrImageUrl({
     required BankAccount account,
     required double amount,

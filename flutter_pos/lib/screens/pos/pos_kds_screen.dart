@@ -1078,9 +1078,17 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
         status == 'done' ? _hitsForIds(ids) : <_KdsHit>[];
     setState(() => _busy = true);
     HapticFeedback.mediumImpact();
+    // Bấm «Xong»: gửi kèm số đã báo bếp đang hiện trên màn này — món vừa được gọi thêm mà màn chưa kịp tải lại
+    // thì máy chủ chỉ đóng phần bếp đã thấy, phần mới vẫn nằm lại trên màn.
+    final seen = <String, double>{
+      if (status == 'done')
+        for (final t in _tickets)
+          for (final i in t.items)
+            if (ids.contains(i.id) && i.sentQty > 0) i.id: i.sentQty,
+    };
     final res = ids.length == 1
-        ? await _api.setPosKdsLinePrep(ids.first, status)
-        : await _api.setPosKdsLinesPrep(ids, status);
+        ? await _api.setPosKdsLinePrep(ids.first, status, seenSentQty: seen[ids.first])
+        : await _api.setPosKdsLinesPrep(ids, status, seenSentQty: seen);
     if (!mounted) return;
     setState(() => _busy = false);
     if (res['isSuccess'] != true) {
@@ -1108,7 +1116,10 @@ class _PosKdsScreenState extends State<PosKdsScreen> {
     if (_busy) return;
     setState(() => _busy = true);
     HapticFeedback.mediumImpact();
-    final res = await _api.bumpPosKdsTicket(t.orderId);
+    final res = await _api.bumpPosKdsTicket(t.orderId, seenSentQty: {
+      for (final i in t.items)
+        if (i.id.isNotEmpty && i.sentQty > 0) i.id: i.sentQty,
+    });
     if (!mounted) return;
     setState(() => _busy = false);
     if (res['isSuccess'] != true) {

@@ -125,7 +125,9 @@ public static class DependencyInjectionExtensions
         // Memory cache for hot data (shifts, departments, settings)
         services.AddMemoryCache(options =>
         {
-            options.SizeLimit = 10000; // Max 10000 cache entries for multi-store scale
+            // Mỗi mục tính Size = 1. Khóa theo người dùng (quyền, chi nhánh, kiểm tra phiên) chạm trần 10.000 ở
+            // khoảng 3–4 nghìn người đang dùng → cache bị dọn liên tục. Mỗi mục chỉ vài trăm byte, 100.000 mục vẫn nhỏ.
+            options.SizeLimit = 100000;
             options.CompactionPercentage = 0.25; // Remove 25% when limit reached
             options.ExpirationScanFrequency = TimeSpan.FromMinutes(2);
         });
@@ -447,8 +449,9 @@ public static class DependencyInjectionExtensions
         });
         services.Configure<BrotliCompressionProviderOptions>(options =>
             options.Level = CompressionLevel.Fastest);
+        // App di động chỉ nhận gzip: mức «nhỏ nhất» tốn CPU gấp nhiều lần để tiết kiệm thêm vài phần trăm dung lượng.
         services.Configure<GzipCompressionProviderOptions>(options =>
-            options.Level = CompressionLevel.SmallestSize);
+            options.Level = CompressionLevel.Fastest);
 
         return services;
     }

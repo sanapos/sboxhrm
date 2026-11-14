@@ -43,6 +43,9 @@ public partial class PosSalesController
         // để thu ngân vẫn in hóa đơn, không báo "Không thanh toán được".
         if (dto.Complete && order.Status == PosSaleOrderStatus.Completed)
         {
+            // Máy mất mạng đã thu tiền + in hóa đơn offline cho bàn này, nhưng đơn đã được hoàn tất ở nơi khác.
+            if (offlineNo != null && !string.Equals(order.OfflineNo, offlineNo, StringComparison.OrdinalIgnoreCase))
+                await NoteOfflineSaleOnCompletedOrderAsync(storeId, order, offlineNo, dto);
             SaleOrderDto already;
             try { already = await MapOrderAsync(storeId, order); }
             catch { already = MapOrder(order, order.Lines?.ToList() ?? [], viewerUserId: CurrentUserId); }
@@ -239,6 +242,31 @@ public partial class PosSalesController
                     }
                     if (order.Status != PosSaleOrderStatus.Draft)
                         return BadRequest(AppResponse<SaleOrderDto>.Fail("Chỉ sửa được đơn tạm"));
+                    loadedLockVersion = order.LockVersion;
+                    // Nạp lại vì đơn vừa bị giao dịch khác ghi (khách gọi thêm qua QR, máy khác, thao tác bàn):
+                    // kiểm tra lại như lần nạp đầu. Trước đây lượt thử lại bỏ qua bước này → xóa hết dòng (kể cả
+                    // món vừa thêm, đã in bếp) rồi hoàn tất theo giỏ cũ — món mất khỏi hóa đơn.
+                    if (offlineNo == null)
+                    {
+                        var freshRows = order.Lines?.Where(l => l.Deleted == null).ToList() ?? [];
+                        string? staleErr = null;
+                        var mergedKeys = 0;
+                        if (PosDraftLockHelper.IsLockActive(order) && !PosDraftLockHelper.IsHeldBy(order, actor))
+                            staleErr = $"Đơn đang được mở bởi {order.LockedByDisplayName ?? "người khác"}";
+                        else if (dto.BaseLines != null)
+                        {
+                            mergedKeys = MergeDraftLines(dto.Lines ?? [], dto.BaseLines, freshRows).MergedKeys;
+                            if (mergedKeys > 0) staleErr = StaleCartBeforePayMessage;
+                        }
+                        if (staleErr != null)
+                        {
+                            SaleOrderDto staleMapped;
+                            try { staleMapped = await MapOrderAsync(storeId, order, freshRows, dto.DeviceId, dto.DeviceName); }
+                            catch { staleMapped = MapOrder(order, freshRows, viewerUserId: CurrentUserId, viewerDeviceId: dto.DeviceId, viewerDeviceName: dto.DeviceName); }
+                            if (mergedKeys > 0) staleMapped = staleMapped with { MergedRemoteLines = mergedKeys };
+                            return Conflict(AppResponse<SaleOrderDto>.Create(false, staleMapped, [staleErr]));
+                        }
+                    }
                     PosDraftLockHelper.StampDeviceIfMissing(order, actor);
                 }
 
@@ -261,6 +289,23 @@ public partial class PosSalesController
                         await tx.RollbackAsync();
                         savedComplete = false;
                         continue;
+                    }
+                    // Đơn bị ghi xong giữa lúc nạp và lúc nhận đơn (khách gọi thêm qua QR, báo bếp, thao tác bàn)
+                    // → bản dòng đang cầm đã cũ: xóa-tạo lại theo nó sẽ để sót món vừa thêm trên hóa đơn mà
+                    // không vào tổng tiền, không trừ kho. Nạp lại rồi kiểm tra như lần đầu.
+                    if (offlineNo == null)
+                    {
+                        var claimedOrderId = order.Id;
+                        var liveLockVersion = await dbContext.PosSaleOrders.AsNoTracking()
+                            .Where(o => o.Id == claimedOrderId)
+                            .Select(o => o.LockVersion)
+                            .FirstAsync();
+                        if (liveLockVersion != loadedLockVersion)
+                        {
+                            await tx.RollbackAsync();
+                            savedComplete = false;
+                            continue;
+                        }
                     }
                     var (_, builtLines, errComplete) =
                         await BuildSaleAsync(storeId, order, createDto, complete: true,
@@ -290,7 +335,7 @@ public partial class PosSalesController
                         await tx.RollbackAsync();
                         return BadRequest(AppResponse<SaleOrderDto>.Fail(needApproval));
                     }
-                    PosKitchenKdsHelper.CloseOpenOnPaid(builtLines);
+                    PosKitchenKdsHelper.OnOrderPaid(order, builtLines, offlineSync: offlineNo != null);
                     dbContext.PosSaleOrderLines.AddRange(builtLines);
                     await SaveSaleChangesWithUniqueRetriesAsync(order, storeId);
                     // Dọn bàn (đóng phiên, xóa nháp sót) CÙNG transaction: trước đây chạy sau commit,
@@ -304,6 +349,15 @@ public partial class PosSalesController
                 }
                 catch (Exception ex) when (outerAttempt < 4 && IsSerializationFailure(ex))
                 {
+                    await tx.RollbackAsync();
+                    savedComplete = false;
+                }
+                catch (DbUpdateException ex) when (outerAttempt < 4
+                    && (IsUniqueCashCodeConflict(ex) || IsUniqueOrderNoConflict(ex)))
+                {
+                    // Trùng số hóa đơn / mã phiếu thu vì quầy khác vừa lưu cùng số. Cấp lại số ngay trong giao dịch này
+                    // (RepeatableRead) luôn ra đúng số cũ vì không thấy đơn vừa lưu → làm lại cả giao dịch để đọc số mới.
+                    // Trước đây thu ngân nhận «lỗi hệ thống» / «bấm lại».
                     await tx.RollbackAsync();
                     savedComplete = false;
                 }
@@ -640,7 +694,7 @@ public partial class PosSalesController
         }
 
         if (order.Status == PosSaleOrderStatus.Completed)
-            PosKitchenKdsHelper.CloseOpenOnPaid(lines);
+            PosKitchenKdsHelper.OnOrderPaid(order, lines, offlineSync: offlineNo != null);
 
         if (order.Status == PosSaleOrderStatus.Draft)
         {
@@ -749,6 +803,62 @@ public partial class PosSalesController
             NotifyFloorChanged(storeId, "slotSaved", orderId: order.Id);
         }
         return Ok(AppResponse<SaleOrderDto>.Success(mapped with { MergedRemoteLines = mergedRemote }));
+    }
+
+    /// <summary>
+    /// Đơn offline của một bàn gửi lên khi đơn bàn đó đã được hoàn tất ở nơi khác (máy khác thanh toán, chuyển khoản
+    /// tự hoàn tất). Không tạo đơn thứ hai, không cộng doanh thu. Gắn số hóa đơn offline vào đơn để tra được tờ hóa
+    /// đơn khách cầm, và báo quản lý kiểm tra có thu tiền hai lần không. Trước đây số offline bị bỏ, không ai biết.
+    /// Không báo khi đó là chính lần thanh toán của thu ngân này vừa mất phản hồi (cùng người, cùng số tiền, sát giờ).
+    /// </summary>
+    async Task NoteOfflineSaleOnCompletedOrderAsync(
+        Guid storeId, PosSaleOrder order, string offlineNo, UpdateSaleDto dto)
+    {
+        try
+        {
+            var stamp = new PosSaleOrder();
+            PosOfflineSaleRules.Stamp(stamp, offlineNo, dto.OfflineAt, dto.OfflineDeviceKey);
+            var orderId = order.Id;
+            if (order.OfflineNo == null)
+            {
+                try
+                {
+                    await dbContext.PosSaleOrders
+                        .Where(o => o.Id == orderId && o.StoreId == storeId && o.OfflineNo == null)
+                        .ExecuteUpdateAsync(s => s
+                            .SetProperty(x => x.OfflineNo, stamp.OfflineNo)
+                            .SetProperty(x => x.OfflineAt, stamp.OfflineAt)
+                            .SetProperty(x => x.OfflineDeviceKey, stamp.OfflineDeviceKey));
+                }
+                catch (DbUpdateException) { /* số offline này đã gắn cho đơn khác */ }
+                catch (Npgsql.PostgresException) { /* như trên (trùng chỉ mục duy nhất) */ }
+            }
+
+            var offlineAt = stamp.OfflineAt ?? DateTime.UtcNow;
+            var paidAt = order.SaleDate ?? order.UpdatedAt ?? order.CreatedAt;
+            var sameCashier = string.Equals(order.UpdatedBy ?? order.SoldBy, CurrentUserEmail,
+                StringComparison.OrdinalIgnoreCase);
+            var sameMoney = Math.Abs(order.PaidAmount - dto.PaidAmount) < 1m;
+            var closeInTime = Math.Abs((paidAt - offlineAt).TotalMinutes) <= 5;
+            if (sameCashier && sameMoney && closeInTime) return;
+
+            var table = order.ServiceResourceId is Guid rid
+                ? await dbContext.PosServiceResources.AsNoTracking()
+                    .Where(r => r.Id == rid).Select(r => r.Name).FirstOrDefaultAsync()
+                : null;
+            var place = string.IsNullOrWhiteSpace(table) ? $"Đơn {order.OrderNo}" : table!.Trim();
+            var otherOffline = order.OfflineNo != null ? $" (hóa đơn offline {order.OfflineNo})" : "";
+            var message =
+                $"Đơn {order.OrderNo}{otherOffline} đã ghi thu {PosNotificationHelper.Vnd(order.PaidAmount)} ({order.PaymentMethod}). "
+                + $"Máy bán lúc mất mạng cũng đã thu {PosNotificationHelper.Vnd(dto.PaidAmount)} ({dto.PaymentMethod}) "
+                + $"và in hóa đơn {offlineNo}. Kiểm tra có thu tiền hai lần không.";
+            await PosNotificationHelper.NotifyOfflineDoublePaymentAsync(
+                notificationService, dbContext, storeId, order.Id, $"{place} được thanh toán ở hai nơi", message);
+        }
+        catch
+        {
+            // Ghi chú / thông báo lỗi không được làm hỏng việc đồng bộ đơn offline.
+        }
     }
 
     /// <summary>Khóa hàng đơn (trong transaction đang mở) rồi so phiên bản với lúc nạp.</summary>
@@ -995,6 +1105,7 @@ public partial class PosSalesController
 
         var slotBeforeComplete = order.InvoiceSlot;
         var savedComplete = false;
+        var loadedLockVersion = order.LockVersion;
         SaleStockPlan? plan = null;
         Dictionary<Guid, PosProduct> products = productsPreview;
 
@@ -1021,6 +1132,7 @@ public partial class PosSalesController
                 if (order.Lines.Count == 0)
                     return BadRequest(AppResponse<SaleOrderDto>.Fail("Đơn trống"));
 
+                loadedLockVersion = order.LockVersion;
                 dtoLines = BuildCompleteSaleLineDtos(order.Lines.ToList(), dto?.Lines);
             }
 
@@ -1047,6 +1159,20 @@ public partial class PosSalesController
                         && o.Status == PosSaleOrderStatus.Draft && o.Deleted == null)
                     .ExecuteUpdateAsync(s => s.SetProperty(x => x.UpdatedAt, DateTime.UtcNow));
                 if (claimed == 0)
+                {
+                    await tx.RollbackAsync();
+                    savedComplete = false;
+                    continue;
+                }
+                // Đơn bị ghi xong giữa lúc nạp và lúc nhận đơn (khách gọi thêm qua QR, thao tác bàn…) → bản dòng
+                // đang cầm đã cũ: món vừa thêm sẽ nằm trên hóa đơn mà không trừ kho, số thu thấp hơn tổng. Đường
+                // này hoàn tất theo dòng trên máy chủ, nên chỉ cần nạp lại rồi làm tiếp.
+                var claimedOrderId = order.Id;
+                var liveLockVersion = await dbContext.PosSaleOrders.AsNoTracking()
+                    .Where(o => o.Id == claimedOrderId)
+                    .Select(o => o.LockVersion)
+                    .FirstAsync();
+                if (liveLockVersion != loadedLockVersion)
                 {
                     await tx.RollbackAsync();
                     savedComplete = false;
@@ -1144,7 +1270,7 @@ public partial class PosSalesController
                             [new PosFinanceSyncHelper.SalePaymentSync(order.PaidAmount, order.PaymentMethod, null)],
                             appliedDeposit)
                         : null);
-                PosKitchenKdsHelper.CloseOpenOnPaid(order.Lines);
+                PosKitchenKdsHelper.OnOrderPaid(order, order.Lines);
                 await SaveSaleChangesWithUniqueRetriesAsync(order, storeId);
                 // Dọn bàn cùng transaction (xem UpdateSale).
                 await CloseResourceSessionForCompletedOrderAsync(storeId, order);
@@ -1153,6 +1279,15 @@ public partial class PosSalesController
             }
             catch (Exception ex) when (outerAttempt < 4 && IsSerializationFailure(ex))
             {
+                await tx.RollbackAsync();
+                savedComplete = false;
+            }
+            catch (DbUpdateException ex) when (outerAttempt < 4
+                && (IsUniqueCashCodeConflict(ex) || IsUniqueOrderNoConflict(ex)))
+            {
+                // Trùng số hóa đơn / mã phiếu thu vì quầy khác vừa lưu cùng số. Cấp lại số ngay trong giao dịch này
+                // (RepeatableRead) luôn ra đúng số cũ vì không thấy đơn vừa lưu → làm lại cả giao dịch để đọc số mới.
+                // Trước đây thu ngân nhận «lỗi hệ thống» / «bấm lại».
                 await tx.RollbackAsync();
                 savedComplete = false;
             }
@@ -2448,8 +2583,8 @@ public partial class PosSalesController
                     .SetProperty(x => x.UpdatedAt, now)
                     .SetProperty(x => x.UpdatedBy, by));
 
-            // 3) Soft-delete mọi Draft còn gắn bàn (kể cả có món ghost / chờ bếp).
-            // F&B: một bàn = một bill; đã TT → bàn phải Free.
+            // 3) Dọn Draft khác còn gắn bàn: nháp trống thì xóa mềm; nháp còn món giữ lại thành bill tách chưa trả.
+            // F&B: một bàn = một bill; đã TT → bàn phải Free (trừ khi còn bill chưa trả).
             var leftoverIds = await dbContext.PosSaleOrders
                 .Where(o => o.StoreId == storeId && o.Deleted == null
                     && o.Status == PosSaleOrderStatus.Draft
@@ -2459,6 +2594,29 @@ public partial class PosSalesController
                     && o.SplitFromOrderId == null)
                 .Select(o => o.Id)
                 .ToListAsync();
+            if (leftoverIds.Count > 0)
+            {
+                // Đơn nháp khác của bàn CÒN MÓN (giỏ mở lúc mất mạng trùng bàn, sơ đồ cũ tạo đơn thứ hai…): đó là
+                // món khách đã gọi, chưa ai thu tiền. Trước đây bị xóa mềm cùng lúc, không ghi nhật ký hủy → mất món.
+                // Giữ lại như bill tách chưa trả của bàn (vẫn hiện trên sơ đồ để thu tiếp), giữ nguyên giữ chỗ tồn.
+                var keepIds = await dbContext.PosSaleOrderLines.AsNoTracking()
+                    .Where(l => leftoverIds.Contains(l.SaleOrderId) && l.Deleted == null)
+                    .Select(l => l.SaleOrderId)
+                    .Distinct()
+                    .ToListAsync();
+                if (keepIds.Count > 0)
+                {
+                    var paidOrderId = order.Id;
+                    await dbContext.PosSaleOrders
+                        .Where(o => keepIds.Contains(o.Id) && o.StoreId == storeId)
+                        .ExecuteUpdateAsync(o => o
+                            .SetProperty(x => x.SplitFromOrderId, (Guid?)paidOrderId)
+                            .SetProperty(x => x.ResourceSessionId, (Guid?)null)
+                            .SetProperty(x => x.UpdatedAt, now)
+                            .SetProperty(x => x.UpdatedBy, by));
+                    leftoverIds = leftoverIds.Except(keepIds).ToList();
+                }
+            }
             if (leftoverIds.Count > 0)
             {
                 var leftoverLines = await dbContext.PosSaleOrderLines.AsNoTracking()

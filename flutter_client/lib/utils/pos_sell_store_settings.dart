@@ -176,6 +176,21 @@ class PosSellStoreSettings {
     _peekedAt = null;
   }
 
+  /// Bỏ bản thiết lập bán hàng lưu trên máy (tên / địa chỉ in bill, thuế, VietQR, phụ thu) khi máy chuyển sang
+  /// cửa hàng khác: các khóa này không gắn mã cửa hàng, để lại thì cửa hàng mới in đầu trang và bị lưu đè
+  /// thuế / tài khoản VietQR của cửa hàng cũ.
+  static Future<void> clearDeviceCopy() async {
+    invalidateServerCache();
+    final prefs = await SharedPreferences.getInstance();
+    for (final k in const [
+      _kName, _kAddress, _kPhone, _kTaxMode, _kVatRate, _kVietQrBankId, _kShowVietQr,
+      _kShowPaymentQrOverlay, _kEnableSurcharge, _kEnableDeliveryFee, _kSurchargeLabel,
+      _kSurchargeIsPercent, _kSurchargeDefault, _kDeliveryFeeDefault,
+    ]) {
+      await prefs.remove(k);
+    }
+  }
+
   static Future<String?> _peekSellExtraJson() async {
     if (_peekedAt != null &&
         DateTime.now().difference(_peekedAt!) < const Duration(seconds: 30)) {

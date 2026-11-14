@@ -14,6 +14,10 @@ public sealed class AgentService : IAsyncDisposable
     readonly PrintHubClient _hub;
     readonly Dictionary<Guid, PrinterItem> _printers = new();
     readonly HashSet<Guid> _settled = new();
+    /// <summary>Mốc lần gửi in (dispatchKey) của lần Agent đã xử lý xong từng lệnh.</summary>
+    readonly Dictionary<Guid, string> _settledDispatch = new();
+    /// <summary>Lệnh Agent đã báo lỗi khi CHƯA gửi được ra máy in — «In lại» phải in thật.</summary>
+    readonly HashSet<Guid> _notPrinted = new();
     readonly object _gate = new();
 
     CancellationTokenSource? _cts;
@@ -44,8 +48,14 @@ public sealed class AgentService : IAsyncDisposable
         _hub.PrintJobNew += OnPrintJobNew;
         _hub.ForceStop += OnForceStop;
         _hub.Reconnected += OnHubReconnected;
-        foreach (var id in settings.SettledJobIds)
-            if (Guid.TryParse(id, out var g)) _settled.Add(g);
+        foreach (var raw in settings.SettledJobIds)
+        {
+            // «mã lệnh» hoặc «mã lệnh|mốc lần gửi in».
+            var cut = raw.IndexOf('|');
+            if (!Guid.TryParse(cut > 0 ? raw[..cut] : raw, out var g)) continue;
+            _settled.Add(g);
+            if (cut > 0 && cut + 1 < raw.Length) _settledDispatch[g] = raw[(cut + 1)..];
+        }
     }
 
     /// <summary>Cho phép tự đăng nhập lại khi token hết hạn (401).</summary>
@@ -306,16 +316,36 @@ public sealed class AgentService : IAsyncDisposable
         {
             _log($"✗ Timeout 75s khi in job {Short(job.JobId)}");
             await FailSafe(job.JobId, "PRINT_TIMEOUT",
-                "In quá 75 giây (máy in/mạng không phản hồi).", CancellationToken.None);
+                "In quá 75 giây (máy in/mạng không phản hồi).", CancellationToken.None, job.DispatchKey);
         }
     }
 
+    /// <summary>
+    /// Lệnh đã xử lý quay lại do người dùng bấm «In lại» (không phải máy chủ giao lại lệnh kẹt):
+    /// lần trước chưa ra giấy, hoặc mốc lần gửi in đã đổi.
+    /// </summary>
+    bool IsUserReprint(ClaimJob job) =>
+        _notPrinted.Contains(job.JobId)
+        || (!string.IsNullOrEmpty(job.DispatchKey)
+            && _settledDispatch.TryGetValue(job.JobId, out var done)
+            && done != job.DispatchKey);
+
     async Task ProcessJobCoreAsync(ClaimJob job, CancellationToken ct)
     {
+        // Giữ mốc lần gửi in: bản nạp lại payload (EnsurePayloadAsync) không có trường này.
+        var dispatchKey = job.DispatchKey;
         if (_settled.Contains(job.JobId))
         {
-            try { await _api.CompleteAsync(job.JobId, _agentId, ct); } catch { /* ignore */ }
-            return;
+            if (!IsUserReprint(job))
+            {
+                try { await _api.CompleteAsync(job.JobId, _agentId, ct); } catch { /* ignore */ }
+                return;
+            }
+            // «In lại» dùng lại đúng mã lệnh cũ. Trước đây Agent thấy mã đã xử lý nên chỉ báo «in xong»
+            // mà không in — máy bếp hết giấy, thay giấy rồi bấm «In lại» vẫn không ra phiếu.
+            _settled.Remove(job.JobId);
+            _settledDispatch.Remove(job.JobId);
+            _notPrinted.Remove(job.JobId);
         }
 
         if (!_assigned.Contains(job.PrinterId))
@@ -348,12 +378,31 @@ public sealed class AgentService : IAsyncDisposable
             return;
         }
 
+        var sent = false;
         try
         {
             job = await EnsurePayloadAsync(job, ct);
 
-            try { await _api.MarkPrintingAsync(job.JobId, _agentId, ct); }
-            catch (Exception ex) { _log("MarkPrinting: " + SboxApiClient.FormatError(ex)); }
+            // Chỉ in khi máy chủ xác nhận «đang in». Không xác nhận được mà vẫn in thì máy chủ còn coi lệnh là
+            // «chưa in» → giao Agent khác hoặc báo «chưa in» → ra hai phiếu. Thử lại một lần rồi nhả lệnh.
+            var marked = false;
+            for (var attempt = 0; attempt < 2 && !marked; attempt++)
+            {
+                try
+                {
+                    if (attempt > 0) await Task.Delay(600, ct);
+                    await _api.MarkPrintingAsync(job.JobId, _agentId, ct);
+                    marked = true;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception ex) { _log("MarkPrinting: " + SboxApiClient.FormatError(ex)); }
+            }
+            if (!marked)
+            {
+                await ReleaseSafe(job.JobId, "MARK_PRINTING_FAILED",
+                    "Agent không xác nhận được bắt đầu in — xếp lại hàng đợi", ct);
+                return;
+            }
 
             if (string.Equals(job.PayloadFormat, "PdfBase64", StringComparison.OrdinalIgnoreCase))
             {
@@ -366,7 +415,8 @@ public sealed class AgentService : IAsyncDisposable
                 await PdfPagePrinter.PrintAsync(
                     printer.UsbDeviceName!, pdf, job.Copies,
                     "SBOX " + DocTypes.LabelOf(job.DocumentType), ct: ct);
-                await CompleteJobAsync(job, printer, ct);
+                sent = true;
+                await CompleteJobAsync(job, printer, ct, dispatchKey);
                 return;
             }
 
@@ -387,18 +437,43 @@ public sealed class AgentService : IAsyncDisposable
                 if (i + 1 < copies) await Task.Delay(200, ct);
             }
 
-            await CompleteJobAsync(job, printer, ct);
+            sent = true;
+            await CompleteJobAsync(job, printer, ct, dispatchKey);
         }
         catch (OperationCanceledException) { throw; }
+        catch (Exception ex) when (sent)
+        {
+            // Giấy đã ra, chỉ không báo được «in xong» lên máy chủ. Trước đây báo PRINT_FAILED + máy in
+            // Offline cho phiếu đã in: máy bán báo lại bếp, bếp làm hai lần. Ghi nhận đã in, báo lại ở nền.
+            _log($"Đã in nhưng chưa báo được «in xong»: {SboxApiClient.FormatError(ex)} — sẽ báo lại");
+            MarkSettled(job.JobId, dispatchKey);
+            _ = ReportCompleteLaterAsync(job.JobId);
+        }
         catch (Exception ex)
         {
             _log($"✗ Lỗi in: {SboxApiClient.FormatError(ex)}");
             await _api.ReportHealthAsync(printer.Id, "Offline", SboxApiClient.FormatError(ex), CancellationToken.None);
-            await FailSafe(job.JobId, "PRINT_FAILED", SboxApiClient.FormatError(ex), CancellationToken.None);
+            await FailSafe(job.JobId, "PRINT_FAILED", SboxApiClient.FormatError(ex), CancellationToken.None,
+                dispatchKey, printed: false);
         }
     }
 
-    async Task CompleteJobAsync(ClaimJob job, PrinterItem printer, CancellationToken ct)
+    /// <summary>Báo lại «in xong» cho phiếu đã ra giấy (máy chủ nhận cả khi báo muộn).</summary>
+    async Task ReportCompleteLaterAsync(Guid jobId)
+    {
+        for (var i = 1; i <= 6; i++)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(10 * i));
+                await _api.CompleteAsync(jobId, _agentId, CancellationToken.None);
+                return;
+            }
+            catch { /* thử lại */ }
+        }
+    }
+
+    async Task CompleteJobAsync(ClaimJob job, PrinterItem printer, CancellationToken ct, string? dispatchKey)
     {
         Exception? completeEx = null;
         for (var attempt = 0; attempt < 3; attempt++)
@@ -419,7 +494,7 @@ public sealed class AgentService : IAsyncDisposable
         if (completeEx != null) throw completeEx;
 
         await _api.ReportHealthAsync(printer.Id, "Online", null, ct);
-        MarkSettled(job.JobId);
+        MarkSettled(job.JobId, dispatchKey);
         _log($"✓ Đã in xong → {printer.Name}");
     }
 
@@ -456,11 +531,13 @@ public sealed class AgentService : IAsyncDisposable
         await LanScanner.SendRawAsync(host, port, bytes, ct);
     }
 
-    async Task FailSafe(Guid jobId, string code, string msg, CancellationToken ct)
+    /// <param name="printed">false = chắc chắn chưa gửi được ra máy in; mặc định coi như có thể đã in.</param>
+    async Task FailSafe(Guid jobId, string code, string msg, CancellationToken ct,
+        string? dispatchKey = null, bool printed = true)
     {
         try { await _api.FailAsync(jobId, _agentId, code, msg, ct); }
         catch { /* ignore */ }
-        MarkSettled(jobId);
+        MarkSettled(jobId, dispatchKey, printed);
     }
 
     async Task ReleaseSafe(Guid jobId, string code, string msg, CancellationToken ct)
@@ -473,21 +550,32 @@ public sealed class AgentService : IAsyncDisposable
         catch (Exception ex)
         {
             _log("Release lỗi → fail: " + SboxApiClient.FormatError(ex));
-            await FailSafe(jobId, code, msg, ct);
+            await FailSafe(jobId, code, msg, ct, printed: false);
             return;
         }
         // Không MarkSettled — job có thể quay lại Agent này sau khi reclaim.
     }
 
-    void MarkSettled(Guid jobId)
+    void MarkSettled(Guid jobId, string? dispatchKey = null, bool printed = true)
     {
         _settled.Add(jobId);
+        if (printed) _notPrinted.Remove(jobId);
+        else _notPrinted.Add(jobId);
+        if (!string.IsNullOrEmpty(dispatchKey)) _settledDispatch[jobId] = dispatchKey;
         if (_settled.Count > 120)
         {
             foreach (var id in _settled.Take(_settled.Count - 80).ToList())
+            {
                 _settled.Remove(id);
+                _settledDispatch.Remove(id);
+                _notPrinted.Remove(id);
+            }
         }
-        _settings.SettledJobIds = _settled.Select(x => x.ToString("D")).Take(100).ToList();
+        // Lệnh chưa ra giấy không lưu xuống đĩa: mở lại Agent rồi «In lại» vẫn phải in thật.
+        _settings.SettledJobIds = _settled
+            .Where(x => !_notPrinted.Contains(x))
+            .Select(x => _settledDispatch.TryGetValue(x, out var k) ? $"{x:D}|{k}" : x.ToString("D"))
+            .Take(100).ToList();
         _settings.Save();
     }
 

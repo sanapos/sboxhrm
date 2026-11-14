@@ -20,6 +20,11 @@ Future<void> saveLocalCommercialProfile(Map<String, dynamic> profile) async {
   await prefs.setString(_key, jsonEncode(profile));
 }
 
+/// Bỏ hồ sơ thương mại lưu trên máy (tên công ty, MST, tài khoản, con dấu) khi máy chuyển sang cửa hàng khác.
+Future<void> clearLocalCommercialProfile() async {
+  await (await SharedPreferences.getInstance()).remove(_key);
+}
+
 /// Bản trên máy vừa lưu mà server còn dữ liệu cũ thì giữ bản máy.
 Map<String, dynamic> mergeCommercialProfile(
   Map<String, dynamic> remote,

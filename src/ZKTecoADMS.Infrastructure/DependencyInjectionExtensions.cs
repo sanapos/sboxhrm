@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -29,6 +30,9 @@ namespace ZKTecoADMS.Infrastructure;
 
 public static class DependencyInjectionExtensions
 {
+    /// <summary>Kết quả kiểm tra phiên giữ tạm 20 giây (xem OnTokenValidated).</summary>
+    private sealed record AuthCheck(bool Active, DateTime? StoreSessionsRevokedAt);
+
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection");
@@ -136,23 +140,44 @@ public static class DependencyInjectionExtensions
                                 return;
                             }
 
-                            var userManager = context.HttpContext.RequestServices
-                                .GetRequiredService<UserManager<ApplicationUser>>();
-                            var user = await userManager.FindByIdAsync(userId);
-                            if (user == null || !user.IsActive)
+                            // Hai truy vấn dưới đây từng chạy cho MỌI request có token (tài khoản còn hoạt động? cửa
+                            // hàng có thu hồi phiên?). Giữ kết quả 20 giây theo tài khoản: máy bán gọi vài request mỗi
+                            // giây chỉ còn tốn 2 truy vấn mỗi 20 giây. Đánh đổi: khóa tài khoản / thu hồi phiên có
+                            // hiệu lực sau tối đa 20 giây thay vì ngay lập tức.
+                            var cache = context.HttpContext.RequestServices.GetService<IMemoryCache>();
+                            var cacheKey = "auth-check:" + userId;
+                            AuthCheck? check = null;
+                            if (cache != null && cache.TryGetValue(cacheKey, out AuthCheck? cached)) check = cached;
+                            if (check == null)
+                            {
+                                var userManager = context.HttpContext.RequestServices
+                                    .GetRequiredService<UserManager<ApplicationUser>>();
+                                var user = await userManager.FindByIdAsync(userId);
+                                DateTime? storeRevokedAt = null;
+                                if (user is { IsActive: true, StoreId: Guid userStoreId })
+                                {
+                                    var db = context.HttpContext.RequestServices
+                                        .GetRequiredService<ZKTecoDbContext>();
+                                    storeRevokedAt = await db.Stores.AsNoTracking()
+                                        .Where(s => s.Id == userStoreId)
+                                        .Select(s => s.SessionsRevokedAt)
+                                        .FirstOrDefaultAsync();
+                                }
+                                check = new AuthCheck(user is { IsActive: true }, storeRevokedAt);
+                                cache?.Set(cacheKey, check, new MemoryCacheEntryOptions
+                                {
+                                    AbsoluteExpirationRelativeToNow = TimeSpan.FromSeconds(20),
+                                    Size = 1,
+                                });
+                            }
+
+                            if (!check.Active)
                             {
                                 context.Fail("Tài khoản đã bị vô hiệu hóa.");
                                 return;
                             }
 
-                            if (user.StoreId is not Guid storeId) return;
-
-                            var db = context.HttpContext.RequestServices
-                                .GetRequiredService<ZKTecoDbContext>();
-                            var revokedAt = await db.Stores.AsNoTracking()
-                                .Where(s => s.Id == storeId)
-                                .Select(s => s.SessionsRevokedAt)
-                                .FirstOrDefaultAsync();
+                            var revokedAt = check.StoreSessionsRevokedAt;
                             if (revokedAt == null) return;
 
                             var iatRaw = context.Principal?.FindFirst(JwtRegisteredClaimNames.Iat)?.Value;

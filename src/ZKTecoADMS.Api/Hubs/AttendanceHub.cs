@@ -23,7 +23,7 @@ public class AttendanceHub : Hub
     {
         var userId = Context.UserIdentifier;
         var transport = Context.Features.Get<Microsoft.AspNetCore.Http.Connections.Features.IHttpTransportFeature>()?.TransportType;
-        _logger.LogWarning("📡 Client connected: {ConnectionId}, User: {UserId}, Transport: {Transport}",
+        _logger.LogDebug("📡 Client connected: {ConnectionId}, User: {UserId}, Transport: {Transport}",
             Context.ConnectionId, userId ?? "anonymous", transport?.ToString() ?? "unknown");
 
         // Auto-join the user's personal group as early as possible to close the
@@ -35,7 +35,7 @@ public class AttendanceHub : Hub
             try
             {
                 await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
-                _logger.LogWarning("📡 Auto-joined user group: user_{UserId}", userId);
+                _logger.LogDebug("📡 Auto-joined user group: user_{UserId}", userId);
             }
             catch (Exception ex)
             {
@@ -48,7 +48,7 @@ public class AttendanceHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        _logger.LogWarning("📡 Client disconnected: {ConnectionId}", Context.ConnectionId);
+        _logger.LogDebug("📡 Client disconnected: {ConnectionId}", Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -59,7 +59,7 @@ public class AttendanceHub : Hub
     {
         EnsureCallerStore(storeId);
         await Groups.AddToGroupAsync(Context.ConnectionId, $"store_{storeId}");
-        _logger.LogWarning("📡 Client {ConnectionId} joined store group: {StoreId}", Context.ConnectionId, storeId);
+        _logger.LogDebug("📡 Client {ConnectionId} joined store group: {StoreId}", Context.ConnectionId, storeId);
     }
 
     /// <summary>
@@ -69,7 +69,7 @@ public class AttendanceHub : Hub
     {
         EnsureCallerStore(storeId);
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"store_{storeId}");
-        _logger.LogWarning("📡 Client {ConnectionId} left store group: {StoreId}", Context.ConnectionId, storeId);
+        _logger.LogDebug("📡 Client {ConnectionId} left store group: {StoreId}", Context.ConnectionId, storeId);
     }
 
     /// <summary>
@@ -82,7 +82,7 @@ public class AttendanceHub : Hub
         // Device groups are store-scoped by convention; require authenticated store claim.
         EnsureCallerHasStore();
         await Groups.AddToGroupAsync(Context.ConnectionId, $"device_{deviceId}");
-        _logger.LogWarning("📡 Client {ConnectionId} joined device group: {DeviceId}", Context.ConnectionId, deviceId);
+        _logger.LogDebug("📡 Client {ConnectionId} joined device group: {DeviceId}", Context.ConnectionId, deviceId);
     }
 
     /// <summary>
@@ -94,7 +94,7 @@ public class AttendanceHub : Hub
             throw new HubException("Thiếu deviceId.");
         EnsureCallerHasStore();
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"device_{deviceId}");
-        _logger.LogWarning("📡 Client {ConnectionId} left device group: {DeviceId}", Context.ConnectionId, deviceId);
+        _logger.LogDebug("📡 Client {ConnectionId} left device group: {DeviceId}", Context.ConnectionId, deviceId);
     }
 
     /// <summary>
@@ -104,7 +104,7 @@ public class AttendanceHub : Hub
     {
         EnsureCallerUser(userId);
         await Groups.AddToGroupAsync(Context.ConnectionId, $"user_{userId}");
-        _logger.LogWarning("📡 Client {ConnectionId} joined user group: {UserId}", Context.ConnectionId, userId);
+        _logger.LogDebug("📡 Client {ConnectionId} joined user group: {UserId}", Context.ConnectionId, userId);
     }
 
     /// <summary>Join print-agent group to receive cloud print jobs (BT bridge).</summary>
@@ -112,7 +112,7 @@ public class AttendanceHub : Hub
     {
         EnsureCallerStore(storeId);
         await Groups.AddToGroupAsync(Context.ConnectionId, $"store_{storeId}_print_agents");
-        _logger.LogWarning("📡 Client {ConnectionId} joined print agent group: {StoreId}", Context.ConnectionId, storeId);
+        _logger.LogDebug("📡 Client {ConnectionId} joined print agent group: {StoreId}", Context.ConnectionId, storeId);
     }
 
     public async Task LeavePrintAgentGroup(string storeId)
@@ -128,7 +128,7 @@ public class AttendanceHub : Hub
     {
         EnsureCallerUser(userId);
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user_{userId}");
-        _logger.LogWarning("📡 Client {ConnectionId} left user group: {UserId}", Context.ConnectionId, userId);
+        _logger.LogDebug("📡 Client {ConnectionId} left user group: {UserId}", Context.ConnectionId, userId);
     }
 
     void EnsureCallerHasStore()
@@ -179,8 +179,9 @@ public class AttendanceHub : Hub
         var role = Context.User?.FindFirst(ClaimTypeNames.Role)?.Value
                    ?? Context.User?.FindFirst(ClaimTypes.Role)?.Value;
         if (string.IsNullOrWhiteSpace(role)) return false;
-        return role.Equals(nameof(Roles.Admin), StringComparison.OrdinalIgnoreCase)
-               || role.Equals(nameof(Roles.Director), StringComparison.OrdinalIgnoreCase)
-               || role.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase);
+        // Chỉ SuperAdmin (quản trị hệ thống). Admin / Giám đốc là vai trò TRONG một cửa hàng — trước đây cũng
+        // được tính ở đây nên chủ cửa hàng A vào được nhóm của cửa hàng / người dùng bất kỳ, nhận sơ đồ bàn,
+        // nội dung lệnh in và thông báo của cửa hàng khác.
+        return role.Equals(nameof(Roles.SuperAdmin), StringComparison.OrdinalIgnoreCase);
     }
 }

@@ -110,6 +110,9 @@ class PosOfflineService {
   Map<String, dynamic> _vault = {};
   bool _ready = false;
   bool _syncing = false;
+  /// Tăng mỗi lần đổi kho (đăng xuất / vào cửa hàng khác): lượt đồng bộ đang chạy dở của kho cũ thấy số
+  /// đổi thì dừng, không ghi kết quả vào kho của cửa hàng mới (số OFF-xxxxxx trùng nhau giữa các cửa hàng).
+  int _session = 0;
   Timer? _syncTimer;
   Timer? _mirrorTimer;
   String? installId;
@@ -227,6 +230,10 @@ class PosOfflineService {
     if (sid.isEmpty) return;
     if (_ready && _storeId == sid) return;
     if (_initDone != null && _storeId == sid) return _initDone!.future;
+    if (_storeId != sid) {
+      _ready = false;
+      _session++;
+    }
     _storeId = sid;
     _initDone = Completer<void>();
     try {
@@ -319,13 +326,23 @@ class PosOfflineService {
     }
   }
 
+  Future<bool> _saveTail = Future<bool>.value(true);
+
   /// Ghi nguyên tử. Trả false nếu không ghi được (đơn offline KHÔNG được bán khi không lưu được).
-  Future<bool> _save() async {
-    _vault['installId'] = installId;
-    _vault['deviceKey'] = deviceKey;
-    _vault['savedAt'] = DateTime.now().toUtc().toIso8601String();
-    final text = jsonEncode(_vault);
+  /// Các lượt ghi xếp hàng nối tiếp: hai lượt chồng nhau (tự lưu giỏ, đồng bộ, lưu đơn) dùng chung một
+  /// file .tmp → lượt sau đổi tên hỏng, báo «không lưu được» cho đơn thật ra đã lưu, hoặc hỏng file.
+  Future<bool> _save() {
+    final next = _saveTail.then((_) => _saveNow(), onError: (_) => _saveNow());
+    _saveTail = next;
+    return next;
+  }
+
+  Future<bool> _saveNow() async {
     try {
+      _vault['installId'] = installId;
+      _vault['deviceKey'] = deviceKey;
+      _vault['savedAt'] = DateTime.now().toUtc().toIso8601String();
+      final text = jsonEncode(_vault);
       if (kIsWeb) {
         await (await SharedPreferences.getInstance()).setString(_prefsVaultKey + _storeId!, text);
       } else {
@@ -493,6 +510,7 @@ class PosOfflineService {
     if (!_ready || _syncing) return;
     if (!PosNetworkMonitor.instance.reachable.value) return;
     _syncing = true;
+    final session = _session;
     try {
       var changed = false;
       final list = sales..sort((a, b) => a.seq.compareTo(b.seq));
@@ -507,6 +525,8 @@ class PosOfflineService {
         final res = r.draftOrderId != null
             ? await _api.updatePosSale(r.draftOrderId!, body)
             : await _api.createPosSale(body);
+        // Đã đăng xuất / đổi cửa hàng trong lúc chờ máy chủ → kho hiện tại không còn là kho của đơn này.
+        if (session != _session) return;
         if (res['isSuccess'] == true) {
           r.status = 'synced';
           r.error = null;
@@ -514,17 +534,23 @@ class PosOfflineService {
           final d = res['data'];
           r.serverOrderNo = d is Map ? d['orderNo']?.toString() : null;
           changed = true;
-        } else if (isConnectionFailure(res)) {
+        } else if (isConnectionFailure(res) || _isTemporaryServerFailure(res)) {
           // Mất mạng / hết giờ giữa chừng (máy chủ có thể đã nhận — gửi lại cùng số offline không tạo đơn đôi)
-          // → lần sau gửi tiếp đúng thứ tự.
+          // → lần sau gửi tiếp đúng thứ tự. Máy chủ đang khởi động lại / phiên hết hạn / quá tải cũng vậy:
+          // trước đây gắn «lỗi» vĩnh viễn, doanh thu không lên tới khi có người bấm gửi lại.
+          break;
+        } else if (res['statusCode'] == 500 && _countServerError(r.offlineNo) < 5) {
+          // Lỗi 500 thường là tạm thời (hai quầy tranh chấp, máy chủ vừa khởi động): thử lại ở các lượt sau,
+          // quá 5 lượt mới gắn «lỗi» để không chặn mãi các đơn xếp sau.
           break;
         } else {
           r.status = 'error';
           r.error = res['message']?.toString() ?? 'Máy chủ từ chối';
           changed = true;
         }
-        _vault['sales'] = list.map((e) => e.toJson()).toList();
+        _patchSale(r);
         await _save();
+        if (session != _session) return;
       }
       // Dọn đơn đã đồng bộ quá 7 ngày (máy chủ đã có, báo cáo kiểm soát giữ lịch sử).
       final keep = sales.where((r) =>
@@ -535,9 +561,11 @@ class PosOfflineService {
         _vault['sales'] = keep.map((e) => e.toJson()).toList();
         changed = true;
       }
-      await _pushCarts();
+      await _pushCarts(session);
+      if (session != _session) return;
       _dropOrphanTables();
       if (changed) await _save();
+      if (session != _session) return;
       await _registerInstall();
     } catch (e) {
       debugPrint('PosOfflineService.syncAll: $e');
@@ -546,14 +574,40 @@ class PosOfflineService {
     }
   }
 
-  Future<void> _pushCarts() async {
+  /// Ghi trạng thái mới của MỘT đơn vào kho hiện tại. Không ghi đè cả danh sách bằng bản chụp lấy trước
+  /// lúc gọi máy chủ: đơn offline bán thêm trong lúc đang gửi (mạng chập chờn) sẽ bị xóa mất.
+  void _patchSale(OfflineSaleRecord r) {
+    final cur = ((_vault['sales'] as List?) ?? const []).toList();
+    final i = cur.indexWhere((e) => e is Map && e['offlineNo']?.toString() == r.offlineNo);
+    if (i < 0) return;
+    cur[i] = r.toJson();
+    _vault['sales'] = cur;
+  }
+
+  final Map<String, int> _serverErrorTries = {};
+
+  int _countServerError(String offlineNo) =>
+      _serverErrorTries.update(offlineNo, (n) => n + 1, ifAbsent: () => 1);
+
+  /// Máy chủ / cổng vào trả lỗi tạm thời (đang khởi động lại, quá tải, phiên hết hạn) — đơn chưa bị từ chối.
+  static bool _isTemporaryServerFailure(Map<String, dynamic> res) {
+    final code = res['statusCode'];
+    return code == 401 || code == 408 || code == 429 || code == 502 || code == 503 || code == 504;
+  }
+
+  Future<void> _pushCarts(int session) async {
     final carts = Map<String, dynamic>.from((_vault['carts'] as Map?) ?? {});
+    // Giỏ đã xử lý xong trong lượt này: khóa → mốc lưu của bản đã gửi.
+    final done = <String, String?>{};
     for (final e in carts.entries.toList()) {
+      if (session != _session) return;
       if (isLiveCart?.call(e.key) == true) continue;
+      // Màn bán vừa lưu được giỏ này lên máy chủ và đã gỡ khỏi kho → không gửi lại bản cũ.
+      if (!((_vault['carts'] as Map?) ?? const {}).containsKey(e.key)) continue;
       final m = e.value is Map ? Map<String, dynamic>.from(e.value as Map) : null;
       final body = m?['body'] is Map ? Map<String, dynamic>.from(m!['body'] as Map) : null;
       if (body == null) {
-        carts.remove(e.key);
+        done[e.key] = m?['savedAt']?.toString();
         continue;
       }
       body.remove('expectedLockVersion');
@@ -588,16 +642,27 @@ class PosOfflineService {
             : await _api.createPosSale({...body, 'complete': false});
       }
       if (res['isSuccess'] == true) {
-        carts.remove(e.key);
+        done[e.key] = m['savedAt']?.toString();
       } else if (isConnectionFailure(res)) {
         break;
       } else {
         // Máy chủ từ chối (đơn đã thanh toán ở máy khác…) — giữ lại 3 ngày để quản lý xem, rồi bỏ.
         final saved = DateTime.tryParse(m['savedAt']?.toString() ?? '');
-        if (saved != null && DateTime.now().difference(saved).inDays >= 3) carts.remove(e.key);
+        if (saved != null && DateTime.now().difference(saved).inDays >= 3) done[e.key] = m['savedAt']?.toString();
       }
     }
-    _vault['carts'] = carts;
+    if (session != _session) return;
+    // Gỡ khỏi kho HIỆN TẠI đúng các giỏ vừa xử lý — không ghi đè cả kho bằng bản chụp đầu lượt: giỏ màn
+    // bán lưu / gỡ trong lúc đang gửi sẽ bị mất hoặc sống lại rồi đẩy đè lên đơn của máy khác.
+    final cur = Map<String, dynamic>.from((_vault['carts'] as Map?) ?? {});
+    for (final d in done.entries) {
+      final now = cur[d.key];
+      if (now == null) continue;
+      // Giỏ vừa được lưu bản mới hơn trong lúc gửi → giữ lại, lượt sau gửi tiếp.
+      if (now is Map && now['savedAt']?.toString() != d.value) continue;
+      cur.remove(d.key);
+    }
+    _vault['carts'] = cur;
   }
 
   /// Bàn mở offline mà giỏ đã trống / đã đẩy xong và không còn mở trên màn bán → bỏ giữ bàn.
@@ -625,16 +690,20 @@ class PosOfflineService {
   }
 
   /// Đăng xuất: trên web xóa bản giữ giỏ trong trình duyệt (máy dùng chung không lộ đơn ca trước).
-  /// Android giữ nguyên kho (đơn offline chưa gửi + lịch sử chống gian lận).
+  /// Android giữ nguyên FILE kho (đơn offline chưa gửi + lịch sử chống gian lận), chỉ gỡ khỏi bộ nhớ.
   Future<void> onLogout() async {
-    if (!kIsWeb) return;
     final sid = _storeId;
+    // Mọi nền tảng: gỡ kho khỏi bộ nhớ. Trước đây Android giữ nguyên kho + vòng đồng bộ mỗi phút, nên tài khoản
+    // kế tiếp (cửa hàng khác) đăng nhập là đơn offline của cửa hàng cũ bị gửi bằng token mới → máy chủ từ chối,
+    // đơn bị gắn «lỗi»; số thứ tự offline của hai cửa hàng lẫn vào nhau. File kho trên máy vẫn giữ nguyên:
+    // người của cửa hàng cũ đăng nhập lại và mở màn bán là gửi tiếp.
+    _session++;
     _ready = false;
     _vault = {};
     _storeId = null;
     _initDone = null;
     _refreshCounters();
-    if (sid == null) return;
+    if (!kIsWeb || sid == null) return;
     try {
       await (await SharedPreferences.getInstance()).remove(_prefsVaultKey + sid);
     } catch (_) {}
