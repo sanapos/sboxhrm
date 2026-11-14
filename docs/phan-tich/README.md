@@ -53,5 +53,8 @@ Chép từ thư mục ghi chú chung của các phiên Claude ngày 10/11/2026, 
 - [Báo cáo rà soát chức năng Thu chi — SBOX (01/11/2026)](thu-chi/thu-chi-bao-cao.md)
 - [Thu chi — phát hiện phần lõi server (nháp, phiên rà Thu chi)](thu-chi/thu-chi-core-draft.md)
 
+## Video hướng dẫn SBOX — `video-sbox/`
+- [Chương trình làm bộ video hướng dẫn sử dụng SBOX HRM (14/11/2026) — 10 video đã dựng](video-sbox/video-huong-dan-hrm.md)
+
 ## Trang chủ và dữ liệu cho AI — `trang-chu-du-lieu-ai/`
 - [Phân tích trang chủ web và dữ liệu trợ lý AI (04/11/2026, commit 22a47aca)](trang-chu-du-lieu-ai/phan-tich-trang-chu-va-du-lieu-ai.md)
