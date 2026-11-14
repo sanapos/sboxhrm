@@ -1582,6 +1582,7 @@
   "Bấm một dòng để xem chi tiết": "行を押すと詳細を表示します",
   "Bấm một hóa đơn để xem chi tiết": "伝票を押すと詳細を表示します",
   "Bấm một lần. Vừa đăng ký xong thì đợi 15–60 giây cho file lên server (chữ “đang đồng bộ”) — không mất dữ liệu. Danh sách tự làm mới.": "一度だけ押してください。登録直後はファイルがサーバーにアップロードされるまで15〜60秒お待ちください(「同期中」と表示) — データは失われません。一覧は自動で更新されます。",
+  "Bấm một mục để thêm cả danh sách món vào đơn": "項目をタップすると、メニュー一覧がまとめて注文に追加されます",
   "Bấm một phần tử trên tem để sửa. Kéo để di chuyển, kéo chấm góc dưới phải để đổi cỡ. ": "ラベルの要素をタップして編集します。ドラッグで移動、右下の角の点をドラッグでサイズ変更。 ",
   "Bấm một quỹ để xem phiếu thu trong kỳ của quỹ đó.": "資金をタップすると、その期間の入金伝票を表示します。",
   "Bấm ngành của bạn để điền tỷ lệ vào hồ sơ (nhớ bấm «Lưu hồ sơ»)": "該当の業種をタップしてプロフィールに税率を入力します(「プロフィール保存」を忘れずに)",
@@ -1859,6 +1860,7 @@
   "Bỏ lọc hoặc đổi từ khóa.": "フィルターを解除するか、キーワードを変更してください。",
   "Bỏ lọc nhân viên": "従業員フィルターを解除",
   "Bỏ mã vạch, chỉ giữ tên và giá": "バーコードを外し、商品名と価格のみ残す",
+  "Bỏ món": "メニューを削除",
   "Bỏ món chưa lưu": "未保存の品目を破棄",
   "Bỏ mẫu của khách": "お客様のテンプレートを解除",
   "Bỏ mẫu này": "このテンプレートを破棄",
@@ -1920,6 +1922,7 @@
   "Bộ phận": "部門",
   "Bộ điều khiển đèn": "照明コントローラー",
   "Bộ đèn đã cài rồi thì nhấn nhanh nút BOOT trên mạch để mở Bluetooth thêm 10 phút.": "照明セットが設置済みの場合は、基板のBOOTボタンを短く押してBluetoothをさらに10分間オンにします。",
+  "Bớt": "減らす",
   "Bởi": "担当",
   "Bụng – core": "腹部 – コア",
   "CA LÀM VIỆC": "シフト",
@@ -2737,6 +2740,7 @@
   "Chưa có món báo bếp": "厨房へ通知する商品なし",
   "Chưa có món mới hoặc hủy chờ báo bếp": "厨房へ通知する新しい商品や取消はありません",
   "Chưa có món nào": "メニューがありません",
+  "Chưa có món nào — bấm «Thêm món».": "メニューがまだありません — «メニューを追加» を押してください。",
   "Chưa có món xong": "完了した商品なし",
   "Chưa có món ăn nào": "料理メニューがありません",
   "Chưa có món ăn. Vui lòng thêm món trong": "料理メニューがありません。次の画面でメニューを追加してください",
@@ -2744,6 +2748,7 @@
   "Chưa có món ăn. Vui lòng thêm món trong \"Quản lý danh sách món\".": "メニューがありません。「メニュー一覧管理」で追加してください。",
   "Chưa có món để báo": "送信する商品がありません",
   "Chưa có món — bấm «Thêm món»": "メニューがありません — 「メニュー追加」を押してください",
+  "Chưa có món — bấm ⋮ để thêm": "メニューなし — ⋮ から追加",
   "Chưa có món — chạm món bên dưới hoặc gõ tên món mới": "メニューがありません — 下のメニューをタップするか、新しいメニュー名を入力してください",
   "Chưa có mô tả": "説明がありません",
   "Chưa có mẫu": "テンプレートがありません",
@@ -5567,6 +5572,7 @@
   "F&B: sau khi order, gửi bếp để in phiếu / hiện KDS. Phiếu bếp in giờ gọi một lần ở đầu phiếu.": "F&B:注文後、キッチンへ送信してチケットを印刷またはKDSに表示します。キッチンチケットは先頭に注文時刻を1回印字します。",
   "F&B: thiết lập Khu vực / Bàn phòng trước khi mở order": "F&B：注文を開く前にエリア／テーブルを設定してください",
   "F7 = lấy lại khối lượng cho dòng vừa chọn.": "F7 = 直前に選択した行の重量を再取得します。",
+  "FCM register skipped: not logged in / đang đăng nhập thay": "FCM登録をスキップ: 未ログイン / アカウント切り替え中",
   "Face ID, GPS, cấp quyền thiết bị, vùng chấm công": "Face ID、GPS、デバイス権限付与、打刻エリア",
   "Face ID, GPS, vùng chấm công": "Face ID、GPS、打刻エリア",
   "File Excel cần có các cột sau:": "Excelファイルには次の列が必要です：",
@@ -6156,6 +6162,7 @@
   "Giữa": "間",
   "Giữa chi nhánh": "支店間",
   "Gom nhiều việc để xem tiến độ chung (không bắt buộc)": "複数のタスクをまとめて全体の進捗を確認（任意）",
+  "Gom những món hay bán cùng nhau thành một mục rồi đặt tên chung. Lần sau bấm một cái là cả danh sách vào đơn.": "よく一緒に販売するメニューを1つの項目にまとめ、共通の名前を付けます。次回からは一度押すだけで一覧全体が注文に追加されます。",
   "Google Analytics / Ads ID (G-... hoặc AW-...)": "Google Analytics / Ads ID（G-... または AW-...）",
   "Google Drive của cửa hàng": "店舗のGoogle Drive",
   "Google Drive hoạt động tốt": "Google Driveは正常に動作しています",
@@ -8991,6 +8998,7 @@
   "Không tải được số liệu": "データを読み込めませんでした",
   "Không tải được số liệu căn tin": "社員食堂のデータを読み込めません",
   "Không tải được sổ seri": "シリアル台帳を読み込めません",
+  "Không tải được sổ tay": "クイックリストを読み込めませんでした",
   "Không tải được sổ đối chiếu": "照合台帳を読み込めません",
   "Không tải được thiết lập": "設定を読み込めません",
   "Không tải được thiết lập bản tin": "朝報の設定を読み込めません",
@@ -9780,6 +9788,8 @@
   "Lưu danh sách sản phẩm": "商品リストを保存",
   "Lưu danh sách tính năng": "機能リストを保存",
   "Lưu danh sách tải về": "ダウンロードリストを保存",
+  "Lưu giỏ này": "このカートを保存",
+  "Lưu giỏ này thành sổ": "このカートを項目として保存",
   "Lưu gán": "割り当てを保存",
   "Lưu gói": "プランを保存",
   "Lưu hàng hóa trước khi thêm hàng cùng loại lên server.": "同種の商品をサーバーに追加する前に、先に商品を保存してください。",
@@ -11488,6 +11498,7 @@
   "Mở: ô «Tăng ca» trên Trang chủ hoặc nút «Mở quản lý tăng ca» trên Dashboard (chưa có trong menu)": "開き方：ホームの«残業»タイル、またはダッシュボードの«残業管理を開く»ボタン（メニューには未掲載）",
   "Mục ": "項目 ",
   "Mục bị lỗ": "赤字の項目",
+  "Mục mới": "新しい項目",
   "Mục tiêu": "目標",
   "Mục tiêu (vd giảm 5kg trong 3 tháng)": "目標（例：3か月で5kg減量）",
   "Mục tiêu: ": "目標: ",
@@ -12519,6 +12530,7 @@
   "Nhập tên NCC": "仕入先名を入力",
   "Nhập tên WiFi của quán (WiFi 2.4 GHz)": "店舗のWiFi名を入力（2.4 GHz WiFi）",
   "Nhập tên ca": "シフト名を入力",
+  "Nhập tên cho mục này": "この項目の名前を入力してください",
   "Nhập tên chương trình": "プログラム名を入力",
   "Nhập tên chủ tài khoản": "口座名義人を入力",
   "Nhập tên có dấu, sẽ tự động sinh tên không dấu bên dưới": "声調記号付きのベトナム語名を入力すると、下に記号なしの名前が自動生成されます",
@@ -14351,6 +14363,8 @@
   "Sổ seri máy": "端末シリアル台帳",
   "Sổ sách HKD": "個人事業主の帳簿",
   "Sổ sách kế toán hộ kinh doanh": "個人事業主の会計帳簿",
+  "Sổ tay": "クイックリスト",
+  "Sổ tay bán nhanh": "クイック販売リスト",
   "Sổ thu chi, quỹ tiền mặt": "入出金帳、現金元帳",
   "Sổ thuế bên dưới vẫn xem và xuất Excel được.": "下の税務帳簿は引き続き表示とExcel出力ができます。",
   "Sổ đối chiếu công nợ": "債権債務照合台帳",
@@ -14453,6 +14467,7 @@
   "Sửa mẫu in": "印刷テンプレートを編集",
   "Sửa mẫu việc": "タスクテンプレートを編集",
   "Sửa một máy nhiệt (vd. zywel) → bật Báo kho / xuất kho.": "感熱プリンター1台 (例: zywel) を編集 → 在庫通知 / 出庫をオンにしてください。",
+  "Sửa mục sổ tay": "クイックリスト項目を編集",
   "Sửa mức lương": "給与水準を編集",
   "Sửa mức lương ca": "シフト給与レベルを編集",
   "Sửa nguyên vật liệu": "原材料を編集",
@@ -15081,6 +15096,7 @@
   "Thiếu mã máy": "端末コードがありません",
   "Thiếu mã phiếu trả": "返品伝票番号がありません",
   "Thiếu mã đại lý": "代理店コードがありません",
+  "Thiếu món": "メニューが見つかりません",
   "Thiếu món trên giỏ": "カートに品目がありません",
   "Thiếu mật khẩu": "パスワードがありません",
   "Thiếu người": "人員不足",
@@ -15441,6 +15457,7 @@
   "Thêm mới": "新規追加",
   "Thêm mục": "項目を追加",
   "Thêm mục (dán nhiều dòng để thêm nhiều mục)": "項目を追加(複数行を貼り付けると複数項目を追加)",
+  "Thêm mục sổ tay": "クイックリスト項目を追加",
   "Thêm mục vào form": "フォームに項目を追加",
   "Thêm mức": "段階を追加",
   "Thêm mức lương": "給与レベルを追加",
@@ -16677,6 +16694,7 @@
   "Tên mẫu in không được trống": "印刷テンプレート名は空にできません",
   "Tên mẫu tem": "ラベルテンプレート名",
   "Tên mẫu việc *": "タスクテンプレート名 *",
+  "Tên mục": "項目名",
   "Tên mức lương *": "給与レベル名 *",
   "Tên ngành quyết định giao diện bán: hàng hóa hay sơ đồ,": "業種名が販売画面を決定します:商品型か配置図型か、",
   "Tên ngành quyết định giao diện bán: hàng hóa hay sơ đồ, ": "業種名が販売画面を決定します: 商品形式か座席図形式か、 ",
@@ -19072,6 +19090,7 @@
   "Xóa mốc đồng bộ": "同期ポイントを削除",
   "Xóa một phần": "一部を削除",
   "Xóa mục": "項目を削除",
+  "Xóa mục sổ tay?": "クイックリスト項目を削除しますか?",
   "Xóa ngày": "日付を削除",
   "Xóa người dùng": "ユーザーを削除",
   "Xóa nhà cung cấp?": "仕入先を削除しますか？",
@@ -20444,6 +20463,7 @@
   "vd. Tên quán to hơn, thêm wifi «sbox123» ở cuối, bỏ dòng mã đơn": "例：店名を大きく、下部にwifi「sbox123」を追加、注文コードの行を削除",
   "vd: Chấm công, Tính lương": "例：勤怠、給与計算",
   "vd: Giờ vàng rau cá": "例：野菜・魚のゴールデンタイム",
+  "vd: Mâm 4 người": "例: 4人前セット",
   "vd: máy chấm công, vân tay, ADMS": "例: 勤怠端末、指紋、ADMS",
   "vd: rau mồng tơi, thịt ba chỉ": "例：モロヘイヤ、豚バラ肉",
   "việc": "件",
@@ -21599,6 +21619,7 @@
   "Đã lưu phạm vi dữ liệu tài khoản": "アカウントのデータ範囲を保存しました",
   "Đã lưu server": "サーバーを保存しました",
   "Đã lưu sơ đồ": "配置図を保存しました",
+  "Đã lưu sổ tay": "クイックリストを保存しました",
   "Đã lưu tham số hệ thống": "システムパラメータを保存しました",
   "Đã lưu thiết lập SEO Google!": "Google SEO設定を保存しました!",
   "Đã lưu thiết lập Zalo bot": "Zaloボットの設定を保存しました",
@@ -28272,6 +28293,10 @@
    "プリンター{0}を受け取る端末がありません — 接続先の端末で«プリンター共有»をオンにするか、«他の端末»をタップしてください"
   ],
   [
+   "Không thêm được: {0}",
+   "追加できませんでした: {0}"
+  ],
+  [
    "Không thấy {0} — kiểm tra cáp cân / driver USB-Serial",
    "{0}が見つかりません — 秤のケーブル / USB-Serialドライバーを確認してください"
   ],
@@ -29682,6 +29707,10 @@
   [
    "Món mới {0}",
    "新メニュー {0}"
+  ],
+  [
+   "Món trong mục ({0})",
+   "項目のメニュー ({0})"
   ],
   [
    "Món trong thực đơn ({0})",
@@ -35388,8 +35417,16 @@
    "販売停止中の {0} 品がまだこのプリンターに紐付いています"
   ],
   [
+   "{0} món vào đơn",
+   "{0}品を注文に追加しました"
+  ],
+  [
    "{0} món · {1}",
    "{0} 品 · {1}"
+  ],
+  [
+   "{0} món · {1} phần",
+   "{0}品 · 合計{1}点"
   ],
   [
    "{0} món · {1} đ",
@@ -37656,6 +37693,10 @@
    "«{0}» は店舗から削除されます"
   ],
   [
+   "«{0}» sẽ bị xóa khỏi sổ tay. Món trong danh mục không bị ảnh hưởng.",
+   "«{0}» がクイックリストから削除されます。商品一覧のメニューには影響しません。"
+  ],
+  [
    "«{0}» sẽ không còn gợi ý trên món này.",
    "«{0}» はこのメニューでは今後提案されません。"
   ],
@@ -38926,6 +38967,10 @@
   [
    "Đã thêm {0}/{1} ngày lễ",
    "祝日 {0}/{1} 日を追加しました"
+  ],
+  [
+   "Đã thêm «{0}»",
+   "«{0}» を追加しました"
   ],
   [
    "Đã thấy gateway{0}",

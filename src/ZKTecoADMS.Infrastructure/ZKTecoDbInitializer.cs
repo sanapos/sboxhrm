@@ -2771,6 +2771,45 @@ public class ZKTecoDbInitializer(
                     CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PosProductToppingGroupLinks_Store_Product_Group""
                         ON ""PosProductToppingGroupLinks"" (""StoreId"", ""ProductId"", ""GroupId"");
 
+                    CREATE TABLE IF NOT EXISTS ""PosQuickSellNotes"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""Name"" character varying(200) NOT NULL,
+                        ""Description"" character varying(500) NULL,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosQuickSellNotes_Store""
+                        ON ""PosQuickSellNotes"" (""StoreId"");
+
+                    CREATE TABLE IF NOT EXISTS ""PosQuickSellNoteItems"" (
+                        ""Id"" uuid PRIMARY KEY,
+                        ""StoreId"" uuid NOT NULL,
+                        ""NoteId"" uuid NOT NULL,
+                        ""ProductId"" uuid NOT NULL,
+                        ""Qty"" numeric(18,3) NOT NULL DEFAULT 1,
+                        ""SortOrder"" integer NOT NULL DEFAULT 0,
+                        ""IsActive"" boolean NOT NULL DEFAULT true,
+                        ""CreatedAt"" timestamp without time zone NOT NULL DEFAULT NOW(),
+                        ""UpdatedAt"" timestamp without time zone NULL,
+                        ""CreatedBy"" text NULL,
+                        ""UpdatedBy"" text NULL,
+                        ""LastModified"" timestamp without time zone NULL,
+                        ""LastModifiedBy"" text NULL,
+                        ""Deleted"" timestamp without time zone NULL,
+                        ""DeletedBy"" text NULL
+                    );
+                    CREATE INDEX IF NOT EXISTS ""IX_PosQuickSellNoteItems_Store_Note""
+                        ON ""PosQuickSellNoteItems"" (""StoreId"", ""NoteId"");
+
                     CREATE TABLE IF NOT EXISTS ""PosResourceReservations"" (
                         ""Id"" uuid PRIMARY KEY,
                         ""StoreId"" uuid NOT NULL,

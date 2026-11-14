@@ -844,6 +844,7 @@
   "Bấm một dòng để xem chi tiết": "Tap a row to view details",
   "Bấm một hóa đơn để xem chi tiết": "Tap an invoice to view details",
   "Bấm một lần. Vừa đăng ký xong thì đợi 15–60 giây cho file lên server (chữ “đang đồng bộ”) — không mất dữ liệu. Danh sách tự làm mới.": "Tap once. After registering, wait 15–60 seconds for the file to upload to the server (\"syncing\" label) — no data is lost. The list refreshes automatically.",
+  "Bấm một mục để thêm cả danh sách món vào đơn": "Tap an entry to add its whole list of dishes to the order",
   "Bấm một phần tử trên tem để sửa. Kéo để di chuyển, kéo chấm góc dưới phải để đổi cỡ. ": "Tap an element on the label to edit it. Drag to move, drag the bottom-right corner dot to resize. ",
   "Bấm một quỹ để xem phiếu thu trong kỳ của quỹ đó.": "Tap a fund to see its receipt vouchers for the period.",
   "Bấm ngành của bạn để điền tỷ lệ vào hồ sơ (nhớ bấm «Lưu hồ sơ»)": "Tap your industry to fill the rate into the profile (remember to tap “Save profile”)",
@@ -1010,6 +1011,7 @@
   "Bỏ lọc hoặc đổi từ khóa.": "Clear the filter or change the keyword.",
   "Bỏ lọc nhân viên": "Clear employee filter",
   "Bỏ mã vạch, chỉ giữ tên và giá": "Remove barcode, keep only name and price",
+  "Bỏ món": "Remove dish",
   "Bỏ món chưa lưu": "Discard unsaved items",
   "Bỏ mẫu của khách": "Remove customer template",
   "Bỏ mẫu này": "Discard this template",
@@ -1045,6 +1047,7 @@
   "Bộ phận": "Section",
   "Bộ điều khiển đèn": "Light controller",
   "Bộ đèn đã cài rồi thì nhấn nhanh nút BOOT trên mạch để mở Bluetooth thêm 10 phút.": "If the light kit is already set up, quickly press the BOOT button on the board to open Bluetooth for another 10 minutes.",
+  "Bớt": "Decrease",
   "Bụng – core": "Abs – core",
   "CA ĐÃ XẾP": "SCHEDULED SHIFTS",
   "CB: cơ bản    HT: hoàn thành    TC: tăng ca    PC: phụ cấp": "CB: base    HT: completed    TC: overtime    PC: allowance",
@@ -1442,8 +1445,10 @@
   "Chưa có mã": "No code yet",
   "Chưa có mã vận đơn": "No tracking number",
   "Chưa có món nào": "No dishes yet",
+  "Chưa có món nào — bấm «Thêm món».": "No dishes yet — tap «Add dishes».",
   "Chưa có món để báo": "Nothing to send yet",
   "Chưa có món — bấm «Thêm món»": "No items — tap \"Add item\"",
+  "Chưa có món — bấm ⋮ để thêm": "No dishes — tap ⋮ to add",
   "Chưa có món — chạm món bên dưới hoặc gõ tên món mới": "No items yet — tap an item below or type a new item name",
   "Chưa có mẫu in cho loại phiếu này": "No print template for this slip type yet",
   "Chưa có mẫu việc": "No task templates yet",
@@ -2906,6 +2911,7 @@
   "Excel: xuất/nhập tên, mã, nhóm, giá, thuế, ngành. Ảnh upload riêng.": "Excel: export/import name, code, category, price, tax, industry. Images are uploaded separately.",
   "F&B: sau khi order, gửi bếp để in phiếu / hiện KDS. Phiếu bếp in giờ gọi một lần ở đầu phiếu.": "F&B: after ordering, send to the kitchen to print the ticket / show on KDS. The kitchen ticket prints the order time once at the top.",
   "F7 = lấy lại khối lượng cho dòng vừa chọn.": "F7 = re-read the weight for the line just selected.",
+  "FCM register skipped: not logged in / đang đăng nhập thay": "FCM register skipped: not logged in / switching account",
   "File Excel lộn xộn (tự làm, xuất từ phần mềm khác) → AI đọc ra món. ": "Messy Excel file (hand-made or exported from other software) → AI reads out the items. ",
   "File Word cũ (.doc)": "Old Word file (.doc)",
   "File hóa đơn lỗi": "Invoice file error",
@@ -3220,6 +3226,7 @@
   "Giữ ảnh bằng chứng phải từ 1 đến 365 ngày": "Evidence photo retention must be 1 to 365 days",
   "Giữa chi nhánh": "Between branches",
   "Gom nhiều việc để xem tiến độ chung (không bắt buộc)": "Group several tasks to see overall progress (optional)",
+  "Gom những món hay bán cùng nhau thành một mục rồi đặt tên chung. Lần sau bấm một cái là cả danh sách vào đơn.": "Group the dishes you often sell together into one entry and give it a shared name. Next time, one tap adds the whole list to the order.",
   "Google Drive của cửa hàng": "Store Google Drive",
   "Google Drive hoạt động tốt": "Google Drive is working well",
   "Gym / Yoga — bán thẻ tập (tháng/quý/năm) hoặc gói buổi, check-in hội viên bằng máy chấm công hoặc tại quầy": "Gym / Yoga — sell membership cards (month/quarter/year) or session packs, check members in with the attendance device or at the counter",
@@ -4572,6 +4579,7 @@
   "Không tải được số liệu": "Couldn't load data",
   "Không tải được số liệu căn tin": "Cannot load canteen data",
   "Không tải được sổ seri": "Cannot load the serial ledger",
+  "Không tải được sổ tay": "Could not load the quick list",
   "Không tải được sổ đối chiếu": "Cannot load the reconciliation ledger",
   "Không tải được thiết lập bản tin": "Couldn't load brief settings",
   "Không tải được thiết lập thông báo": "Cannot load notification settings",
@@ -4949,6 +4957,8 @@
   "Lưu ca": "Save shift",
   "Lưu ca trước, sau đó mở lại ca để thêm mức lương ca (lương cố định, theo giờ hoặc nhân hệ số).": "Save the shift first, then reopen it to add the shift pay (fixed, hourly or multiplier).",
   "Lưu chính sách": "Save policy",
+  "Lưu giỏ này": "Save this cart",
+  "Lưu giỏ này thành sổ": "Save this cart as an entry",
   "Lưu gói": "Save plan",
   "Lưu mẫu": "Save template",
   "Lưu mức lương": "Save pay rate",
@@ -5813,6 +5823,7 @@
   "Mở: biểu tượng ✨ trên thanh trên cùng (điện thoại / máy tính) hoặc POS › Thêm › «Trợ lý ảo»": "Open: the ✨ icon in the top bar (phone / computer) or POS › More › «Virtual assistant»",
   "Mở: ô «Tăng ca» trên Trang chủ hoặc nút «Mở quản lý tăng ca» trên Dashboard (chưa có trong menu)": "Open: the «Overtime» tile on Home or the «Open overtime management» button on the Dashboard (not yet in the menu)",
   "Mục bị lỗ": "Loss-making items",
+  "Mục mới": "New entry",
   "Mục tiêu": "Target",
   "Mục tiêu (vd giảm 5kg trong 3 tháng)": "Goal (e.g. lose 5 kg in 3 months)",
   "Mục tiêu: ": "Target: ",
@@ -6302,6 +6313,7 @@
   "Nhập trao đổi, báo cáo tiến độ…": "Enter discussion or progress report…",
   "Nhập tên WiFi của quán (WiFi 2.4 GHz)": "Enter the shop's WiFi name (2.4 GHz WiFi)",
   "Nhập tên ca": "Enter shift name",
+  "Nhập tên cho mục này": "Enter a name for this entry",
   "Nhập tên chương trình": "Enter program name",
   "Nhập tên công việc": "Enter task name",
   "Nhập tên cửa hàng (in trên hóa đơn)": "Enter the store name (printed on the invoice)",
@@ -7157,6 +7169,8 @@
   "Sổ quỹ thu chi": "Income & expense cash book",
   "Sổ quỹ, phiếu thu chi, khách nợ": "Cash book, receipts & payments, customer debt",
   "Sổ seri máy": "Device serial register",
+  "Sổ tay": "Quick list",
+  "Sổ tay bán nhanh": "Quick-sell list",
   "Sổ thuế bên dưới vẫn xem và xuất Excel được.": "The tax ledger below can still be viewed and exported to Excel.",
   "Sổ đối chiếu công nợ": "Debt reconciliation ledger",
   "Sức bền tốt": "Good endurance",
@@ -7206,6 +7220,7 @@
   "Sửa món trên hóa đơn": "Edit items on the bill",
   "Sửa mẫu in": "Edit print template",
   "Sửa mẫu việc": "Edit task template",
+  "Sửa mục sổ tay": "Edit quick-list entry",
   "Sửa mức lương ca": "Edit shift pay level",
   "Sửa nguyên vật liệu": "Edit ingredient",
   "Sửa nhóm": "Edit group",
@@ -7497,6 +7512,7 @@
   "Thiếu hạn sử dụng": "Missing expiry date",
   "Thiếu hụt quỹ": "Cash shortage",
   "Thiếu lần chấm vào hoặc ra trong ngày có lịch (0 = không phạt)": "Missing a punch-in or punch-out on a scheduled day (0 = no penalty)",
+  "Thiếu món": "Missing dishes",
   "Thiếu người": "Understaffed",
   "Thiếu nhân viên": "Short of staff",
   "Thiếu nhóm hàng": "Missing product category",
@@ -7641,6 +7657,7 @@
   "Thêm mặt hàng": "Add item",
   "Thêm mục": "Add entry",
   "Thêm mục (dán nhiều dòng để thêm nhiều mục)": "Add entries (paste multiple lines to add several entries)",
+  "Thêm mục sổ tay": "Add quick-list entry",
   "Thêm mục vào form": "Add a field to the form",
   "Thêm mức": "Add tier",
   "Thêm mức lương ca": "Add shift pay level",
@@ -8265,6 +8282,7 @@
   "Tên mẫu": "Template name",
   "Tên mẫu tem": "Label template name",
   "Tên mẫu việc *": "Task template name *",
+  "Tên mục": "Entry name",
   "Tên ngành quyết định giao diện bán: hàng hóa hay sơ đồ, ": "The business type name decides the sales layout: goods or floor plan, ",
   "Tên người gửi": "Sender name",
   "Tên người mua": "Buyer name",
@@ -9310,6 +9328,7 @@
   "Xóa mẫu?": "Delete template?",
   "Xóa một phần": "Partial delete",
   "Xóa mục": "Delete item",
+  "Xóa mục sổ tay?": "Delete quick-list entry?",
   "Xóa nhân viên demo, chấm công, phép và hàng/bàn POS mẫu": "Delete demo employees, attendance, leave and sample POS items/tables",
   "Xóa nhân viên demo, chấm công, phép và hàng/bàn POS mẫu (CreatedBy SampleData)": "Delete demo employees, attendance, leave and sample POS products/tables (CreatedBy SampleData)",
   "Xóa nhóm \"": "Delete group \"",
@@ -9977,6 +9996,7 @@
   "vd. Tên quán to hơn, thêm wifi «sbox123» ở cuối, bỏ dòng mã đơn": "e.g. Bigger store name, add wifi «sbox123» at the bottom, remove the order code line",
   "vd: Chấm công, Tính lương": "e.g. Attendance, Payroll",
   "vd: Giờ vàng rau cá": "e.g. Veggie & fish golden hour",
+  "vd: Mâm 4 người": "e.g. Set for 4",
   "vd: rau mồng tơi, thịt ba chỉ": "e.g. malabar spinach, pork belly",
   "vnđ": "vnđ",
   "voucher / điểm khi offline. Chủ quán xem «Bán offline & kiểm soát» (lịch sử cài app, số chưa về).": "vouchers / points when offline. The owner can view “Offline sales & control” (app install history, pending count).",
@@ -10541,6 +10561,7 @@
   "Đã lưu nội dung riêng": "Custom content saved",
   "Đã lưu phác đồ": "Program saved",
   "Đã lưu phạm vi dữ liệu tài khoản": "Account data scope saved",
+  "Đã lưu sổ tay": "Quick list saved",
   "Đã lưu tham số hệ thống": "System parameters saved",
   "Đã lưu thiết lập Zalo bot": "Zalo bot settings saved",
   "Đã lưu thiết lập lần chấm theo ca.": "Punch numbers by shift saved.",
@@ -16101,6 +16122,10 @@
    "No device takes printer {0} — turn on «Share printer» on the device it is plugged into, or tap «Other device»"
   ],
   [
+   "Không thêm được: {0}",
+   "Could not add: {0}"
+  ],
+  [
    "Không thấy {0} — kiểm tra cáp cân / driver USB-Serial",
    "{0} not found — check the scale cable / USB-Serial driver"
   ],
@@ -17511,6 +17536,10 @@
   [
    "Món mới {0}",
    "New dish {0}"
+  ],
+  [
+   "Món trong mục ({0})",
+   "Dishes in this entry ({0})"
   ],
   [
    "Món trong thực đơn ({0})",
@@ -23217,8 +23246,16 @@
    "{0} discontinued items are still assigned to this printer"
   ],
   [
+   "{0} món vào đơn",
+   "{0} dishes added to the order"
+  ],
+  [
    "{0} món · {1}",
    "{0} items · {1}"
+  ],
+  [
+   "{0} món · {1} phần",
+   "{0} dishes · {1} portions"
   ],
   [
    "{0} món · {1} đ",
@@ -25485,6 +25522,10 @@
    "«{0}» will be deleted from the store"
   ],
   [
+   "«{0}» sẽ bị xóa khỏi sổ tay. Món trong danh mục không bị ảnh hưởng.",
+   "«{0}» will be removed from the quick list. The dishes in your catalog are not affected."
+  ],
+  [
    "«{0}» sẽ không còn gợi ý trên món này.",
    "«{0}» will no longer be suggested on this item."
   ],
@@ -26755,6 +26796,10 @@
   [
    "Đã thêm {0}/{1} ngày lễ",
    "Added {0}/{1} holidays"
+  ],
+  [
+   "Đã thêm «{0}»",
+   "Added «{0}»"
   ],
   [
    "Đã thấy gateway{0}",

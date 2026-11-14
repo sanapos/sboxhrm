@@ -1582,6 +1582,7 @@
   "Bấm một dòng để xem chi tiết": "행을 눌러 상세 내용을 확인하세요",
   "Bấm một hóa đơn để xem chi tiết": "영수증을 눌러 상세 내용을 확인하세요",
   "Bấm một lần. Vừa đăng ký xong thì đợi 15–60 giây cho file lên server (chữ “đang đồng bộ”) — không mất dữ liệu. Danh sách tự làm mới.": "한 번만 누르세요. 등록 직후 파일이 서버에 올라갈 때까지 15–60초 기다려 주세요(“동기화 중” 표시) — 데이터는 손실되지 않습니다. 목록은 자동으로 새로고침됩니다.",
+  "Bấm một mục để thêm cả danh sách món vào đơn": "항목을 탭하면 메뉴 목록 전체가 주문에 추가됩니다",
   "Bấm một phần tử trên tem để sửa. Kéo để di chuyển, kéo chấm góc dưới phải để đổi cỡ. ": "라벨의 요소를 눌러 수정하세요. 끌어서 이동하고, 오른쪽 아래 모서리 점을 끌어 크기를 바꿉니다. ",
   "Bấm một quỹ để xem phiếu thu trong kỳ của quỹ đó.": "자금을 누르면 해당 기간의 입금 전표를 볼 수 있습니다.",
   "Bấm ngành của bạn để điền tỷ lệ vào hồ sơ (nhớ bấm «Lưu hồ sơ»)": "해당 업종을 눌러 프로필에 비율을 입력하세요(«프로필 저장»을 잊지 마세요)",
@@ -1859,6 +1860,7 @@
   "Bỏ lọc hoặc đổi từ khóa.": "필터를 해제하거나 키워드를 바꿔 보세요.",
   "Bỏ lọc nhân viên": "직원 필터 해제",
   "Bỏ mã vạch, chỉ giữ tên và giá": "바코드 제거, 이름과 가격만 유지",
+  "Bỏ món": "메뉴 삭제",
   "Bỏ món chưa lưu": "저장하지 않은 메뉴 버리기",
   "Bỏ mẫu của khách": "고객 템플릿 해제",
   "Bỏ mẫu này": "이 템플릿 버리기",
@@ -1920,6 +1922,7 @@
   "Bộ phận": "부서",
   "Bộ điều khiển đèn": "조명 컨트롤러",
   "Bộ đèn đã cài rồi thì nhấn nhanh nút BOOT trên mạch để mở Bluetooth thêm 10 phút.": "조명 세트가 이미 설치되어 있다면 보드의 BOOT 버튼을 짧게 눌러 블루투스를 10분간 더 켜세요.",
+  "Bớt": "감소",
   "Bởi": "작성자",
   "Bụng – core": "복부 – 코어",
   "CA LÀM VIỆC": "근무조",
@@ -2737,6 +2740,7 @@
   "Chưa có món báo bếp": "주방 전달할 메뉴 없음",
   "Chưa có món mới hoặc hủy chờ báo bếp": "주방에 알릴 새 메뉴나 취소가 없습니다",
   "Chưa có món nào": "메뉴가 없습니다",
+  "Chưa có món nào — bấm «Thêm món».": "아직 메뉴가 없습니다 — «메뉴 추가»를 누르세요.",
   "Chưa có món xong": "완료된 메뉴 없음",
   "Chưa có món ăn nào": "음식 메뉴가 없습니다",
   "Chưa có món ăn. Vui lòng thêm món trong": "음식 메뉴가 없습니다. 다음에서 메뉴를 추가해 주세요",
@@ -2744,6 +2748,7 @@
   "Chưa có món ăn. Vui lòng thêm món trong \"Quản lý danh sách món\".": "메뉴가 없습니다. \"메뉴 목록 관리\"에서 메뉴를 추가하세요.",
   "Chưa có món để báo": "보낼 메뉴 없음",
   "Chưa có món — bấm «Thêm món»": "메뉴가 없습니다 — «메뉴 추가»를 누르세요",
+  "Chưa có món — bấm ⋮ để thêm": "메뉴 없음 — ⋮ 를 눌러 추가",
   "Chưa có món — chạm món bên dưới hoặc gõ tên món mới": "메뉴가 없습니다 — 아래 메뉴를 탭하거나 새 메뉴 이름을 입력하세요",
   "Chưa có mô tả": "설명이 없습니다",
   "Chưa có mẫu": "템플릿이 없습니다",
@@ -5567,6 +5572,7 @@
   "F&B: sau khi order, gửi bếp để in phiếu / hiện KDS. Phiếu bếp in giờ gọi một lần ở đầu phiếu.": "F&B: 주문 후 주방으로 전송하여 티켓을 인쇄하거나 KDS에 표시합니다. 주방 티켓은 맨 위에 주문 시각을 한 번 인쇄합니다.",
   "F&B: thiết lập Khu vực / Bàn phòng trước khi mở order": "F&B: 주문을 열기 전에 구역 / 테이블을 설정하세요",
   "F7 = lấy lại khối lượng cho dòng vừa chọn.": "F7 = 방금 선택한 줄의 중량을 다시 가져옵니다.",
+  "FCM register skipped: not logged in / đang đăng nhập thay": "FCM 등록 건너뜀: 로그인하지 않음 / 계정 전환 중",
   "Face ID, GPS, cấp quyền thiết bị, vùng chấm công": "Face ID, GPS, 기기 권한 부여, 출퇴근 구역",
   "Face ID, GPS, vùng chấm công": "Face ID, GPS, 출퇴근 구역",
   "File Excel cần có các cột sau:": "엑셀 파일에는 다음 열이 필요합니다:",
@@ -6156,6 +6162,7 @@
   "Giữa": "사이",
   "Giữa chi nhánh": "지점 간",
   "Gom nhiều việc để xem tiến độ chung (không bắt buộc)": "여러 업무를 묶어 전체 진행 상황 확인 (선택)",
+  "Gom những món hay bán cùng nhau thành một mục rồi đặt tên chung. Lần sau bấm một cái là cả danh sách vào đơn.": "자주 함께 판매하는 메뉴를 하나의 항목으로 묶고 공통 이름을 지정하세요. 다음부터는 한 번만 누르면 목록 전체가 주문에 추가됩니다.",
   "Google Analytics / Ads ID (G-... hoặc AW-...)": "Google Analytics / Ads ID (G-... 또는 AW-...)",
   "Google Drive của cửa hàng": "매장 Google Drive",
   "Google Drive hoạt động tốt": "Google Drive가 정상 작동합니다",
@@ -8991,6 +8998,7 @@
   "Không tải được số liệu": "데이터를 불러오지 못했습니다",
   "Không tải được số liệu căn tin": "구내식당 데이터를 불러올 수 없습니다",
   "Không tải được sổ seri": "시리얼 장부를 불러올 수 없습니다",
+  "Không tải được sổ tay": "빠른 목록을 불러오지 못했습니다",
   "Không tải được sổ đối chiếu": "대사 장부를 불러올 수 없습니다",
   "Không tải được thiết lập": "설정을 불러올 수 없습니다",
   "Không tải được thiết lập bản tin": "브리핑 설정을 불러올 수 없습니다",
@@ -9780,6 +9788,8 @@
   "Lưu danh sách sản phẩm": "상품 목록 저장",
   "Lưu danh sách tính năng": "기능 목록 저장",
   "Lưu danh sách tải về": "다운로드 목록 저장",
+  "Lưu giỏ này": "현재 장바구니 저장",
+  "Lưu giỏ này thành sổ": "현재 장바구니를 항목으로 저장",
   "Lưu gán": "지정 저장",
   "Lưu gói": "플랜 저장",
   "Lưu hàng hóa trước khi thêm hàng cùng loại lên server.": "같은 유형의 상품을 서버에 추가하기 전에 먼저 상품을 저장하세요.",
@@ -11488,6 +11498,7 @@
   "Mở: ô «Tăng ca» trên Trang chủ hoặc nút «Mở quản lý tăng ca» trên Dashboard (chưa có trong menu)": "열기: 홈의 «초과근무» 타일 또는 대시보드의 «초과근무 관리 열기» 버튼 (아직 메뉴에 없음)",
   "Mục ": "항목 ",
   "Mục bị lỗ": "손실 항목",
+  "Mục mới": "새 항목",
   "Mục tiêu": "목표",
   "Mục tiêu (vd giảm 5kg trong 3 tháng)": "목표(예: 3개월 내 5kg 감량)",
   "Mục tiêu: ": "목표: ",
@@ -12519,6 +12530,7 @@
   "Nhập tên NCC": "공급업체 이름 입력",
   "Nhập tên WiFi của quán (WiFi 2.4 GHz)": "매장 WiFi 이름 입력(2.4 GHz WiFi)",
   "Nhập tên ca": "근무조 이름 입력",
+  "Nhập tên cho mục này": "이 항목의 이름을 입력하세요",
   "Nhập tên chương trình": "프로그램 이름 입력",
   "Nhập tên chủ tài khoản": "예금주 이름 입력",
   "Nhập tên có dấu, sẽ tự động sinh tên không dấu bên dưới": "성조 기호가 있는 베트남어 이름을 입력하면 아래에 기호 없는 이름이 자동 생성됩니다",
@@ -14351,6 +14363,8 @@
   "Sổ seri máy": "단말기 일련번호 대장",
   "Sổ sách HKD": "개인사업자 장부",
   "Sổ sách kế toán hộ kinh doanh": "개인사업자 회계 장부",
+  "Sổ tay": "빠른 목록",
+  "Sổ tay bán nhanh": "빠른 판매 목록",
   "Sổ thu chi, quỹ tiền mặt": "수입·지출 장부, 현금 시재",
   "Sổ thuế bên dưới vẫn xem và xuất Excel được.": "아래의 세금 장부는 계속 조회하고 Excel로 내보낼 수 있습니다.",
   "Sổ đối chiếu công nợ": "채무 대조 장부",
@@ -14453,6 +14467,7 @@
   "Sửa mẫu in": "인쇄 템플릿 수정",
   "Sửa mẫu việc": "업무 템플릿 수정",
   "Sửa một máy nhiệt (vd. zywel) → bật Báo kho / xuất kho.": "감열식 프린터 한 대(예: zywel)를 수정 → 재고 알림 / 출고를 켜세요.",
+  "Sửa mục sổ tay": "빠른 목록 항목 수정",
   "Sửa mức lương": "급여 수준 수정",
   "Sửa mức lương ca": "근무조 급여 수준 수정",
   "Sửa nguyên vật liệu": "원재료 수정",
@@ -15081,6 +15096,7 @@
   "Thiếu mã máy": "기기 코드 없음",
   "Thiếu mã phiếu trả": "반품 전표 번호 없음",
   "Thiếu mã đại lý": "대리점 코드 없음",
+  "Thiếu món": "메뉴 없음",
   "Thiếu món trên giỏ": "장바구니에 메뉴가 없습니다",
   "Thiếu mật khẩu": "비밀번호 없음",
   "Thiếu người": "인원 부족",
@@ -15441,6 +15457,7 @@
   "Thêm mới": "새로 추가",
   "Thêm mục": "항목 추가",
   "Thêm mục (dán nhiều dòng để thêm nhiều mục)": "항목 추가 (여러 줄을 붙여넣으면 여러 항목이 추가됩니다)",
+  "Thêm mục sổ tay": "빠른 목록 항목 추가",
   "Thêm mục vào form": "양식에 항목 추가",
   "Thêm mức": "단계 추가",
   "Thêm mức lương": "급여 등급 추가",
@@ -16677,6 +16694,7 @@
   "Tên mẫu in không được trống": "인쇄 양식 이름은 비워 둘 수 없습니다",
   "Tên mẫu tem": "라벨 양식 이름",
   "Tên mẫu việc *": "업무 템플릿 이름 *",
+  "Tên mục": "항목 이름",
   "Tên mức lương *": "급여 등급 이름 *",
   "Tên ngành quyết định giao diện bán: hàng hóa hay sơ đồ,": "업종 이름이 판매 화면을 결정합니다: 상품형 또는 배치도형,",
   "Tên ngành quyết định giao diện bán: hàng hóa hay sơ đồ, ": "업종 이름이 판매 화면을 결정합니다: 상품형인지 배치도형인지, ",
@@ -19072,6 +19090,7 @@
   "Xóa mốc đồng bộ": "동기화 기준점 삭제",
   "Xóa một phần": "일부 삭제",
   "Xóa mục": "항목 삭제",
+  "Xóa mục sổ tay?": "빠른 목록 항목을 삭제할까요?",
   "Xóa ngày": "날짜 삭제",
   "Xóa người dùng": "사용자 삭제",
   "Xóa nhà cung cấp?": "공급업체를 삭제하시겠습니까?",
@@ -20444,6 +20463,7 @@
   "vd. Tên quán to hơn, thêm wifi «sbox123» ở cuối, bỏ dòng mã đơn": "예: 매장 이름 더 크게, 하단에 wifi «sbox123» 추가, 주문 코드 줄 삭제",
   "vd: Chấm công, Tính lương": "예: 근태, 급여 계산",
   "vd: Giờ vàng rau cá": "예: 채소·생선 골든타임",
+  "vd: Mâm 4 người": "예: 4인 상차림",
   "vd: máy chấm công, vân tay, ADMS": "예: 근태 단말기, 지문, ADMS",
   "vd: rau mồng tơi, thịt ba chỉ": "예: 근대 잎, 삼겹살",
   "việc": "업무",
@@ -21599,6 +21619,7 @@
   "Đã lưu phạm vi dữ liệu tài khoản": "계정의 데이터 범위가 저장되었습니다",
   "Đã lưu server": "서버를 저장했습니다",
   "Đã lưu sơ đồ": "배치도를 저장했습니다",
+  "Đã lưu sổ tay": "빠른 목록을 저장했습니다",
   "Đã lưu tham số hệ thống": "시스템 매개변수 저장됨",
   "Đã lưu thiết lập SEO Google!": "Google SEO 설정을 저장했습니다!",
   "Đã lưu thiết lập Zalo bot": "Zalo 봇 설정을 저장했습니다",
@@ -28272,6 +28293,10 @@
    "{0} 프린터를 받는 기기가 없습니다 — 프린터가 연결된 기기에서 «프린터 공유»를 켜거나 «다른 기기»를 누르세요"
   ],
   [
+   "Không thêm được: {0}",
+   "추가하지 못했습니다: {0}"
+  ],
+  [
    "Không thấy {0} — kiểm tra cáp cân / driver USB-Serial",
    "{0}을(를) 찾을 수 없습니다 — 저울 케이블 / USB-Serial 드라이버를 확인하세요"
   ],
@@ -29682,6 +29707,10 @@
   [
    "Món mới {0}",
    "새 메뉴 {0}"
+  ],
+  [
+   "Món trong mục ({0})",
+   "항목의 메뉴 ({0})"
   ],
   [
    "Món trong thực đơn ({0})",
@@ -35388,8 +35417,16 @@
    "판매 중지된 {0}개 항목이 아직 이 프린터에 연결되어 있습니다"
   ],
   [
+   "{0} món vào đơn",
+   "{0}개 메뉴를 주문에 추가했습니다"
+  ],
+  [
    "{0} món · {1}",
    "{0}개 메뉴 · {1}"
+  ],
+  [
+   "{0} món · {1} phần",
+   "메뉴 {0}개 · 총 {1}개"
   ],
   [
    "{0} món · {1} đ",
@@ -37656,6 +37693,10 @@
    "«{0}»이(가) 매장에서 삭제됩니다"
   ],
   [
+   "«{0}» sẽ bị xóa khỏi sổ tay. Món trong danh mục không bị ảnh hưởng.",
+   "«{0}» 항목이 빠른 목록에서 삭제됩니다. 상품 목록의 메뉴는 영향을 받지 않습니다."
+  ],
+  [
    "«{0}» sẽ không còn gợi ý trên món này.",
    "«{0}»은(는) 이 메뉴에서 더 이상 추천되지 않습니다."
   ],
@@ -38926,6 +38967,10 @@
   [
    "Đã thêm {0}/{1} ngày lễ",
    "공휴일 {0}/{1}일을 추가했습니다"
+  ],
+  [
+   "Đã thêm «{0}»",
+   "«{0}» 추가됨"
   ],
   [
    "Đã thấy gateway{0}",

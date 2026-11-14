@@ -1582,6 +1582,7 @@
   "Bấm một dòng để xem chi tiết": "点击一行查看详情",
   "Bấm một hóa đơn để xem chi tiết": "点击一张账单查看详情",
   "Bấm một lần. Vừa đăng ký xong thì đợi 15–60 giây cho file lên server (chữ “đang đồng bộ”) — không mất dữ liệu. Danh sách tự làm mới.": "只需点击一次。刚注册完成后请等待 15–60 秒，文件上传到服务器(显示“正在同步”)——数据不会丢失。列表会自动刷新。",
+  "Bấm một mục để thêm cả danh sách món vào đơn": "点击项目即可将整份菜品清单加入订单",
   "Bấm một phần tử trên tem để sửa. Kéo để di chuyển, kéo chấm góc dưới phải để đổi cỡ. ": "点击标签上的元素进行编辑；拖动可移动，拖动右下角圆点可调整大小。 ",
   "Bấm một quỹ để xem phiếu thu trong kỳ của quỹ đó.": "点击某个资金账户查看其本期收款单。",
   "Bấm ngành của bạn để điền tỷ lệ vào hồ sơ (nhớ bấm «Lưu hồ sơ»)": "点击您的行业，把税率填入档案（记得点击「保存档案」）",
@@ -1859,6 +1860,7 @@
   "Bỏ lọc hoặc đổi từ khóa.": "请清除筛选或更换关键词。",
   "Bỏ lọc nhân viên": "取消员工筛选",
   "Bỏ mã vạch, chỉ giữ tên và giá": "去掉条码，只保留名称和价格",
+  "Bỏ món": "移除菜品",
   "Bỏ món chưa lưu": "放弃未保存的菜品",
   "Bỏ mẫu của khách": "移除客户模板",
   "Bỏ mẫu này": "放弃此模板",
@@ -1920,6 +1922,7 @@
   "Bộ phận": "部门",
   "Bộ điều khiển đèn": "灯光控制器",
   "Bộ đèn đã cài rồi thì nhấn nhanh nút BOOT trên mạch để mở Bluetooth thêm 10 phút.": "若灯光套件已安装，快速按一下电路板上的 BOOT 键，蓝牙将再开启 10 分钟。",
+  "Bớt": "减少",
   "Bởi": "经办人",
   "Bụng – core": "腹部 – 核心",
   "CA LÀM VIỆC": "班次",
@@ -2737,6 +2740,7 @@
   "Chưa có món báo bếp": "暂无需通知后厨的菜品",
   "Chưa có món mới hoặc hủy chờ báo bếp": "暂无待通知后厨的新菜品或取消",
   "Chưa có món nào": "暂无菜品",
+  "Chưa có món nào — bấm «Thêm món».": "还没有菜品 — 请点击«添加菜品»。",
   "Chưa có món xong": "暂无已完成的菜品",
   "Chưa có món ăn nào": "暂无任何菜品",
   "Chưa có món ăn. Vui lòng thêm món trong": "暂无菜品。请在以下位置添加菜品",
@@ -2744,6 +2748,7 @@
   "Chưa có món ăn. Vui lòng thêm món trong \"Quản lý danh sách món\".": "暂无菜品。请在“菜品列表管理”中添加菜品。",
   "Chưa có món để báo": "暂无可通知的菜品",
   "Chưa có món — bấm «Thêm món»": "暂无菜品 — 点击“添加菜品”",
+  "Chưa có món — bấm ⋮ để thêm": "暂无菜品 — 点击 ⋮ 添加",
   "Chưa có món — chạm món bên dưới hoặc gõ tên món mới": "暂无菜品 — 点击下方菜品或输入新菜品名称",
   "Chưa có mô tả": "暂无描述",
   "Chưa có mẫu": "暂无模板",
@@ -5567,6 +5572,7 @@
   "F&B: sau khi order, gửi bếp để in phiếu / hiện KDS. Phiếu bếp in giờ gọi một lần ở đầu phiếu.": "餐饮：下单后送厨房打印单据 / 显示在 KDS。厨房单在顶部只打印一次点单时间。",
   "F&B: thiết lập Khu vực / Bàn phòng trước khi mở order": "餐饮：开单前请先设置区域 / 桌台",
   "F7 = lấy lại khối lượng cho dòng vừa chọn.": "F7 = 重新读取刚选中行的重量。",
+  "FCM register skipped: not logged in / đang đăng nhập thay": "跳过 FCM 注册：未登录 / 正在切换账号",
   "Face ID, GPS, cấp quyền thiết bị, vùng chấm công": "Face ID、GPS、设备授权、打卡区域",
   "Face ID, GPS, vùng chấm công": "Face ID、GPS、打卡区域",
   "File Excel cần có các cột sau:": "Excel 文件需包含以下列：",
@@ -6156,6 +6162,7 @@
   "Giữa": "之间",
   "Giữa chi nhánh": "分店之间",
   "Gom nhiều việc để xem tiến độ chung (không bắt buộc)": "将多项任务归组以查看整体进度（非必填）",
+  "Gom những món hay bán cùng nhau thành một mục rồi đặt tên chung. Lần sau bấm một cái là cả danh sách vào đơn.": "把经常一起销售的菜品归到一个项目并取一个统一名称。下次只需点击一次，整份清单就会加入订单。",
   "Google Analytics / Ads ID (G-... hoặc AW-...)": "Google Analytics / Ads ID（G-... 或 AW-...）",
   "Google Drive của cửa hàng": "门店 Google Drive",
   "Google Drive hoạt động tốt": "Google Drive 运行正常",
@@ -8991,6 +8998,7 @@
   "Không tải được số liệu": "无法加载数据",
   "Không tải được số liệu căn tin": "无法加载食堂数据",
   "Không tải được sổ seri": "无法加载序列号台账",
+  "Không tải được sổ tay": "无法加载快捷清单",
   "Không tải được sổ đối chiếu": "无法加载对账账簿",
   "Không tải được thiết lập": "无法加载设置",
   "Không tải được thiết lập bản tin": "无法加载简报设置",
@@ -9780,6 +9788,8 @@
   "Lưu danh sách sản phẩm": "保存商品列表",
   "Lưu danh sách tính năng": "保存功能列表",
   "Lưu danh sách tải về": "保存下载列表",
+  "Lưu giỏ này": "保存当前购物车",
+  "Lưu giỏ này thành sổ": "将当前购物车保存为项目",
   "Lưu gán": "保存分配",
   "Lưu gói": "保存套餐",
   "Lưu hàng hóa trước khi thêm hàng cùng loại lên server.": "请先保存商品，再向服务器添加同类商品。",
@@ -11488,6 +11498,7 @@
   "Mở: ô «Tăng ca» trên Trang chủ hoặc nút «Mở quản lý tăng ca» trên Dashboard (chưa có trong menu)": "打开方式：首页的«加班»方块或仪表盘上的«打开加班管理»按钮（菜单中暂无）",
   "Mục ": "项 ",
   "Mục bị lỗ": "亏损项目",
+  "Mục mới": "新建项目",
   "Mục tiêu": "目标",
   "Mục tiêu (vd giảm 5kg trong 3 tháng)": "目标（如 3 个月减 5 kg）",
   "Mục tiêu: ": "目标： ",
@@ -12519,6 +12530,7 @@
   "Nhập tên NCC": "输入供应商名称",
   "Nhập tên WiFi của quán (WiFi 2.4 GHz)": "输入门店 WiFi 名称（2.4 GHz WiFi）",
   "Nhập tên ca": "输入班次名称",
+  "Nhập tên cho mục này": "请输入该项目的名称",
   "Nhập tên chương trình": "输入活动名称",
   "Nhập tên chủ tài khoản": "输入账户持有人姓名",
   "Nhập tên có dấu, sẽ tự động sinh tên không dấu bên dưới": "输入带声调符号的名称，下方将自动生成无声调符号的名称",
@@ -14351,6 +14363,8 @@
   "Sổ seri máy": "设备序列号登记簿",
   "Sổ sách HKD": "个体经营户账簿",
   "Sổ sách kế toán hộ kinh doanh": "个体经营户会计账簿",
+  "Sổ tay": "快捷清单",
+  "Sổ tay bán nhanh": "快速销售清单",
   "Sổ thu chi, quỹ tiền mặt": "收支账、现金账",
   "Sổ thuế bên dưới vẫn xem và xuất Excel được.": "下方的税务账簿仍可查看并导出 Excel。",
   "Sổ đối chiếu công nợ": "往来对账簿",
@@ -14453,6 +14467,7 @@
   "Sửa mẫu in": "编辑打印模板",
   "Sửa mẫu việc": "修改任务模板",
   "Sửa một máy nhiệt (vd. zywel) → bật Báo kho / xuất kho.": "编辑一台热敏打印机（如 zywel）→ 开启库存提醒 / 出库。",
+  "Sửa mục sổ tay": "编辑快捷清单项目",
   "Sửa mức lương": "编辑薪资标准",
   "Sửa mức lương ca": "修改班次工资档",
   "Sửa nguyên vật liệu": "修改原料",
@@ -15081,6 +15096,7 @@
   "Thiếu mã máy": "缺少设备编码",
   "Thiếu mã phiếu trả": "缺少退货单号",
   "Thiếu mã đại lý": "缺少代理商编码",
+  "Thiếu món": "缺少菜品",
   "Thiếu món trên giỏ": "购物车中缺少菜品",
   "Thiếu mật khẩu": "缺少密码",
   "Thiếu người": "人手不足",
@@ -15441,6 +15457,7 @@
   "Thêm mới": "新增",
   "Thêm mục": "添加条目",
   "Thêm mục (dán nhiều dòng để thêm nhiều mục)": "添加条目（粘贴多行可添加多个条目）",
+  "Thêm mục sổ tay": "添加快捷清单项目",
   "Thêm mục vào form": "向表单添加栏目",
   "Thêm mức": "添加档位",
   "Thêm mức lương": "添加薪资档位",
@@ -16677,6 +16694,7 @@
   "Tên mẫu in không được trống": "打印模板名称不能为空",
   "Tên mẫu tem": "标签模板名称",
   "Tên mẫu việc *": "任务模板名称 *",
+  "Tên mục": "项目名称",
   "Tên mức lương *": "薪资档位名称 *",
   "Tên ngành quyết định giao diện bán: hàng hóa hay sơ đồ,": "行业名称决定销售界面：商品列表或桌台图，",
   "Tên ngành quyết định giao diện bán: hàng hóa hay sơ đồ, ": "行业名称决定销售界面：商品型还是平面图型， ",
@@ -19072,6 +19090,7 @@
   "Xóa mốc đồng bộ": "删除同步节点",
   "Xóa một phần": "部分删除",
   "Xóa mục": "删除项目",
+  "Xóa mục sổ tay?": "删除快捷清单项目？",
   "Xóa ngày": "删除日期",
   "Xóa người dùng": "删除用户",
   "Xóa nhà cung cấp?": "删除供应商？",
@@ -20444,6 +20463,7 @@
   "vd. Tên quán to hơn, thêm wifi «sbox123» ở cuối, bỏ dòng mã đơn": "例如：店名放大，底部添加 wifi «sbox123»，去掉订单号一行",
   "vd: Chấm công, Tính lương": "例如：考勤、算工资",
   "vd: Giờ vàng rau cá": "例如：蔬菜鱼类黄金时段",
+  "vd: Mâm 4 người": "例：四人套餐",
   "vd: máy chấm công, vân tay, ADMS": "例：考勤机、指纹、ADMS",
   "vd: rau mồng tơi, thịt ba chỉ": "例如：木耳菜、五花肉",
   "việc": "项工作",
@@ -21599,6 +21619,7 @@
   "Đã lưu phạm vi dữ liệu tài khoản": "已保存账户数据范围",
   "Đã lưu server": "已保存服务器",
   "Đã lưu sơ đồ": "已保存布局图",
+  "Đã lưu sổ tay": "已保存快捷清单",
   "Đã lưu tham số hệ thống": "已保存系统参数",
   "Đã lưu thiết lập SEO Google!": "已保存 Google SEO 设置！",
   "Đã lưu thiết lập Zalo bot": "已保存 Zalo 机器人设置",
@@ -28272,6 +28293,10 @@
    "没有设备接收打印机{0}——请在连接该打印机的设备上开启«共享打印机»，或点击«其他设备»"
   ],
   [
+   "Không thêm được: {0}",
+   "无法添加：{0}"
+  ],
+  [
    "Không thấy {0} — kiểm tra cáp cân / driver USB-Serial",
    "未找到{0} — 请检查称重线缆 / USB-Serial驱动"
   ],
@@ -29682,6 +29707,10 @@
   [
    "Món mới {0}",
    "新菜品 {0}"
+  ],
+  [
+   "Món trong mục ({0})",
+   "项目中的菜品 ({0})"
   ],
   [
    "Món trong thực đơn ({0})",
@@ -35388,8 +35417,16 @@
    "{0} 个停售商品仍绑定在此打印机上"
   ],
   [
+   "{0} món vào đơn",
+   "已将 {0} 道菜品加入订单"
+  ],
+  [
    "{0} món · {1}",
    "{0} 道菜 · {1}"
+  ],
+  [
+   "{0} món · {1} phần",
+   "{0} 道菜品 · 共 {1} 份"
   ],
   [
    "{0} món · {1} đ",
@@ -37656,6 +37693,10 @@
    "«{0}» 将从门店中删除"
   ],
   [
+   "«{0}» sẽ bị xóa khỏi sổ tay. Món trong danh mục không bị ảnh hưởng.",
+   "«{0}» 将从快捷清单中删除。商品目录中的菜品不受影响。"
+  ],
+  [
    "«{0}» sẽ không còn gợi ý trên món này.",
    "「{0}」将不再作为此菜品的推荐。"
   ],
@@ -38926,6 +38967,10 @@
   [
    "Đã thêm {0}/{1} ngày lễ",
    "已添加 {0}/{1} 个节假日"
+  ],
+  [
+   "Đã thêm «{0}»",
+   "已添加 «{0}»"
   ],
   [
    "Đã thấy gateway{0}",

@@ -244,6 +244,8 @@ public class ZKTecoDbContext : IdentityDbContext<ApplicationUser, IdentityRole<G
     public DbSet<PosToppingGroup> PosToppingGroups => Set<PosToppingGroup>();
     public DbSet<PosToppingGroupItem> PosToppingGroupItems => Set<PosToppingGroupItem>();
     public DbSet<PosProductToppingGroupLink> PosProductToppingGroupLinks => Set<PosProductToppingGroupLink>();
+    public DbSet<PosQuickSellNote> PosQuickSellNotes => Set<PosQuickSellNote>();
+    public DbSet<PosQuickSellNoteItem> PosQuickSellNoteItems => Set<PosQuickSellNoteItem>();
     public DbSet<PosProductUnit> PosProductUnits => Set<PosProductUnit>();
     public DbSet<PosSupplier> PosSuppliers => Set<PosSupplier>();
     public DbSet<PosCustomer> PosCustomers => Set<PosCustomer>();

@@ -7,6 +7,7 @@ import 'dart:async';
 import '../utils/api_datetime.dart';
 import '../widgets/pos/pos_package_timer.dart';
 import '../widgets/pos/pos_quick_number_chips.dart';
+import '../widgets/pos/pos_quick_sell_notes_sheet.dart';
 import '../widgets/pos/pos_ticking_text.dart';
 import '../utils/pos_scale_barcode.dart';
 import '../utils/pos_scale_reader.dart';
@@ -10617,11 +10618,14 @@ class _PosSellScreenState extends State<PosSellScreen>
   }
 
   Future<Map<String, PosProduct>> _resolveDraftProducts(
-      Iterable<PosSaleOrderLine> lines) async {
-    final ids = lines
-        .map((l) => l.productId)
-        .where((id) => id.isNotEmpty)
-        .toSet();
+      Iterable<PosSaleOrderLine> lines) =>
+      _resolveProductsByIds(lines
+          .map((l) => l.productId)
+          .where((id) => id.isNotEmpty)
+          .toSet());
+
+  /// Lấy hàng hóa theo id: lưới đang mở → bộ đệm danh mục → API (chỉ những id còn thiếu).
+  Future<Map<String, PosProduct>> _resolveProductsByIds(Set<String> ids) async {
     final resolved = <String, PosProduct>{};
 
     for (final id in ids) {
@@ -16430,6 +16434,13 @@ class _PosSellScreenState extends State<PosSellScreen>
               ),
             ),
           ),
+          _cartHeaderChip(
+            label: 'Sổ tay',
+            icon: Icons.menu_book_outlined,
+            active: false,
+            onTap: () => unawaited(_openQuickSellNotes()),
+          ),
+          if (hasRounds) const SizedBox(width: 6),
           if (hasRounds)
             Material(
               color: byRound ? PosTheme.kiotBlueLight : Colors.white,
@@ -16460,6 +16471,93 @@ class _PosSellScreenState extends State<PosSellScreen>
         ],
       ),
     );
+  }
+
+  /// Chip nhỏ trên thanh tiêu đề giỏ (Sổ tay, Theo phiên…).
+  Widget _cartHeaderChip({
+    required String label,
+    required IconData icon,
+    required bool active,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: active ? PosTheme.kiotBlueLight : Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: active ? _kiotBlue : PosTheme.border),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, size: 15, color: active ? _kiotBlue : PosTheme.textSecondary),
+            const SizedBox(width: 4),
+            Text(tr(label),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: active ? _kiotBlue : PosTheme.textSecondary,
+                )),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  /// Sổ tay bán nhanh: chọn một mục → thêm cả danh sách món vào giỏ (mỗi món một dòng).
+  Future<void> _openQuickSellNotes() async {
+    final perm = Provider.of<PermissionProvider>(context, listen: false);
+    final note = await PosQuickSellNotesSheet.show(
+      context,
+      api: _api,
+      canEdit: perm.canCreate('PosSell') || perm.canEdit('PosSell'),
+      cartItems: [
+        for (final l in _tab.cart)
+          PosQuickSellCartItem(
+            productId: l.product.id,
+            productName: l.product.name,
+            qty: l.qty,
+            price: l.product.basePrice,
+          ),
+      ],
+    );
+    if (note == null || !mounted || note.items.isEmpty) return;
+
+    final products = await _resolveProductsByIds(
+        note.items.map((i) => i.productId).toSet());
+    if (!mounted) return;
+
+    var added = 0;
+    final missing = <String>[];
+    for (final item in note.items) {
+      final p = products[item.productId];
+      if (p == null) {
+        missing.add(item.productName);
+        continue;
+      }
+      await _addPick(
+        PosPurchaseLookupPick(product: p),
+        mergeIfSame: true,
+        addQty: item.qty <= 0 ? 1 : item.qty,
+      );
+      if (!mounted) return;
+      added++;
+    }
+
+    if (missing.isNotEmpty) {
+      NotificationOverlayManager().showWarning(
+        title: tr('Thiếu món'),
+        message: tr('Không thêm được: ${missing.join(', ')}'),
+      );
+    } else if (added > 0) {
+      NotificationOverlayManager().showSuccess(
+        title: tr('Đã thêm «${note.name}»'),
+        message: tr('$added món vào đơn'),
+      );
+    }
   }
 
   /// Phiên của từng dòng. Dòng đã báo bếp mà chưa có số phiên (đơn cũ, gọi món qua QR, báo từ máy cũ)
