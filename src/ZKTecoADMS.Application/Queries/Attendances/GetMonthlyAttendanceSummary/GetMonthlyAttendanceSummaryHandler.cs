@@ -179,7 +179,7 @@ public class GetMonthlyAttendanceSummaryHandler(
             results.Add(new MonthlyAttendanceSummaryDto
             {
                 EmployeeId = empId,
-                EmployeeName = $"{employee.FirstName} {employee.LastName}",
+                EmployeeName = $"{employee.LastName} {employee.FirstName}",
                 Year = request.Year,
                 Month = request.Month,
                 DailyRecords = dailyRecords

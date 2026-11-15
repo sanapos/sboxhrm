@@ -4,6 +4,7 @@ import 'package:zkteco_flutter_client/theme/sbox_tokens.dart';
 import '../../l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../widgets/sbox/sbox_ui.dart';
+import '../../utils/api_datetime.dart';
 
 double? _dn(dynamic v) => v == null ? null : (v is num ? v.toDouble() : double.tryParse('$v'));
 int _i(dynamic v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0;
@@ -75,7 +76,8 @@ class AaItem {
         photoUrl: j['photoUrl']?.toString(),
         department: j['department']?.toString(),
         time: _dt(j['time']),
-        createdAt: _dt(j['createdAt']),
+        // Ngày gửi lưu UTC (JSON không «Z») — đọc như giờ máy thì «7 giờ trước» cho yêu cầu vừa gửi.
+        createdAt: parseApiUtcDateTime(j['createdAt']) ?? DateTime.now(),
         title: '${j['title'] ?? ''}',
         subtitle: j['subtitle']?.toString(),
         reason: j['reason']?.toString(),

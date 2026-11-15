@@ -576,10 +576,14 @@ class PayrollEngine {
       employeeSalaryProfiles = [];
       // Đang làm + đã nghỉ việc trong/sau đầu kỳ (vẫn phải trả lương những ngày đã làm).
       final periodStart = DateTime(fromDate.year, fromDate.month, fromDate.day);
+      final periodEnd = DateTime(toDate.year, toDate.month, toDate.day);
       final activeEmployees = employees
           .where((e) =>
-              e.isActive ||
-              (e.resignationDate != null && !e.resignationDate!.isBefore(periodStart)))
+              (e.isActive ||
+                  (e.resignationDate != null && !e.resignationDate!.isBefore(periodStart))) &&
+              // Vào làm sau cuối kỳ: chưa có ngày công nào trong kỳ → không lên bảng lương (kể cả phụ cấp cố định).
+              (e.joinDate == null ||
+                  !DateTime(e.joinDate!.year, e.joinDate!.month, e.joinDate!.day).isAfter(periodEnd)))
           .toList(growable: false);
       final profileMap = await loadSalaryProfileMap(
         activeEmployees,

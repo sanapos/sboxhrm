@@ -1902,6 +1902,18 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       moduleCode: 'Leave',
     ),
     NavItem(
+      icon: Icons.more_time_outlined,
+      activeIcon: Icons.more_time,
+      label: 'Tăng ca',
+      subtitle: 'Đơn tăng ca',
+      // Duyệt / tạo đơn tăng ca — trước chỉ mở được từ một ô trên Tổng quan khi có đơn chờ.
+      screen: const OvertimeScreen(),
+      group: 'Chấm công',
+      showInSidebar: false,
+      themeColor: HrmPageChrome.primaryNavy,
+      moduleCode: 'Overtime',
+    ),
+    NavItem(
       icon: Icons.price_change_outlined,
       activeIcon: Icons.price_change,
       label: 'Thiết lập lương',

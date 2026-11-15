@@ -819,6 +819,8 @@ class _RegisterScreenState extends State<RegisterScreen>
                         ),
                         const SizedBox(height: 16),
 
+                        // Mô hình bán hàng chỉ dùng cho POS — bản HRM / doanh nghiệp không hỏi (giữ mặc định).
+                        if (_isPos) ...[
                         _buildLabel('MÔ HÌNH KINH DOANH'),
                         const SizedBox(height: 6),
                         Text(
@@ -840,6 +842,7 @@ class _RegisterScreenState extends State<RegisterScreen>
                           ),
                         ),
                         const SizedBox(height: 16),
+                        ],
 
                         // Login name (auto-generated)
                         _buildLabel(_isPos

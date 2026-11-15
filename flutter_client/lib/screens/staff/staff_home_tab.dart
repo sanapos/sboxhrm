@@ -5,6 +5,7 @@ import '../../l10n/app_tr.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
+import '../../utils/api_datetime.dart';
 import '../main_layout.dart' show ScreenRefreshNotifier;
 import '../notifications_screen.dart';
 import 'staff_entries.dart';
@@ -83,8 +84,8 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
     return v is Map ? Map<String, dynamic>.from(v) : null;
   }
 
-  static DateTime? _time(dynamic v) =>
-      v == null ? null : DateTime.tryParse(v.toString())?.toLocal();
+  // Giờ chấm / giờ ca là giờ tường VN; máy chủ cũ gắn «Z» nhầm → giữ mặt số, không +7 giờ.
+  static DateTime? _time(dynamic v) => parseAttendanceWallClock(v);
 
   static String _hm(DateTime? t) => t == null
       ? '--:--'

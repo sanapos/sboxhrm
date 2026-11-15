@@ -194,6 +194,8 @@ class AuthorizedDevice {
   final String? osVersion;
   final String? employeeId;
   final String? employeeName;
+  /// Mã NV hiển thị (employeeId là GUID hồ sơ).
+  final String? employeeCode;
   final bool isAuthorized;
   final bool canUseFaceId;
   final bool canUseGps;
@@ -218,6 +220,7 @@ class AuthorizedDevice {
     this.osVersion,
     this.employeeId,
     this.employeeName,
+    this.employeeCode,
     this.isAuthorized = false,
     this.canUseFaceId = true,
     this.canUseGps = true,
@@ -289,6 +292,7 @@ class AuthorizedDevice {
       osVersion: json['osVersion']?.toString(),
       employeeId: json['employeeId']?.toString(),
       employeeName: json['employeeName']?.toString(),
+      employeeCode: json['employeeCode']?.toString(),
       isAuthorized: _parseBool(json['isAuthorized'] ?? json['IsAuthorized']),
       canUseFaceId: _parseBool(json['canUseFaceId'] ?? json['CanUseFaceId'], defaultValue: true),
       canUseGps: _parseBool(json['canUseGps'] ?? json['CanUseGps'], defaultValue: true),
@@ -334,6 +338,7 @@ class AuthorizedDevice {
       'osVersion': osVersion,
       'employeeId': employeeId,
       'employeeName': employeeName,
+      'employeeCode': employeeCode,
       'isAuthorized': isAuthorized,
       'canUseFaceId': canUseFaceId,
       'canUseGps': canUseGps,
@@ -358,6 +363,7 @@ class AuthorizedDevice {
       osVersion: osVersion,
       employeeId: employeeId,
       employeeName: employeeName,
+      employeeCode: employeeCode,
       isAuthorized: isAuthorized ?? this.isAuthorized,
       canUseFaceId: canUseFaceId,
       canUseGps: canUseGps,

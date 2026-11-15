@@ -12,7 +12,7 @@ public class WorkScheduleMappingConfig : IRegister
             .Map(dest => dest.Id, src => src.Id)
             .Map(dest => dest.EmployeeUserId, src => src.EmployeeUserId)
             .Map(dest => dest.EmployeeName, src => src.Employee != null 
-                ? $"{src.Employee.FirstName} {src.Employee.LastName}".Trim() 
+                ? $"{src.Employee.LastName} {src.Employee.FirstName}".Trim() 
                 : "")
             .Map(dest => dest.EmployeeCode, src => src.Employee != null 
                 ? src.Employee.EmployeeCode 
@@ -44,7 +44,7 @@ public class WorkScheduleMappingConfig : IRegister
             .Map(dest => dest.Id, src => src.Id)
             .Map(dest => dest.EmployeeUserId, src => src.EmployeeUserId)
             .Map(dest => dest.EmployeeName, src => src.Employee != null 
-                ? $"{src.Employee.FirstName} {src.Employee.LastName}".Trim() 
+                ? $"{src.Employee.LastName} {src.Employee.FirstName}".Trim() 
                 : "")
             .Map(dest => dest.EmployeeCode, src => src.Employee != null 
                 ? src.Employee.EmployeeCode 

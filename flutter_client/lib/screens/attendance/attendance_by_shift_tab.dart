@@ -1293,6 +1293,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         if (guid.isNotEmpty) guid,
       ];
       final fills = attendanceFillDays(
+        employee: emp,
         scope: _dayScope,
         dates: dates,
         hasRow: (date) {
@@ -6847,19 +6848,24 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       codes[r.employeeId] = r.employeeCode;
       byEmp.putIfAbsent(r.employeeId, () => []).add(r);
     }
+    final rosterById = <String, Map<String, dynamic>>{};
     final roster = widget.employeesList;
     if (roster != null) {
       for (final emp in roster) {
         final code = emp['employeeCode']?.toString() ?? '';
         final pin = emp['pin']?.toString() ?? '';
         final id = code.isNotEmpty ? code : pin;
-        if (id.isEmpty || names.containsKey(id)) continue;
+        if (id.isEmpty) continue;
+        rosterById[id] = emp;
+        if (names.containsKey(id)) continue;
         if (_selectedEmployeeIds.isNotEmpty &&
             !_selectedEmployeeIds.contains(id) &&
             !_selectedEmployeeIds.contains(code) &&
             !_selectedEmployeeIds.contains(pin)) {
           continue;
         }
+        // Chưa vào làm / đã nghỉ cả kỳ: không đưa vào tổng hợp (tránh «vắng» cả kỳ).
+        if (!attendanceDaysInRange(_selectedDateRange).any((d) => attendanceIsEmployedOn(emp, d))) continue;
         names[id] = emp['fullName']?.toString() ??
             emp['name']?.toString() ??
             emp['employeeName']?.toString() ??
@@ -6878,6 +6884,7 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
       final hourly = _isHourlyPay(code) || _isHourlyPay(id);
       final rs = byEmp[id] ?? const <_DailyShiftRecord>[];
       final agg = _ShiftEmpAgg(id: id, name: e.value, code: code, hourly: hourly, records: rs);
+      final emp = rosterById[id];
       final byDay = <DateTime, List<_DailyShiftRecord>>{};
       for (final r in rs) {
         byDay.putIfAbsent(DateTime(r.date.year, r.date.month, r.date.day), () => []).add(r);
@@ -6902,7 +6909,10 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         final isPast = day.isBefore(today);
         final punched = list.where((r) => r.displayPunchTimes.isNotEmpty).toList();
         AttendanceDayState state;
-        if (punched.isNotEmpty) {
+        if (punched.isEmpty && emp != null && !attendanceIsEmployedOn(emp, day)) {
+          // Ngoài thời gian làm việc (trước ngày vào / sau ngày nghỉ): không tính vắng.
+          state = AttendanceDayState.off;
+        } else if (punched.isNotEmpty) {
           agg.presentDays++;
           final missing = isPast &&
               punched.any((r) => r.missingPunchHints.isNotEmpty || r.displayPunchTimes.length.isOdd);
@@ -6952,7 +6962,8 @@ class _AttendanceByShiftTabState extends State<AttendanceByShiftTab> {
         agg.dayStates.add((day, state));
       }
       if (!hourly) {
-        agg.expected = expectedWorkDaysSoFar(dates, (d) => _isWeeklyOffDay(d, code));
+        agg.expected = expectedWorkDaysSoFar(
+            dates, (d) => _isWeeklyOffDay(d, code) || (emp != null && !attendanceIsEmployedOn(emp, d)));
       }
       out.add(agg);
     }

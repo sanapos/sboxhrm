@@ -82,6 +82,21 @@ public static class ProductionPricing
                 .ToListAsync();
             if (entries.Count == 0) continue;
             var tiers = tiersByProduct.GetValueOrDefault(key.ProductItemId) ?? [];
+            if (tiers.Count == 0)
+            {
+                // Chưa khai bậc giá: không có gì để tính lũy tiến — giữ đơn giá đã có trên từng dòng (nhập tay /
+                // dữ liệu cũ). Trước đây Allocate với bậc rỗng đưa mọi dòng cũ của NV + SP trong tháng về 0 đ.
+                // Dòng mới chưa có giá lấy đơn giá gần nhất của chính NV + SP trong tháng.
+                var lastKnown = entries.LastOrDefault(e => e.UnitPrice is > 0)?.UnitPrice;
+                foreach (var e in entries)
+                {
+                    if (e.UnitPrice is null && lastKnown is decimal known) e.UnitPrice = known;
+                    if (e.UnitPrice is not decimal u) continue;
+                    var amount = Math.Round(u * e.Quantity, 0);
+                    if (e.Amount != amount) e.Amount = amount;
+                }
+                continue;
+            }
             var priced = Allocate(tiers, entries.Select(e => e.Quantity).ToList());
             for (var i = 0; i < entries.Count; i++)
             {

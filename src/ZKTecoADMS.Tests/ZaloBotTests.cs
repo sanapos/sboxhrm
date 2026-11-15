@@ -52,8 +52,8 @@ public class ZaloBotTests
     static async Task<ZaloBotSetting> SeedAsync(ZKTecoDbContext db, bool enabled = true, string categories = ZaloBotText.DefaultCategories, bool hideMoney = false)
     {
         db.Stores.Add(new Store { Id = StoreId, Name = "Cafe An" });
-        db.Users.Add(new ApplicationUser { Id = UserA, UserName = "a", FirstName = "Nguyễn", LastName = "An", StoreId = StoreId });
-        db.Users.Add(new ApplicationUser { Id = UserB, UserName = "b", FirstName = "Trần", LastName = "Bình", StoreId = StoreId });
+        db.Users.Add(new ApplicationUser { Id = UserA, UserName = "a", FirstName = "An", LastName = "Nguyễn", StoreId = StoreId });
+        db.Users.Add(new ApplicationUser { Id = UserB, UserName = "b", FirstName = "Bình", LastName = "Trần", StoreId = StoreId });
         var s = new ZaloBotSetting
         {
             Id = Guid.NewGuid(),
@@ -329,9 +329,9 @@ public class ZaloBotTests
 
     static async Task SeedEmployeesAsync(ZKTecoDbContext db)
     {
-        db.Employees.Add(new Employee { Id = EmpNoAcc, StoreId = StoreId, EmployeeCode = "NV01", FirstName = "Lê", LastName = "Cường", Department = "Xưởng" });
-        db.Employees.Add(new Employee { Id = EmpWithAcc, StoreId = StoreId, EmployeeCode = "NV02", FirstName = "Nguyễn", LastName = "An", ApplicationUserId = UserA });
-        db.Employees.Add(new Employee { Id = EmpResigned, StoreId = StoreId, EmployeeCode = "NV03", FirstName = "Võ", LastName = "Dũng", WorkStatus = ZKTecoADMS.Domain.Enums.EmployeeWorkStatus.Resigned });
+        db.Employees.Add(new Employee { Id = EmpNoAcc, StoreId = StoreId, EmployeeCode = "NV01", FirstName = "Cường", LastName = "Lê", Department = "Xưởng" });
+        db.Employees.Add(new Employee { Id = EmpWithAcc, StoreId = StoreId, EmployeeCode = "NV02", FirstName = "An", LastName = "Nguyễn", ApplicationUserId = UserA });
+        db.Employees.Add(new Employee { Id = EmpResigned, StoreId = StoreId, EmployeeCode = "NV03", FirstName = "Dũng", LastName = "Võ", WorkStatus = ZKTecoADMS.Domain.Enums.EmployeeWorkStatus.Resigned });
         await db.SaveChangesAsync();
     }
 

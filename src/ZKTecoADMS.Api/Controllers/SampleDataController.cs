@@ -77,6 +77,10 @@ public class SampleDataController(
                 return BadRequest(AppResponse<SampleDataResult>.Error("Không tìm thấy tài khoản quản lý."));
 
             var ownerId = ownerUser.Id;
+            // Chủ cửa hàng đăng ký chưa có tên người (Họ = «Owner», Tên = tên cửa hàng) → bài mẫu ký «Ban giám đốc».
+            var authorName = string.Equals(ownerUser.LastName, "Owner", StringComparison.OrdinalIgnoreCase)
+                ? "Ban giám đốc"
+                : $"{ownerUser.LastName} {ownerUser.FirstName}".Trim();
             var now = DateTime.UtcNow;
             var today = now.Date;
 
@@ -90,11 +94,11 @@ public class SampleDataController(
             // ══════════════════════════════════════════════
             var departments = new List<Department>
             {
-                new() { Id = Guid.NewGuid(), Code = "BGD", Name = "Ban Giám Đốc", Description = "Ban lãnh đạo công ty", Level = 0, SortOrder = 1, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Code = "KD", Name = "Phòng Kinh Doanh", Description = "Bán hàng và chăm sóc khách hàng", Level = 1, SortOrder = 2, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Code = "KT", Name = "Phòng Kế Toán", Description = "Quản lý tài chính kế toán", Level = 1, SortOrder = 3, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Code = "NS", Name = "Phòng Nhân Sự", Description = "Quản lý nhân sự và tuyển dụng", Level = 1, SortOrder = 4, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Code = "SX", Name = "Phòng Sản Xuất", Description = "Sản xuất và gia công", Level = 1, SortOrder = 5, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Code = "BGD", Positions = """["Giám đốc","Phó giám đốc"]""", Name = "Ban Giám Đốc", Description = "Ban lãnh đạo công ty", Level = 0, SortOrder = 1, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Code = "KD", Positions = """["Trưởng phòng kinh doanh","Nhân viên bán hàng"]""", Name = "Phòng Kinh Doanh", Description = "Bán hàng và chăm sóc khách hàng", Level = 1, SortOrder = 2, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Code = "KT", Positions = """["Kế toán trưởng","Kế toán viên"]""", Name = "Phòng Kế Toán", Description = "Quản lý tài chính kế toán", Level = 1, SortOrder = 3, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Code = "NS", Positions = """["Trưởng phòng nhân sự","Chuyên viên nhân sự"]""", Name = "Phòng Nhân Sự", Description = "Quản lý nhân sự và tuyển dụng", Level = 1, SortOrder = 4, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Code = "SX", Positions = """["Quản đốc xưởng may","Tổ trưởng","Thợ may","Thợ cắt"]""", Name = "Phòng Sản Xuất", Description = "Sản xuất và gia công", Level = 1, SortOrder = 5, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
             };
             // Đăng ký cửa hàng đã tạo sẵn phòng ban mặc định (KT, NS, SX…) — dùng lại phòng ban trùng mã,
             // trước đây thêm trùng → vi phạm IX_Department_Store_Code, cả lượt cài mẫu bị hủy (500).
@@ -119,16 +123,16 @@ public class SampleDataController(
             // ══════════════════════════════════════════════
             var empData = new[]
             {
-                ("An",    "Nguyễn Văn", "Nam",  "0901000001", "an",    "NV001", "Giám Đốc",      0, "1990-03-15"),
-                ("Bình",  "Trần Thị",   "Nữ",   "0901000002", "binh",  "NV002", "Trưởng phòng KD",1, "1992-07-20"),
-                ("Cường", "Lê Hoàng",   "Nam",  "0901000003", "cuong", "NV003", "Nhân viên KD",   1, "1995-01-10"),
-                ("Dung",  "Phạm Thị",   "Nữ",   "0901000004", "dung",  "NV004", "Kế toán trưởng", 2, "1991-11-25"),
-                ("Em",    "Hoàng Văn",   "Nam",  "0901000005", "em",    "NV005", "Nhân viên KT",   2, "1998-05-08"),
-                ("Fương", "Võ Thị",      "Nữ",   "0901000006", "fuong", "NV006", "Trưởng phòng NS",3, "1993-09-12"),
-                ("Giang", "Đặng Văn",    "Nam",  "0901000007", "giang", "NV007", "Nhân viên NS",   3, "1997-02-28"),
-                ("Hạnh",  "Bùi Thị",     "Nữ",   "0901000008", "hanh",  "NV008", "Quản đốc SX",    4, "1994-06-17"),
-                ("Khang", "Ngô Văn",     "Nam",  "0901000009", "khang", "NV009", "Công nhân SX",    4, "1996-08-03"),
-                ("Lan",   "Mai Thị",     "Nữ",   "0901000010", "lan",   "NV010", "Công nhân SX",    4, "1999-12-22"),
+                ("Phát",  "Trần Minh",  "Nam", "0903418265", "phat",  "1001", "Giám đốc",              0, "1984-04-12"),
+                ("Ngọc",  "Lê Bảo",     "Nữ",  "0938517204", "ngoc",  "1002", "Trưởng phòng kinh doanh", 1, "1990-07-20"),
+                ("Huy",   "Phạm Quốc",  "Nam", "0976203481", "huy",   "1003", "Nhân viên bán hàng",    1, "1996-01-10"),
+                ("Hằng",  "Nguyễn Thu", "Nữ",  "0912650378", "hang",  "1004", "Kế toán trưởng",        2, "1989-11-25"),
+                ("Khoa",  "Đỗ Đăng",    "Nam", "0965147023", "khoa",  "1005", "Kế toán viên",          2, "1998-05-08"),
+                ("Trang", "Võ Thùy",    "Nữ",  "0909381546", "trang", "1006", "Trưởng phòng nhân sự",  3, "1992-09-12"),
+                ("Tuấn",  "Huỳnh Anh",  "Nam", "0947268105", "tuan",  "1007", "Chuyên viên nhân sự",   3, "1997-02-28"),
+                ("Thảo",  "Bùi Phương", "Nữ",  "0918734260", "thao",  "1008", "Quản đốc xưởng may",    4, "1991-06-17"),
+                ("Lộc",   "Ngô Văn",    "Nam", "0983526714", "loc",   "1009", "Thợ may",               4, "1995-08-03"),
+                ("Duyên", "Mai Mỹ",     "Nữ",  "0907615832", "duyen", "1010", "Thợ may",               4, "1999-12-22"),
             };
 
             var employees = new List<Employee>();
@@ -179,7 +183,7 @@ public class SampleDataController(
                     DepartmentId = departments[deptIdx].Id,
                     Position = position,
                     Level = deptIdx == 0 ? "C-Level" : (position.Contains("Trưởng") || position.Contains("Quản đốc") ? "Senior" : "Junior"),
-                    JoinDate = today.AddDays(-30),
+                    JoinDate = new DateTime(2023, 3, 1).AddDays(employees.Count * 47),
                     WorkStatus = EmployeeWorkStatus.Active,
                     EmploymentType = EmploymentType.Monthly,
                     ApplicationUserId = userId,
@@ -202,11 +206,21 @@ public class SampleDataController(
             // ══════════════════════════════════════════════
             var shifts = new List<ShiftTemplate>
             {
-                new() { Id = Guid.NewGuid(), ManagerId = ownerId, Name = "Ca sáng", Code = "CS", StartTime = new TimeSpan(8,0,0), EndTime = new TimeSpan(17,0,0), MaximumAllowedLateMinutes = 15, MaximumAllowedEarlyLeaveMinutes = 15, BreakTimeMinutes = 60, ShiftType = "HanhChinh", IsActive = true, StoreId = storeId, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), ManagerId = ownerId, Name = "Ca chiều", Code = "CC", StartTime = new TimeSpan(13,0,0), EndTime = new TimeSpan(21,0,0), MaximumAllowedLateMinutes = 15, MaximumAllowedEarlyLeaveMinutes = 15, BreakTimeMinutes = 30, ShiftType = "HanhChinh", IsActive = true, StoreId = storeId, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), ManagerId = ownerId, Name = "Ca đêm", Code = "CD", StartTime = new TimeSpan(21,0,0), EndTime = new TimeSpan(5,0,0), MaximumAllowedLateMinutes = 15, MaximumAllowedEarlyLeaveMinutes = 15, BreakTimeMinutes = 30, ShiftType = "QuaDem", IsActive = true, StoreId = storeId, CreatedAt = now, CreatedBy = "SampleData" },
+                // Nhận chấm sớm 60 > tăng ca trước ca 30 — bằng nhau thì màn Sửa ca báo đỏ.
+                new() { Id = Guid.NewGuid(), ManagerId = ownerId, Name = "Ca hành chính", Code = "HC", StartTime = new TimeSpan(8,0,0), EndTime = new TimeSpan(17,0,0), MaximumAllowedLateMinutes = 15, MaximumAllowedEarlyLeaveMinutes = 15, BreakTimeMinutes = 60, EarlyCheckInMinutes = 60, ShiftType = "HanhChinh", IsActive = true, StoreId = storeId, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), ManagerId = ownerId, Name = "Ca chiều", Code = "CC", StartTime = new TimeSpan(13,0,0), EndTime = new TimeSpan(21,0,0), MaximumAllowedLateMinutes = 15, MaximumAllowedEarlyLeaveMinutes = 15, BreakTimeMinutes = 30, EarlyCheckInMinutes = 60, ShiftType = "HanhChinh", IsActive = true, StoreId = storeId, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), ManagerId = ownerId, Name = "Ca đêm", Code = "CD", StartTime = new TimeSpan(21,0,0), EndTime = new TimeSpan(5,0,0), MaximumAllowedLateMinutes = 15, MaximumAllowedEarlyLeaveMinutes = 15, BreakTimeMinutes = 30, EarlyCheckInMinutes = 60, ShiftType = "QuaDem", IsActive = true, StoreId = storeId, CreatedAt = now, CreatedBy = "SampleData" },
             };
-            db.ShiftTemplates.AddRange(shifts);
+            // Đăng ký cửa hàng đã tạo ca mặc định — ca trùng tên thì dùng lại (trước có 2 «Ca hành chính»).
+            var existingShifts = await db.ShiftTemplates
+                .Where(t => t.StoreId == storeId)
+                .ToListAsync(ct);
+            for (var i = 0; i < shifts.Count; i++)
+            {
+                var same = existingShifts.FirstOrDefault(t => string.Equals(t.Name.Trim(), shifts[i].Name, StringComparison.OrdinalIgnoreCase));
+                if (same != null) shifts[i] = same;
+                else db.ShiftTemplates.Add(shifts[i]);
+            }
 
             // ══════════════════════════════════════════════
             // 5. TẠO BẢNG LƯƠNG (Benefit / Salary Profile)
@@ -215,9 +229,9 @@ public class SampleDataController(
             // (2 ngày / tuần / NV) trong khi Tổng quan coi là ngày nghỉ.
             var salaryProfiles = new List<Benefit>
             {
-                new() { Id = Guid.NewGuid(), Name = "Lương quản lý", RateType = SalaryRateType.Monthly, Rate = 25_000_000, SalaryPerDay = 961_538, StandardWorkMode = StandardWorkMode.Fixed26, MealAllowance = 40_000, TransportAllowance = 500_000, OvertimeMultiplier = 1.5m, WeeklyOffDays = "Sunday", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Name = "Lương nhân viên VP", RateType = SalaryRateType.Monthly, Rate = 12_000_000, SalaryPerDay = 461_538, StandardWorkMode = StandardWorkMode.Fixed26, MealAllowance = 30_000, TransportAllowance = 300_000, OvertimeMultiplier = 1.5m, WeeklyOffDays = "Sunday", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Name = "Lương công nhân", RateType = SalaryRateType.Daily, Rate = 350_000, SalaryPerDay = 350_000, StandardWorkMode = StandardWorkMode.Fixed26, MealAllowance = 30_000, TransportAllowance = 200_000, OvertimeMultiplier = 1.5m, WeeklyOffDays = "Sunday", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Name = "Lương quản lý", RateType = SalaryRateType.Monthly, Rate = 25_000_000, SalaryPerDay = 961_538, StandardWorkMode = StandardWorkMode.Auto, Description = "shifts:Ca hành chính", MealAllowance = 40_000, TransportAllowance = 500_000, OvertimeMultiplier = 1.5m, WeeklyOffDays = "Sunday", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Name = "Lương nhân viên VP", RateType = SalaryRateType.Monthly, Rate = 12_000_000, SalaryPerDay = 461_538, StandardWorkMode = StandardWorkMode.Auto, Description = "shifts:Ca hành chính", MealAllowance = 30_000, TransportAllowance = 300_000, OvertimeMultiplier = 1.5m, WeeklyOffDays = "Sunday", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Name = "Lương thợ may", RateType = SalaryRateType.Daily, Rate = 260_000, SalaryPerDay = 260_000, StandardWorkMode = StandardWorkMode.Auto, Description = "shifts:Ca hành chính", MealAllowance = 30_000, TransportAllowance = 200_000, OvertimeMultiplier = 1.5m, WeeklyOffDays = "Sunday", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
             };
             db.Benefits.AddRange(salaryProfiles);
 
@@ -231,7 +245,7 @@ public class SampleDataController(
                     Id = Guid.NewGuid(),
                     EmployeeId = employees[i].Id,
                     BenefitId = salaryProfiles[profileIdx].Id,
-                    EffectiveDate = today.AddDays(-30),
+                    EffectiveDate = new DateTime(today.Year, 1, 1),
                     IsActive = true,
                     CreatedAt = now,
                     CreatedBy = "SampleData",
@@ -243,6 +257,8 @@ public class SampleDataController(
             // 6. TẠO LỊCH LÀM VIỆC + CA + CHẤM CÔNG (15 ngày)
             // ══════════════════════════════════════════════
             var rng = new Random(42);
+            var periodStart = new DateTime(today.Year, today.Month, 1).AddMonths(-1);
+            var dayCount = (int)(today - periodStart).TotalDays;
             var morningShiftId = shifts[0].Id;
             var allShifts = new List<Shift>();
             var allSchedules = new List<WorkSchedule>();
@@ -266,12 +282,13 @@ public class SampleDataController(
             var dummyDevice = new Device
             {
                 Id = dummyDeviceId,
-                SerialNumber = $"DEMO-{storeCode}",
-                DeviceName = "Máy chấm công Demo",
-                Description = "Thiết bị mẫu cho dữ liệu demo",
+                SerialNumber = $"CQZ7{Math.Abs(storeCode.GetHashCode()) % 100000000:D8}",
+                DeviceName = "Máy chấm công cổng xưởng",
+                Description = "ZKTeco SpeedFace V5L",
                 IpAddress = "192.168.1.100",
-                Location = "Sảnh chính",
-                DeviceStatus = "Online",
+                Location = "Cổng xưởng may",
+                // Máy mẫu chưa từng kết nối — «Online» làm Thiết lập ghi Online còn Nhân sự chấm công ghi mất kết nối.
+                DeviceStatus = "Offline",
                 ManagerId = ownerId,
                 OwnerId = ownerId,
                 IsClaimed = true,
@@ -308,7 +325,7 @@ public class SampleDataController(
             }
             db.DeviceUsers.AddRange(deviceUsers);
 
-            for (int dayOffset = -14; dayOffset <= 0; dayOffset++)
+            for (int dayOffset = -dayCount; dayOffset < 0; dayOffset++)
             {
                 var date = today.AddDays(dayOffset);
                 if (date.DayOfWeek == DayOfWeek.Sunday) continue; // Chủ nhật nghỉ
@@ -320,7 +337,8 @@ public class SampleDataController(
                     var shiftStart = date.Add(shifts[0].StartTime); // 8:00
                     var shiftEnd = date.Add(shifts[0].EndTime);     // 17:00
 
-                    // Lịch làm việc
+                    // Lịch làm việc — nghỉ thứ Bảy luân phiên thì không có giờ chấm
+                    var dayOff = false;
                     allSchedules.Add(new WorkSchedule
                     {
                         Id = Guid.NewGuid(),
@@ -329,7 +347,7 @@ public class SampleDataController(
                         ShiftId = morningShiftId,
                         StartTime = shifts[0].StartTime,
                         EndTime = shifts[0].EndTime,
-                        IsDayOff = date.DayOfWeek == DayOfWeek.Saturday && rng.Next(3) == 0,
+                        IsDayOff = dayOff,
                         AssignedById = ownerId,
                         StoreId = storeId,
                         IsActive = true,
@@ -337,11 +355,17 @@ public class SampleDataController(
                         CreatedBy = "SampleData",
                     });
 
+                    if (dayOff) continue;
                     // Random chấm công: hầu hết đúng giờ, vài người muộn
+                    // giờ chấm như người thật: đến sớm 3–25 phút, về trễ 0–20 phút, có giây (video «chấm công thô»)
                     var lateMinutes = rng.Next(10) < 7 ? 0 : rng.Next(1, 20);
-                    var checkInTime = shiftStart.AddMinutes(lateMinutes);
+                    var checkInTime = lateMinutes == 0
+                        ? shiftStart.AddMinutes(-rng.Next(3, 26)).AddSeconds(rng.Next(60))
+                        : shiftStart.AddMinutes(lateMinutes).AddSeconds(rng.Next(60));
                     var earlyLeave = rng.Next(10) < 8 ? 0 : rng.Next(1, 15);
-                    var checkOutTime = shiftEnd.AddMinutes(-earlyLeave);
+                    var checkOutTime = earlyLeave == 0
+                        ? shiftEnd.AddMinutes(rng.Next(0, 21)).AddSeconds(rng.Next(60))
+                        : shiftEnd.AddMinutes(-earlyLeave).AddSeconds(rng.Next(60));
 
                     var deviceUserId = empToDeviceUserId[emp.Id];
                     var checkInAtt = new Attendance
@@ -409,8 +433,8 @@ public class SampleDataController(
                     ManagerId = ownerId,
                     Type = LeaveType.AnnualLeave,
                     ShiftId = allShifts[25].Id,
-                    StartDate = today.AddDays(-10),
-                    EndDate = today.AddDays(-9),
+                    StartDate = periodStart.AddDays(13),
+                    EndDate = periodStart.AddDays(14),
                     IsHalfShift = false,
                     Reason = "Nghỉ phép đi du lịch gia đình",
                     Status = LeaveStatus.Approved,
@@ -431,8 +455,8 @@ public class SampleDataController(
                     ManagerId = ownerId,
                     Type = LeaveType.SickLeave,
                     ShiftId = allShifts[45].Id,
-                    StartDate = today.AddDays(-5),
-                    EndDate = today.AddDays(-5),
+                    StartDate = periodStart.AddDays(20),
+                    EndDate = periodStart.AddDays(20),
                     IsHalfShift = true,
                     Reason = "Bị cảm sốt, cần nghỉ ngơi",
                     Status = LeaveStatus.Approved,
@@ -472,9 +496,9 @@ public class SampleDataController(
             // ══════════════════════════════════════════════
             var overtimes = new List<Overtime>
             {
-                new() { Id = Guid.NewGuid(), EmployeeUserId = userIds[1], ManagerId = ownerId, Type = OvertimeType.Weekday, Date = today.AddDays(-7), StartTime = new TimeSpan(17,30,0), EndTime = new TimeSpan(20,0,0), PlannedHours = 2.5m, ActualHours = 2.5m, Multiplier = 1.5m, Reason = "Hoàn thành báo cáo doanh số tháng", Status = OvertimeStatus.Approved, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), EmployeeUserId = userIds[7], ManagerId = ownerId, Type = OvertimeType.Weekend, Date = today.AddDays(-6), StartTime = new TimeSpan(8,0,0), EndTime = new TimeSpan(12,0,0), PlannedHours = 4m, ActualHours = 4m, Multiplier = 2.0m, Reason = "Giao hàng gấp cho khách VIP", Status = OvertimeStatus.Completed, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), EmployeeUserId = userIds[8], ManagerId = ownerId, Type = OvertimeType.Weekday, Date = today.AddDays(-2), StartTime = new TimeSpan(17,0,0), EndTime = new TimeSpan(19,30,0), PlannedHours = 2.5m, Multiplier = 1.5m, Reason = "Gia công đơn hàng số 2024-156", Status = OvertimeStatus.Pending, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), EmployeeUserId = userIds[1], ManagerId = ownerId, Type = OvertimeType.Weekday, Date = periodStart.AddDays(8), StartTime = new TimeSpan(17,30,0), EndTime = new TimeSpan(20,0,0), PlannedHours = 2.5m, ActualHours = 2.5m, Multiplier = 1.5m, Reason = "Hoàn thành báo cáo doanh số tháng", Status = OvertimeStatus.Approved, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), EmployeeUserId = userIds[7], ManagerId = ownerId, Type = OvertimeType.Weekend, Date = periodStart.AddDays(18), StartTime = new TimeSpan(8,0,0), EndTime = new TimeSpan(12,0,0), PlannedHours = 4m, ActualHours = 4m, Multiplier = 2.0m, Reason = "Giao hàng gấp cho khách VIP", Status = OvertimeStatus.Completed, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), EmployeeUserId = userIds[8], ManagerId = ownerId, Type = OvertimeType.Weekday, Date = today.AddDays(-2), StartTime = new TimeSpan(17,0,0), EndTime = new TimeSpan(19,30,0), PlannedHours = 2.5m, Multiplier = 1.5m, Reason = "Gia công đơn áo sơ mi xuất khẩu", Status = OvertimeStatus.Pending, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
             };
             db.Overtimes.AddRange(overtimes);
 
@@ -483,9 +507,9 @@ public class SampleDataController(
             // ══════════════════════════════════════════════
             var penalties = new List<PenaltyTicket>
             {
-                new() { Id = Guid.NewGuid(), TicketCode = $"PT-001-{storeCode}", EmployeeId = employees[2].Id, Type = PenaltyTicketType.Late, Status = PenaltyTicketStatus.Approved, Amount = 50_000, ViolationDate = today.AddDays(-12), MinutesLateOrEarly = 18, ShiftStartTime = new TimeSpan(8,0,0), ActualPunchTime = today.AddDays(-12).AddHours(8).AddMinutes(18), PenaltyTier = 1, Description = "Đi trễ 18 phút", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), TicketCode = $"PT-002-{storeCode}", EmployeeId = employees[8].Id, Type = PenaltyTicketType.EarlyLeave, Status = PenaltyTicketStatus.Approved, Amount = 30_000, ViolationDate = today.AddDays(-8), MinutesLateOrEarly = 12, ShiftEndTime = new TimeSpan(17,0,0), PenaltyTier = 1, Description = "Về sớm 12 phút", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), TicketCode = $"PT-003-{storeCode}", EmployeeId = employees[9].Id, Type = PenaltyTicketType.ForgotCheck, Status = PenaltyTicketStatus.Pending, Amount = 20_000, ViolationDate = today.AddDays(-4), Description = "Quên chấm công ra ca", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), TicketCode = "PT-001", EmployeeId = employees[2].Id, Type = PenaltyTicketType.Late, Status = PenaltyTicketStatus.Approved, Amount = 50_000, ViolationDate = periodStart.AddDays(9), MinutesLateOrEarly = 18, ShiftStartTime = new TimeSpan(8,0,0), ActualPunchTime = periodStart.AddDays(9).AddHours(8).AddMinutes(18), PenaltyTier = 1, Description = "Đi trễ 18 phút", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), TicketCode = "PT-002", EmployeeId = employees[8].Id, Type = PenaltyTicketType.EarlyLeave, Status = PenaltyTicketStatus.Approved, Amount = 30_000, ViolationDate = periodStart.AddDays(16), MinutesLateOrEarly = 22, ShiftEndTime = new TimeSpan(17,0,0), PenaltyTier = 1, Description = "Về sớm 22 phút", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), TicketCode = "PT-003", EmployeeId = employees[9].Id, Type = PenaltyTicketType.ForgotCheck, Status = PenaltyTicketStatus.Pending, Amount = 20_000, ViolationDate = today.AddDays(-4), Description = "Quên chấm công ra ca", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
             };
             db.PenaltyTickets.AddRange(penalties);
 
@@ -494,7 +518,7 @@ public class SampleDataController(
             // ══════════════════════════════════════════════
             var advances = new List<AdvanceRequest>
             {
-                new() { Id = Guid.NewGuid(), EmployeeUserId = userIds[8], EmployeeId = employees[8].Id, Amount = 3_000_000, Reason = "Cần tiền gấp sửa xe", RequestDate = today.AddDays(-10), Status = AdvanceRequestStatus.Approved, ApprovedById = ownerId, ApprovedDate = today.AddDays(-9), ForMonth = now.Month, ForYear = now.Year, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), EmployeeUserId = userIds[8], EmployeeId = employees[8].Id, Amount = 3_000_000, Reason = "Cần tiền gấp sửa xe", RequestDate = periodStart.AddDays(14), Status = AdvanceRequestStatus.Approved, ApprovedById = ownerId, ApprovedDate = periodStart.AddDays(15), ForMonth = periodStart.Month, ForYear = periodStart.Year, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
                 new() { Id = Guid.NewGuid(), EmployeeUserId = userIds[6], EmployeeId = employees[6].Id, Amount = 2_000_000, Reason = "Đóng tiền học con", RequestDate = today.AddDays(-5), Status = AdvanceRequestStatus.Pending, ForMonth = now.Month, ForYear = now.Year, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
             };
             db.AdvanceRequests.AddRange(advances);
@@ -509,11 +533,11 @@ public class SampleDataController(
 
             var transactions = new List<CashTransaction>
             {
-                new() { Id = Guid.NewGuid(), TransactionCode = $"TX-001-{storeCode}", Type = CashTransactionType.Income, CategoryId = incCat.Id, Amount = 45_000_000, TransactionDate = today.AddDays(-13), Description = "Thu tiền đơn hàng #2024-150", PaymentMethod = PaymentMethodType.BankTransfer, Status = CashTransactionStatus.Completed, ContactName = "Công ty ABC", StoreId = storeId, CreatedByUserId = ownerId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), TransactionCode = $"TX-002-{storeCode}", Type = CashTransactionType.Income, CategoryId = incCat.Id, Amount = 28_500_000, TransactionDate = today.AddDays(-8), Description = "Thu tiền đơn hàng #2024-155", PaymentMethod = PaymentMethodType.Cash, Status = CashTransactionStatus.Completed, ContactName = "Cửa hàng XYZ", StoreId = storeId, CreatedByUserId = ownerId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), TransactionCode = $"TX-003-{storeCode}", Type = CashTransactionType.Expense, CategoryId = expCat.Id, Amount = 8_500_000, TransactionDate = today.AddDays(-10), Description = "Tiền điện + nước tháng này", PaymentMethod = PaymentMethodType.BankTransfer, Status = CashTransactionStatus.Completed, StoreId = storeId, CreatedByUserId = ownerId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), TransactionCode = $"TX-004-{storeCode}", Type = CashTransactionType.Expense, CategoryId = expCat.Id, Amount = 3_200_000, TransactionDate = today.AddDays(-6), Description = "Mua văn phòng phẩm + mực in", PaymentMethod = PaymentMethodType.Cash, Status = CashTransactionStatus.Completed, StoreId = storeId, CreatedByUserId = ownerId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), TransactionCode = $"TX-005-{storeCode}", Type = CashTransactionType.Expense, CategoryId = salCat.Id, Amount = 65_000_000, TransactionDate = today.AddDays(-1), Description = "Thanh toán lương tháng này", PaymentMethod = PaymentMethodType.BankTransfer, Status = CashTransactionStatus.Pending, StoreId = storeId, CreatedByUserId = ownerId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), TransactionCode = "TX-001", Type = CashTransactionType.Income, CategoryId = incCat.Id, Amount = 45_000_000, TransactionDate = today.AddDays(-13), Description = $"Thu tiền đơn hàng #{today.Year}-150", PaymentMethod = PaymentMethodType.BankTransfer, Status = CashTransactionStatus.Completed, ContactName = "Công ty ABC", StoreId = storeId, CreatedByUserId = ownerId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), TransactionCode = "TX-002", Type = CashTransactionType.Income, CategoryId = incCat.Id, Amount = 28_500_000, TransactionDate = today.AddDays(-8), Description = $"Thu tiền đơn hàng #{today.Year}-155", PaymentMethod = PaymentMethodType.Cash, Status = CashTransactionStatus.Completed, ContactName = "Cửa hàng XYZ", StoreId = storeId, CreatedByUserId = ownerId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), TransactionCode = "TX-003", Type = CashTransactionType.Expense, CategoryId = expCat.Id, Amount = 8_500_000, TransactionDate = today.AddDays(-10), Description = "Tiền điện + nước tháng này", PaymentMethod = PaymentMethodType.BankTransfer, Status = CashTransactionStatus.Completed, StoreId = storeId, CreatedByUserId = ownerId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), TransactionCode = "TX-004", Type = CashTransactionType.Expense, CategoryId = expCat.Id, Amount = 3_200_000, TransactionDate = today.AddDays(-6), Description = "Mua văn phòng phẩm + mực in", PaymentMethod = PaymentMethodType.Cash, Status = CashTransactionStatus.Completed, StoreId = storeId, CreatedByUserId = ownerId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), TransactionCode = "TX-005", Type = CashTransactionType.Expense, CategoryId = salCat.Id, Amount = 65_000_000, TransactionDate = today.AddDays(-1), Description = "Thanh toán lương tháng này", PaymentMethod = PaymentMethodType.BankTransfer, Status = CashTransactionStatus.Pending, StoreId = storeId, CreatedByUserId = ownerId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
             };
             db.CashTransactions.AddRange(transactions);
 
@@ -522,9 +546,9 @@ public class SampleDataController(
             // ══════════════════════════════════════════════
             var comms = new List<InternalCommunication>
             {
-                new() { Id = Guid.NewGuid(), StoreId = storeId, Title = "Chào mừng thành viên mới!", Content = "Chào mừng tất cả thành viên gia nhập công ty. Hãy cùng nhau xây dựng môi trường làm việc tốt nhất!", Type = CommunicationType.Announcement, Priority = CommunicationPriority.High, Status = CommunicationStatus.Published, AuthorId = ownerId, AuthorName = $"{ownerUser.FirstName} {ownerUser.LastName}", PublishedAt = now.AddDays(-14), IsPinned = true, ViewCount = 10, LikeCount = 8, CreatedAt = now.AddDays(-14), CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), StoreId = storeId, Title = "Nội quy công ty áp dụng từ tháng này", Content = "Các nội quy mới:\n1. Giờ làm việc: 8:00 - 17:00\n2. Nghỉ trưa: 12:00 - 13:00\n3. Trang phục lịch sự\n4. Không sử dụng điện thoại trong giờ làm việc\n5. Báo cáo trước khi nghỉ phép ít nhất 1 ngày", Type = CommunicationType.Regulation, Priority = CommunicationPriority.Normal, Status = CommunicationStatus.Published, AuthorId = ownerId, AuthorName = $"{ownerUser.FirstName} {ownerUser.LastName}", PublishedAt = now.AddDays(-12), ViewCount = 9, LikeCount = 3, CreatedAt = now.AddDays(-12), CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), StoreId = storeId, Title = "Kế hoạch team building quý 2", Content = "Công ty tổ chức chuyến team building tại Vũng Tàu ngày 15-16 tháng tới. Chi phí do công ty chi trả 100%. Đăng ký tham gia trước ngày 10.", Type = CommunicationType.Event, Priority = CommunicationPriority.Normal, Status = CommunicationStatus.Published, AuthorId = ownerId, AuthorName = $"{ownerUser.FirstName} {ownerUser.LastName}", PublishedAt = now.AddDays(-5), ViewCount = 7, LikeCount = 6, CreatedAt = now.AddDays(-5), CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), StoreId = storeId, Title = "Chào mừng thành viên mới!", Content = "Chào mừng tất cả thành viên gia nhập công ty. Hãy cùng nhau xây dựng môi trường làm việc tốt nhất!", Type = CommunicationType.Announcement, Priority = CommunicationPriority.High, Status = CommunicationStatus.Published, AuthorId = ownerId, AuthorName = authorName, PublishedAt = now.AddDays(-14), IsPinned = true, ViewCount = 10, LikeCount = 8, CreatedAt = now.AddDays(-14), CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), StoreId = storeId, Title = "Nội quy công ty áp dụng từ tháng này", Content = "Các nội quy mới:\n1. Giờ làm việc: 8:00 - 17:00\n2. Nghỉ trưa: 12:00 - 13:00\n3. Trang phục lịch sự\n4. Không sử dụng điện thoại trong giờ làm việc\n5. Báo cáo trước khi nghỉ phép ít nhất 1 ngày", Type = CommunicationType.Regulation, Priority = CommunicationPriority.Normal, Status = CommunicationStatus.Published, AuthorId = ownerId, AuthorName = authorName, PublishedAt = now.AddDays(-12), ViewCount = 9, LikeCount = 3, CreatedAt = now.AddDays(-12), CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), StoreId = storeId, Title = "Kế hoạch team building quý 2", Content = "Công ty tổ chức chuyến team building tại Vũng Tàu ngày 15-16 tháng tới. Chi phí do công ty chi trả 100%. Đăng ký tham gia trước ngày 10.", Type = CommunicationType.Event, Priority = CommunicationPriority.Normal, Status = CommunicationStatus.Published, AuthorId = ownerId, AuthorName = authorName, PublishedAt = now.AddDays(-5), ViewCount = 7, LikeCount = 6, CreatedAt = now.AddDays(-5), CreatedBy = "SampleData" },
             };
             db.InternalCommunications.AddRange(comms);
 
@@ -546,23 +570,29 @@ public class SampleDataController(
 
             var products = new List<ProductItem>
             {
-                new() { Id = Guid.NewGuid(), Code = $"SP001-{storeCode}", Name = "Áo sơ mi nam", Unit = "Cái", ProductGroupId = prodGroup.Id, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Code = $"SP002-{storeCode}", Name = "Quần tây nam", Unit = "Cái", ProductGroupId = prodGroup.Id, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Code = $"SP003-{storeCode}", Name = "Áo vest nữ", Unit = "Cái", ProductGroupId = prodGroup.Id, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Code = "SP001", Name = "Áo sơ mi nam", Unit = "Cái", ProductGroupId = prodGroup.Id, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Code = "SP002", Name = "Quần tây nam", Unit = "Cái", ProductGroupId = prodGroup.Id, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
+                new() { Id = Guid.NewGuid(), Code = "SP003", Name = "Áo vest nữ", Unit = "Cái", ProductGroupId = prodGroup.Id, StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
             };
             db.ProductItems.AddRange(products);
+            // Khai đơn giá (khớp giá dòng sản lượng mẫu) — SP không có bậc giá thì nhập thêm sản lượng tính 0 đ.
+            db.ProductPriceTiers.AddRange(products.Select(p => new ProductPriceTier
+            {
+                Id = Guid.NewGuid(), ProductItemId = p.Id, MinQuantity = 0, MaxQuantity = null, UnitPrice = 9_000, TierLevel = 1,
+                StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData",
+            }));
 
             // Sản lượng 15 ngày cho công nhân SX (emp 7, 8, 9)
             var prodEntries = new List<ProductionEntry>();
-            for (int dayOffset = -14; dayOffset <= 0; dayOffset++)
+            for (int dayOffset = -dayCount; dayOffset < 0; dayOffset++)
             {
                 var date = today.AddDays(dayOffset);
                 if (date.DayOfWeek == DayOfWeek.Sunday) continue;
 
-                for (int empIdx = 7; empIdx <= 9; empIdx++)
+                for (int empIdx = 8; empIdx <= 9; empIdx++)
                 {
                     var productIdx = rng.Next(products.Count);
-                    var qty = 15 + rng.Next(20); // 15-34 sản phẩm/ngày
+                    var qty = 18 + rng.Next(13); // 18-30 sản phẩm/ngày
                     prodEntries.Add(new ProductionEntry
                     {
                         Id = Guid.NewGuid(),
@@ -570,8 +600,8 @@ public class SampleDataController(
                         ProductItemId = products[productIdx].Id,
                         WorkDate = date,
                         Quantity = qty,
-                        UnitPrice = 25_000,
-                        Amount = qty * 25_000,
+                        UnitPrice = 9_000,
+                        Amount = qty * 9_000,
                         StoreId = storeId,
                         IsActive = true,
                         CreatedAt = now,
@@ -585,14 +615,25 @@ public class SampleDataController(
             // 15. NGÀY LỄ
             // ══════════════════════════════════════════════
             var year = now.Year;
-            var holidays = new List<Holiday>
-            {
-                new() { Id = Guid.NewGuid(), Name = "Tết Dương lịch", Date = new DateTime(year, 1, 1), IsRecurring = true, SalaryRate = 3.0, Category = "Ngày nghỉ chính thức", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Name = "Giỗ Tổ Hùng Vương", Date = new DateTime(year, 4, 18), IsRecurring = true, SalaryRate = 3.0, Category = "Ngày nghỉ chính thức", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Name = "Ngày Giải Phóng", Date = new DateTime(year, 4, 30), IsRecurring = true, SalaryRate = 3.0, Category = "Ngày nghỉ chính thức", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Name = "Quốc tế Lao động", Date = new DateTime(year, 5, 1), IsRecurring = true, SalaryRate = 3.0, Category = "Ngày nghỉ chính thức", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-                new() { Id = Guid.NewGuid(), Name = "Quốc Khánh", Date = new DateTime(year, 9, 2), IsRecurring = true, SalaryRate = 3.0, Category = "Ngày nghỉ chính thức", StoreId = storeId, IsActive = true, CreatedAt = now, CreatedBy = "SampleData" },
-            };
+            // Ngày lễ chuẩn của năm (Tết / Giỗ Tổ theo âm lịch); bỏ ngày cửa hàng đã có (đăng ký đã tạo sẵn)
+            // — trước thêm 5 ngày trùng, Giỗ Tổ ghi cứng 18/04.
+            var holidayDates = (await db.Holidays
+                    .Where(h => h.StoreId == storeId && h.Deleted == null && h.Date.Year == year)
+                    .Select(h => h.Date)
+                    .ToListAsync(ct))
+                .Select(d => d.Date).ToHashSet();
+            var holidays = VietnamHolidays.GetDefaultHolidays(year)
+                .Where(h => !holidayDates.Contains(h.Date.Date))
+                .Select(h =>
+                {
+                    h.SalaryRate = 3.0;
+                    h.Category = "Ngày nghỉ chính thức";
+                    h.StoreId = storeId;
+                    h.CreatedAt = now;
+                    h.CreatedBy = "SampleData";
+                    return h;
+                })
+                .ToList();
             db.Holidays.AddRange(holidays);
 
             // ══════════════════════════════════════════════

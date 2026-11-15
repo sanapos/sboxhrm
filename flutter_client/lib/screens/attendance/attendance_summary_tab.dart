@@ -1225,6 +1225,7 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
           applicationUserId,
       ];
       final fills = attendanceFillDays(
+        employee: emp,
         scope: _dayScope,
         dates: dates,
         hasRow: (date) {
@@ -4377,19 +4378,24 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
       codes[s.employeeId] = s.employeeCode;
       if (s.branchName.isNotEmpty) branches[s.employeeId] = s.branchName;
     }
+    final rosterById = <String, Map<String, dynamic>>{};
     final roster = widget.employeesList;
     if (roster != null) {
       for (final emp in roster) {
         final code = emp['employeeCode']?.toString() ?? '';
         final pin = emp['pin']?.toString() ?? '';
         final id = code.isNotEmpty ? code : pin;
-        if (id.isEmpty || names.containsKey(id)) continue;
+        if (id.isEmpty) continue;
+        rosterById[id] = emp;
+        if (names.containsKey(id)) continue;
         if (_selectedEmployeeIds.isNotEmpty &&
             !_selectedEmployeeIds.contains(id) &&
             !_selectedEmployeeIds.contains(code) &&
             !_selectedEmployeeIds.contains(pin)) {
           continue;
         }
+        // Chưa vào làm / đã nghỉ cả kỳ: không đưa vào tổng hợp (tránh «vắng» cả kỳ).
+        if (!attendanceDaysInRange(_selectedDateRange).any((d) => attendanceIsEmployedOn(emp, d))) continue;
         names[id] = emp['fullName']?.toString() ??
             emp['name']?.toString() ??
             emp['employeeName']?.toString() ??
@@ -4423,12 +4429,16 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         branch: branches[id] ?? '',
         hourly: hourly,
       );
+      final emp = rosterById[id];
       for (final d in dates) {
         final day = DateTime(d.year, d.month, d.day);
         final s = byEmpDay['$id|${_summaryDateKeyFmt.format(d)}'];
         final isPast = day.isBefore(today);
         AttendanceDayState state;
-        if (s != null && s.totalPunches > 0) {
+        if ((s == null || s.totalPunches == 0) && emp != null && !attendanceIsEmployedOn(emp, day)) {
+          // Ngoài thời gian làm việc (trước ngày vào / sau ngày nghỉ): không tính vắng.
+          state = AttendanceDayState.off;
+        } else if (s != null && s.totalPunches > 0) {
           agg.hours += s.totalHours;
           agg.work += s.workCount;
           agg.travel += _travelHoursForSummary(s);
@@ -4475,7 +4485,8 @@ class _AttendanceSummaryTabState extends State<AttendanceSummaryTab> {
         agg.dayStates.add((day, state));
       }
       if (!hourly) {
-        agg.expected = expectedWorkDaysSoFar(dates, (d) => _isWeeklyOffDay(d, code));
+        agg.expected = expectedWorkDaysSoFar(
+            dates, (d) => _isWeeklyOffDay(d, code) || (emp != null && !attendanceIsEmployedOn(emp, d)));
       }
       out.add(agg);
     }

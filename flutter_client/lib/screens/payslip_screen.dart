@@ -139,8 +139,8 @@ class _PayslipScreenState extends State<PayslipScreen> {
         return false;
       }
       if (_filterFromDate != null || _filterToDate != null) {
-        final start = parseApiUtcDateTime(p['periodStart']);
-        final end = parseApiUtcDateTime(p['periodEnd']);
+        final start = parseApiCalendarDate(p['periodStart']);
+        final end = parseApiCalendarDate(p['periodEnd']);
         if (_filterFromDate != null &&
             end != null &&
             end.isBefore(_filterFromDate!)) {
@@ -392,7 +392,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
   /// Cơ cấu một phiếu: thu nhập, khấu trừ, thực lĩnh.
   void _showSlipComposition(Map<String, dynamic> p, {required String title}) {
     final income = <(String, String)>[
-      ('Lương cơ bản', 'baseSalary'),
+      ('Lương theo công, sản lượng', '_earnedWorkPay'),
       ('Phụ cấp', 'allowances'),
       ('Thưởng', 'bonus'),
       ('Tăng ca', 'overtimePay'),
@@ -405,6 +405,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
       ('Thuế TNCN', 'tax'),
       ('Khấu trừ khác', 'deductions'),
     ];
+    p = {...p, '_earnedWorkPay': _payslipEarnedWorkPay(p)};
     final rows = <ReportBreakdownRow>[
       for (final it in income)
         if (_num(p[it.$2]) != 0)
@@ -902,8 +903,8 @@ class _PayslipScreenState extends State<PayslipScreen> {
     final code = p['employeeCode']?.toString() ?? '';
     final status = p['status']?.toString() ?? 'Draft';
     final periodStart =
-        formatApiDateTime(p['periodStart'], pattern: 'dd/MM/yyyy');
-    final periodEnd = formatApiDateTime(p['periodEnd'], pattern: 'dd/MM/yyyy');
+        formatApiCalendarDate(p['periodStart']);
+    final periodEnd = formatApiCalendarDate(p['periodEnd']);
     final paymentStatus = p['paymentStatus']?.toString() ??
         ((p['isPaid'] == true) ? 'Đã thanh toán' : 'Chưa thanh toán');
     final isPaid = p['isPaid'] == true || paymentStatus == 'Đã thanh toán';
@@ -1072,7 +1073,7 @@ class _PayslipScreenState extends State<PayslipScreen> {
                     Icons.add_circle,
                     HrmPageChrome.primaryNavy,
                     [
-                      _detailRow('Lương cơ bản', p['baseSalary']),
+                      _detailRow('Lương theo công, sản lượng', _payslipEarnedWorkPay(p)),
                       _detailRow('Phụ cấp', p['allowances']),
                       _detailRow('Thưởng', p['bonus']),
                       _detailRow('Tăng ca', p['overtimePay']),
@@ -1082,6 +1083,17 @@ class _PayslipScreenState extends State<PayslipScreen> {
                           p['travelSalary'],
                         ),
                       _detailRow('Tổng thu nhập (Gross)', p['grossSalary']),
+                      if (_num(p['baseSalary']) > 0)
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              '${tr('Mức lương cơ bản')}: ${_formatCurrency(p['baseSalary'])}',
+                              style: TextStyle(fontSize: 12, color: SboxColors.slate500),
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                   const SizedBox(height: 12),
@@ -1205,6 +1217,17 @@ class _PayslipScreenState extends State<PayslipScreen> {
     final pay = p['travelSalary'];
     if (pay is num) return pay > 0;
     return (double.tryParse(pay?.toString() ?? '') ?? 0) > 0;
+  }
+
+  /// Phiếu lưu `baseSalary` là **mức** lương (vd 260.000 đ/ngày), còn tiền theo công, sản lượng, KPI, hoa hồng,
+  /// làm đêm… không có ô riêng — lấy tổng thu nhập trừ các khoản đã có dòng để phần thu nhập cộng khớp.
+  double _payslipEarnedWorkPay(Map<String, dynamic> p) {
+    final other = _num(p['allowances']) +
+        _num(p['bonus']) +
+        _num(p['overtimePay']) +
+        _num(p['travelSalary']);
+    final v = _num(p['grossSalary']) - other;
+    return v > 0 ? v : 0;
   }
 
   Widget _detailRow(String label, dynamic value) {

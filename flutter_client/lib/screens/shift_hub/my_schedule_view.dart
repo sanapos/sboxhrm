@@ -4,6 +4,7 @@ import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/notification_overlay.dart';
+import '../main_layout.dart' show ScreenRefreshNotifier;
 import 'my_requests_sheet.dart';
 import 'shift_hub_sheets.dart';
 import 'shift_hub_ui.dart';
@@ -22,7 +23,7 @@ class MyScheduleView extends StatefulWidget {
   State<MyScheduleView> createState() => _MyScheduleViewState();
 }
 
-class _MyScheduleViewState extends State<MyScheduleView> {
+class _MyScheduleViewState extends State<MyScheduleView> with WidgetsBindingObserver {
   final _api = ApiService();
   DateTime _monday = ShiftUi.monday(DateTime.now());
   Map<String, dynamic>? _d;
@@ -33,6 +34,25 @@ class _MyScheduleViewState extends State<MyScheduleView> {
   void initState() {
     super.initState();
     _load();
+    // Quản lý duyệt đăng ký ca / đổi ca → có thông báo mới; mở lại app → tải lại lịch (trước phải tắt app mở lại).
+    ScreenRefreshNotifier.notifications.addListener(_reloadQuietly);
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    ScreenRefreshNotifier.notifications.removeListener(_reloadQuietly);
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _reloadQuietly();
+  }
+
+  void _reloadQuietly() {
+    if (mounted && !_loading) _load();
   }
 
   bool _startDone = false;

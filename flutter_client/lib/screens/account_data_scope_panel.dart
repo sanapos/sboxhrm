@@ -8,6 +8,7 @@ import '../widgets/notification_overlay.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';
+import '../utils/permission_role_options.dart';
 /// Gán chi nhánh / phòng ban tài khoản được xem dữ liệu (HRM Phân quyền).
 class AccountDataScopePanel extends StatefulWidget {
   const AccountDataScopePanel({super.key});
@@ -134,8 +135,8 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
 
   String _accountRole(Map<String, dynamic> a) {
     final roles = a['roles'];
-    if (roles is List && roles.isNotEmpty) return roles.first.toString();
-    return (a['role'] ?? '').toString();
+    final raw = roles is List && roles.isNotEmpty ? roles.first.toString() : (a['role'] ?? '').toString();
+    return PermissionRoleOptions.displayNameOf(raw);
   }
 
   List<Map<String, dynamic>> get _filteredAccounts {
@@ -187,7 +188,8 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
             .map((e) => e.toString())
             .toList();
         _isAdminAccount = m['isAdmin'] == true;
-        _roleLabel = m['role']?.toString();
+        final role = m['role']?.toString();
+        _roleLabel = role == null ? null : PermissionRoleOptions.displayNameOf(role);
         _loadingScope = false;
       });
     } catch (e) {
@@ -379,7 +381,7 @@ class _AccountDataScopePanelState extends State<AccountDataScopePanel> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              tr('Tài khoản ${_roleLabel ?? 'Admin'} luôn xem toàn bộ dữ liệu cửa hàng. Phần gán dưới đây không giới hạn quyền này.'),
+              tr('Tài khoản ${_roleLabel ?? 'Quản trị viên'} luôn xem toàn bộ dữ liệu cửa hàng. Phần gán dưới đây không giới hạn quyền này.'),
               style: const TextStyle(fontSize: 12, color: SboxColors.warningText),
             ),
           ),

@@ -1683,6 +1683,10 @@ public partial class MobileAttendanceController : AuthenticatedControllerBase
                 osVersion = d.OsVersion,
                 employeeId = d.EmployeeId,
                 employeeName = d.EmployeeName,
+                // Mã NV hiển thị (EmployeeId là GUID hồ sơ — màn chi tiết từng ghi «Mã nhân viên» bằng GUID).
+                employeeCode = employees.FirstOrDefault(e =>
+                    string.Equals(e.Id.ToString(), d.EmployeeId, StringComparison.OrdinalIgnoreCase)
+                    || (!string.IsNullOrEmpty(d.EmployeeId) && e.EmployeeCode == d.EmployeeId))?.EmployeeCode,
                 isAuthorized = d.IsAuthorized,
                 canUseFaceId = d.CanUseFaceId,
                 canUseGps = d.CanUseGps,

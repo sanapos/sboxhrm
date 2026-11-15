@@ -6,6 +6,7 @@ import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../widgets/notification_overlay.dart';
 import 'shift_hub_ui.dart';
+import '../../utils/api_datetime.dart';
 
 /// Một việc chờ duyệt (đã chuẩn hoá từ 4 nguồn).
 class _Item {
@@ -129,7 +130,7 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
                     : 'Đăng ký ${r['shiftName'] ?? 'ca'}',
         when: _d(r['date']),
         detail: r['note']?.toString(),
-        createdAt: _dt(r['createdAt']),
+        createdAt: parseApiUtcDateTime(r['createdAt']),
         sortDate: _dt(r['date']),
         step: _step(r),
         shiftId: r['isDayOff'] == true ? null : r['shiftId']?.toString(),
@@ -151,7 +152,7 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
           if (l['remainingAnnualLeaveDays'] != null) 'Phép năm còn ${l['remainingAnnualLeaveDays']} ngày',
           if ((l['replacementEmployeeName']?.toString() ?? '').isNotEmpty) 'Người thay: ${l['replacementEmployeeName']}',
         ].join(' · '),
-        createdAt: _dt(l['createdAt']),
+        createdAt: parseApiUtcDateTime(l['createdAt']),
         sortDate: from,
         step: _step(l),
       ));
@@ -164,7 +165,7 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
         title: 'Đổi ca',
         when: '${s['requesterShiftName']} ${_d(s['requesterDate'])} ⇄ ${s['targetShiftName']} ${_d(s['targetDate'])}',
         detail: (s['reason']?.toString() ?? '').isEmpty ? 'Đồng nghiệp đã đồng ý' : 'Lý do: ${s['reason']} · đồng nghiệp đã đồng ý',
-        createdAt: _dt(s['createdAt']),
+        createdAt: parseApiUtcDateTime(s['createdAt']),
         sortDate: _minDate(_dt(s['requesterDate']), _dt(s['targetDate'])),
       ));
     }
@@ -177,7 +178,7 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
         title: 'Ca theo giờ',
         when: st == null ? '' : '${_d(s['startTime'])} ${DateFormat('HH:mm').format(st)}–${en == null ? '' : DateFormat('HH:mm').format(en)}',
         detail: s['description']?.toString(),
-        createdAt: _dt(s['createdAt']),
+        createdAt: parseApiUtcDateTime(s['createdAt']),
         sortDate: st,
       ));
     }
@@ -412,7 +413,7 @@ class _ApprovalInboxViewState extends State<ApprovalInboxView> {
                     ]),
                   ),
                 if (i.createdAt != null)
-                  Text(tr('Gửi lúc ${DateFormat('HH:mm dd/MM').format(i.createdAt!.toLocal())}'),
+                  Text(tr('Gửi lúc ${DateFormat('HH:mm dd/MM').format(i.createdAt!)}'),
                       style: const TextStyle(fontSize: 11, color: SboxColors.slate400)),
               ]),
             ),

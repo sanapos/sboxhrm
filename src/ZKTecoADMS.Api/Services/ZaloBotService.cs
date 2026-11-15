@@ -143,7 +143,7 @@ public sealed class ZaloBotService(
             ZaloBotLink? l = null;
             if (!byEmployee.TryGetValue(e.Id, out l) && e.ApplicationUserId != null) byUser.TryGetValue(e.ApplicationUserId.Value, out l);
             if (l != null) used.Add(l.Id);
-            rows.Add(Row(e.Id, e.ApplicationUserId, $"{e.FirstName} {e.LastName}".Trim(), e.EmployeeCode, e.Department, e.PhoneNumber, l, now));
+            rows.Add(Row(e.Id, e.ApplicationUserId, $"{e.LastName} {e.FirstName}".Trim(), e.EmployeeCode, e.Department, e.PhoneNumber, l, now));
         }
 
         // Tài khoản đã liên kết mà không có hồ sơ nhân viên (chủ cửa hàng…).
@@ -154,7 +154,7 @@ public sealed class ZaloBotService(
                 .Select(u => new { u.Id, u.FirstName, u.LastName, u.UserName, u.PhoneNumber }).ToListAsync(ct);
             foreach (var u in users)
             {
-                var name = $"{u.FirstName} {u.LastName}".Trim();
+                var name = $"{u.LastName} {u.FirstName}".Trim();
                 rows.Add(Row(null, u.Id, name.Length > 0 ? name : u.UserName ?? "", null, null, u.PhoneNumber, byUser[u.Id], now));
             }
         }
@@ -355,7 +355,7 @@ public sealed class ZaloBotService(
         {
             var u = await db.Users.Where(x => x.Id == userId)
                 .Select(x => new { x.FirstName, x.LastName, x.UserName }).FirstOrDefaultAsync(ct);
-            var full = $"{u?.FirstName} {u?.LastName}".Trim();
+            var full = $"{u?.LastName} {u?.FirstName}".Trim();
             if (full.Length > 0 || u?.UserName != null) return $"tài khoản {(full.Length > 0 ? full : u!.UserName)}";
         }
         if (link.EmployeeId is Guid employeeId)
@@ -364,7 +364,7 @@ public sealed class ZaloBotService(
                 .Select(x => new { x.FirstName, x.LastName, x.EmployeeCode }).FirstOrDefaultAsync(ct);
             if (e != null)
             {
-                var full = $"{e.FirstName} {e.LastName}".Trim();
+                var full = $"{e.LastName} {e.FirstName}".Trim();
                 return string.IsNullOrWhiteSpace(e.EmployeeCode) ? $"nhân viên {full}" : $"nhân viên {full} ({e.EmployeeCode})";
             }
         }
@@ -499,7 +499,7 @@ public sealed class ZaloBotService(
     /// <summary>«Lê Cường (NV01)» — tên hồ sơ nhân viên kèm mã; không có hồ sơ thì tên tài khoản.</summary>
     static string PersonLabel(string? first, string? last, string? code)
     {
-        var name = $"{first} {last}".Trim();
+        var name = $"{last} {first}".Trim(); // Họ đệm (LastName) + tên (FirstName)
         return string.IsNullOrWhiteSpace(code) ? name : $"{name} ({code.Trim()})";
     }
 
@@ -517,7 +517,7 @@ public sealed class ZaloBotService(
                 .Select(u => new { u.Id, u.FirstName, u.LastName, u.UserName }).ToListAsync(ct);
             foreach (var u in users)
             {
-                var name = $"{u.FirstName} {u.LastName}".Trim();
+                var name = $"{u.LastName} {u.FirstName}".Trim();
                 result[u.Id] = name.Length > 0 ? name : u.UserName ?? "";
             }
         }

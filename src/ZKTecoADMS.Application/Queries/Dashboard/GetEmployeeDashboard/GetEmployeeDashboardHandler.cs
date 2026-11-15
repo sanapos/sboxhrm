@@ -73,7 +73,7 @@ public class GetEmployeeDashboardHandler(
         var (todayShifts, scheduledOff) = await LoadScheduledTodayAsync(user.Employee, cancellationToken);
         if (todayShift == null && todayShifts.Count > 0)
         {
-            var nowVn = DateTime.UtcNow.AddHours(VnOffsetHours);
+            var nowVn = DateTime.SpecifyKind(DateTime.UtcNow.AddHours(VnOffsetHours), DateTimeKind.Unspecified);
             todayShiftDto = todayShifts.FirstOrDefault(s => s.StartTime <= nowVn && nowVn < s.EndTime)
                 ?? todayShifts.FirstOrDefault(s => s.StartTime > nowVn)
                 ?? todayShifts[^1];
@@ -87,8 +87,9 @@ public class GetEmployeeDashboardHandler(
                 ? ShiftMatchHelper.FindBestForCheckIn(salaryShifts, ci.TimeOfDay)?.Shift
                 : null;
             pick ??= salaryShifts.OrderBy(c => c.StartTime).First();
-            var start = today + pick.StartTime;
-            var end = today + pick.EndTime;
+            // UtcNow.AddHours giữ Kind=Utc → JSON gắn «Z» lên giờ VN, app nhân viên (toLocal) lệch +7 giờ.
+            var start = DateTime.SpecifyKind(today + pick.StartTime, DateTimeKind.Unspecified);
+            var end = DateTime.SpecifyKind(today + pick.EndTime, DateTimeKind.Unspecified);
             if (end <= start) end = end.AddDays(1);
             todayShiftDto = new ShiftInfoDto { Id = pick.Id, StartTime = start, EndTime = end, Description = pick.Name, Status = 1 };
         }
@@ -125,8 +126,9 @@ public class GetEmployeeDashboardHandler(
             var startTs = w.StartTime ?? w.Shift?.StartTime;
             var endTs = w.EndTime ?? w.Shift?.EndTime;
             if (startTs == null || endTs == null) continue;
-            var start = today + startTs.Value;
-            var end = today + endTs.Value;
+            // Giờ tường VN (Kind=Unspecified) — Kind=Utc từ UtcNow làm JSON gắn «Z», app lệch +7 giờ.
+            var start = DateTime.SpecifyKind(today + startTs.Value, DateTimeKind.Unspecified);
+            var end = DateTime.SpecifyKind(today + endTs.Value, DateTimeKind.Unspecified);
             if (end <= start) end = end.AddDays(1);
             list.Add(new ShiftInfoDto
             {

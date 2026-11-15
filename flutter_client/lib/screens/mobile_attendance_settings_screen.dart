@@ -3308,8 +3308,8 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildDetailRow('Nhân viên', _deviceEmployeeLabel(device)),
-                if (device.employeeId != null && device.employeeId!.isNotEmpty)
-                  _buildDetailRow('Mã nhân viên', device.employeeId!),
+                if ((device.employeeCode ?? '').isNotEmpty)
+                  _buildDetailRow('Mã nhân viên', device.employeeCode!),
                 _buildDetailRow('Tên thiết bị', device.deviceName),
                 _buildDetailRow('Model', device.deviceModel),
                 _buildDetailRow('Hệ điều hành', device.osVersion ?? 'N/A'),

@@ -204,7 +204,7 @@ public class ZaloBotController(
             .Select(u =>
             {
                 links.TryGetValue(u.Id, out var l);
-                var name = $"{u.FirstName} {u.LastName}".Trim();
+                var name = $"{u.LastName} {u.FirstName}".Trim();
                 return new LinkRowDto(u.Id, name.Length > 0 ? name : u.UserName ?? "", u.UserName, u.Role, l != null, l?.ZaloName, l?.LinkedAt);
             })
             .OrderByDescending(r => r.Linked)

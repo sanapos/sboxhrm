@@ -1530,11 +1530,12 @@ class _BusinessTripCaseDetailScreenState
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: _categories.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
+                  // Ô cao cố định, rộng tối đa 240 — tỷ lệ 2,4 trên màn rộng làm ô cao 266 px, trống.
+                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                    maxCrossAxisExtent: 240,
+                    mainAxisExtent: 64,
                     mainAxisSpacing: 8,
                     crossAxisSpacing: 8,
-                    childAspectRatio: 2.4,
                   ),
                   itemBuilder: (_, i) {
                     final cat = _categories[i];

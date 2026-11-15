@@ -18,6 +18,20 @@ void main() {
       };
 
   group('attendanceFillDays', () {
+    test('trước ngày vào làm / sau ngày nghỉ việc: không lấp dòng, không tính vắng', () {
+      final fills = attendanceFillDays(
+        scope: AttendanceDayScope.allDays,
+        dates: dates,
+        hasRow: (_) => false,
+        classify: (_) => AttendanceFillDayKind.absent,
+        employee: {'joinDate': '2026-11-05T00:00:00.000', 'resignationDate': '2026-11-06T00:00:00.000'},
+      );
+      expect(fills.map((f) => f.day.day), [5, 6]);
+      expect(attendanceIsEmployedOn({'joinDate': '2026-11-17T00:00:00.000'}, DateTime(2026, 11, 16, 23)), isFalse);
+      expect(attendanceIsEmployedOn({'joinDate': '2026-11-17T00:00:00.000'}, DateTime(2026, 11, 17)), isTrue);
+      expect(attendanceIsEmployedOn(const {}, DateTime(2026, 1, 1)), isTrue);
+    });
+
     test('Đủ ngày: mọi ngày không chấm có dòng, đúng loại', () {
       final fills = attendanceFillDays(
         scope: AttendanceDayScope.allDays,

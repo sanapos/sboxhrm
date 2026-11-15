@@ -228,8 +228,8 @@ Future<void> exportPayslipsToExcel(
           'stt' => ('${i + 1}', false),
           'period' => (m != null && y != null ? 'T${m.toString().padLeft(2, '0')}/$y' : '', false),
           'periodRange' => (
-              '${formatApiDateTime(p['periodStart'], pattern: 'dd/MM/yyyy')} – '
-                  '${formatApiDateTime(p['periodEnd'], pattern: 'dd/MM/yyyy')}',
+              '${formatApiCalendarDate(p['periodStart'])} – '
+                  '${formatApiCalendarDate(p['periodEnd'])}',
               false
             ),
           'code' => (p['employeeCode']?.toString() ?? '', false),

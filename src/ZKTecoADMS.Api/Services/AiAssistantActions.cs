@@ -576,7 +576,7 @@ public sealed partial class AiAssistantActions(
                 .Where(e => scoped == null || scoped.Contains(e.Id))
                 .Select(e => new { e.Id, e.ApplicationUserId, e.EmployeeCode, e.FirstName, e.LastName, Dept = e.Department })
                 .ToListAsync(ct))
-            .Select(e => new Emp(e.Id, e.ApplicationUserId, e.EmployeeCode, $"{e.FirstName} {e.LastName}".Trim(), e.Dept))
+            .Select(e => new Emp(e.Id, e.ApplicationUserId, e.EmployeeCode, $"{e.LastName} {e.FirstName}".Trim(), e.Dept))
             .ToList();
     }
 

@@ -124,7 +124,10 @@ public class ShiftSwapsController(IMediator mediator, ZKTecoDbContext dbContext)
     /// </summary>
     [HttpPost("{id}/respond")]
     [Authorize(Policy = PolicyNames.AtLeastEmployee)]
-    [RequireModulePermission("ShiftSwap", ModulePermissionAction.Edit)]
+    // Trả lời yêu cầu gửi CHO MÌNH, không phải sửa dữ liệu đổi ca của người khác (handler chặn người
+    // ngoài / phiếu đã xử lý). Preset vai trò Nhân viên chỉ có Xem + Tạo «Đổi ca» → trước đây nút
+    // «Đồng ý» / «Từ chối» luôn báo 403, không ai nhận được ca đổi.
+    [RequireAnyActionOnModule("ShiftSwap", ModulePermissionAction.Create, ModulePermissionAction.Edit)]
     public async Task<ActionResult<AppResponse<bool>>> RespondToSwap(
         Guid id,
         [FromBody] RespondShiftSwapDto request)

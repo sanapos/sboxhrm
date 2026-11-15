@@ -218,6 +218,12 @@ public class BulkCreateEmployeeAccountsHandler(
             .ToArray());
     }
 
+    private Task<bool> UserNameTakenAsync(string userName)
+    {
+        var normalized = userManager.NormalizeName(userName);
+        return userManager.Users.IgnoreQueryFilters().AnyAsync(u => u.NormalizedUserName == normalized);
+    }
+
     private async Task<string> ResolveUniqueUserNameAsync(Employee employee)
     {
         var baseName = SanitizeUserName(employee.EmployeeCode);
@@ -228,7 +234,9 @@ public class BulkCreateEmployeeAccountsHandler(
 
         var candidate = baseName;
         var suffix = 1;
-        while (await userManager.FindByNameAsync(candidate) != null)
+        // Tên đăng nhập duy nhất toàn hệ thống (UserNameIndex) — FindByNameAsync bị bộ lọc cửa hàng che tài khoản
+        // cửa hàng khác, nên cửa hàng thứ hai có NV cùng mã gặp lỗi 500 khi tạo.
+        while (await UserNameTakenAsync(candidate))
         {
             suffix++;
             candidate = $"{baseName}{suffix}";

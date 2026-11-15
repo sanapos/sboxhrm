@@ -2240,7 +2240,7 @@ class _EmployeesScreenState extends State<EmployeesScreen> {
                       children: [
                         Icon(Icons.phone, size: 20, color: SboxColors.okSwatch),
                         SizedBox(width: 12),
-                        Text(tr('Call'), style: TextStyle(color: SboxColors.okSwatch)),
+                        Text(tr('Gọi điện'), style: TextStyle(color: SboxColors.okSwatch)),
                       ],
                     ),
                   ),

@@ -3274,7 +3274,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                               ),
                             )),
                             DataCell(Center(
-                                child: _buildVerifyTypeBadge(att.verifyType))),
+                                child: _buildVerifyTypeBadge(att.verifyType, note: att.note))),
                             // Ghi chú - hide correction ID marker
                             DataCell(Center(
                               child: Row(
@@ -4626,10 +4626,21 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     );
   }
 
-  Widget _buildVerifyTypeBadge(int verifyType) {
+  Widget _buildVerifyTypeBadge(int verifyType, {String? note}) {
     IconData icon;
     String text;
     Color color = SboxColors.slate500;
+    // Lượt chấm app điện thoại (GPS / Wi-Fi, không khuôn mặt) lưu VerifyMode 100 như nhập tay — ghi chú «Mobile…» phân biệt.
+    if (verifyType == 100 && (note ?? '').startsWith('Mobile')) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.phone_android, size: 16, color: SboxColors.brand500),
+          const SizedBox(width: 4),
+          Text(tr('Điện thoại'), style: TextStyle(color: SboxColors.brand500, fontSize: 12)),
+        ],
+      );
+    }
 
     switch (verifyType) {
       case 0:

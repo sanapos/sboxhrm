@@ -138,6 +138,7 @@ List<({DateTime day, AttendanceFillDayKind kind})> attendanceFillDays({
   required List<DateTime> dates,
   required bool Function(DateTime day) hasRow,
   required AttendanceFillDayKind? Function(DateTime day) classify,
+  Map<String, dynamic>? employee,
 }) {
   if (scope == AttendanceDayScope.punchedOnly) return const [];
   final out = <({DateTime day, AttendanceFillDayKind kind})>[];
@@ -147,6 +148,8 @@ List<({DateTime day, AttendanceFillDayKind kind})> attendanceFillDays({
       anyRow = true;
       continue;
     }
+    // Trước ngày vào làm / sau ngày nghỉ việc: không phải ngày công của nhân viên → không lấp dòng (không tính vắng).
+    if (employee != null && !attendanceIsEmployedOn(employee, d)) continue;
     final kind = classify(d);
     if (kind != null) out.add((day: d, kind: kind));
   }
@@ -157,3 +160,21 @@ List<({DateTime day, AttendanceFillDayKind kind})> attendanceFillDays({
 /// Lọc trạng thái «Thiếu chấm»: dòng lấp thêm chỉ khớp khi là ngày vắng.
 bool attendanceFillMatchesMissingFilter(AttendanceFillDayKind? kind) =>
     kind == null || kind == AttendanceFillDayKind.absent;
+
+DateTime? _attendanceParseDay(Object? v) {
+  if (v == null) return null;
+  final d = DateTime.tryParse(v.toString());
+  if (d == null) return null;
+  return DateTime(d.year, d.month, d.day);
+}
+
+/// Nhân viên còn trong thời gian làm việc ngày [day]: từ `joinDate` tới `resignationDate` (nếu có) của hồ sơ.
+/// Thiếu ngày → coi như đang làm.
+bool attendanceIsEmployedOn(Map<String, dynamic> employee, DateTime day) {
+  final d = DateTime(day.year, day.month, day.day);
+  final join = _attendanceParseDay(employee['joinDate']);
+  if (join != null && d.isBefore(join)) return false;
+  final left = _attendanceParseDay(employee['resignationDate']);
+  if (left != null && d.isAfter(left)) return false;
+  return true;
+}

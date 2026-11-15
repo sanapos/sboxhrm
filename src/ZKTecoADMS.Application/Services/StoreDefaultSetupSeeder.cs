@@ -198,7 +198,8 @@ public static class StoreDefaultSetupSeeder
             MaximumAllowedLateMinutes = 15,
             MaximumAllowedEarlyLeaveMinutes = 15,
             BreakTimeMinutes = t.BreakMin,
-            EarlyCheckInMinutes = 30,
+            // Phải lớn hơn «Tăng ca trước ca» (30) — bằng nhau thì màn Sửa ca báo đỏ, không tính được tăng ca trước ca.
+            EarlyCheckInMinutes = 60,
             LateGraceMinutes = 5,
             EarlyLeaveGraceMinutes = 5,
             OvertimeMinutesThreshold = 30,

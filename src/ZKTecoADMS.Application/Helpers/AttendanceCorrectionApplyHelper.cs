@@ -303,7 +303,7 @@ public sealed class AttendanceCorrectionApplyHelper(
                         VerifyMode = VerifyModes.Manual,
                         AttendanceState = punchState,
                         WorkCode = workCode,
-                        Note = $"Duyệt thêm chấm công ({punchState}) [YC:{correction.Id}]",
+                        Note = $"Duyệt thêm chấm công ({(punchState == AttendanceStates.CheckOut ? "giờ ra" : "giờ vào")}) [YC:{correction.Id}]",
                         CreatedAt = DateTime.UtcNow
                     };
                     await attendanceRepository.AddAsync(newAttendance, cancellationToken);

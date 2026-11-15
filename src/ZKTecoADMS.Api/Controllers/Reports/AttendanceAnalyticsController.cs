@@ -178,6 +178,9 @@ public class AttendanceAnalyticsController(
                 // Personal standard days adjusted for joinDate/resignationDate (pro-rated)
                 var personalStart = e.JoinDate.HasValue && e.JoinDate.Value.Date > startLocal ? e.JoinDate.Value.Date : startLocal;
                 var personalEnd = e.ResignationDate.HasValue && e.ResignationDate.Value.Date < endLocal ? e.ResignationDate.Value.Date : endLocal;
+                // Tháng đang chạy: chỉ tính tới hôm nay — chia cho công chuẩn cả tháng thì giữa tháng ai cũng ~50 %
+                // và những ngày chưa tới bị tính vắng.
+                if (personalEnd > now.Date) personalEnd = now.Date;
                 var personalStd = personalStart <= personalEnd
                     ? ReportHelpers.CountWorkingDays(personalStart, personalEnd, holidays)
                     : 0;
