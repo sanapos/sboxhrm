@@ -90,6 +90,16 @@ class _MyRequestsState extends State<_MyRequests> {
     return v?.toString();
   }
 
+  /// Phiếu xin bỏ ca không có tên ca mới (shiftName rỗng) — trước đây hiện trơ trọi «Đăng ký ».
+  String _regTitle(Map<String, dynamic> r) {
+    if (r['isDayOff'] == true) return 'Đăng ký nghỉ ngày';
+    final drop = (r['replaceShiftName'] ?? '').toString().trim();
+    final shift = (r['shiftName'] ?? '').toString().trim();
+    if (drop.isNotEmpty && shift.isEmpty) return 'Xin bỏ $drop';
+    if (drop.isNotEmpty) return 'Đổi $drop → $shift';
+    return 'Đăng ký ${shift.isEmpty ? 'ca' : shift}';
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
     final uid = Provider.of<AuthProvider>(context, listen: false).user?.id.toString();
@@ -105,7 +115,7 @@ class _MyRequestsState extends State<_MyRequests> {
       items.add(_Req(
         kind: 'reg',
         id: r['id'].toString(),
-        title: r['isDayOff'] == true ? 'Đăng ký nghỉ ngày' : 'Đăng ký ${r['shiftName'] ?? 'ca'}',
+        title: _regTitle(r),
         when: _d(r['date']),
         status: _status(r['status'], const ['Pending', 'Approved', 'Rejected', 'Cancelled']),
         detail: (r['rejectionReason'] ?? r['note'])?.toString(),

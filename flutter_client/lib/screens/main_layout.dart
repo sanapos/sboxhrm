@@ -5460,6 +5460,13 @@ class _HomeMenuScreenState extends State<_HomeMenuScreen> {
           )) {
         continue;
       }
+      // Trang chủ cũng phải bỏ ô «Đổi ca làm việc» khi đã có «Ca làm việc», như menu trái.
+      if (_hiddenByShiftHub(item.moduleCode,
+          allowedModules: widget.allowedModules,
+          perm: permProvider,
+          bypassPackageFilter: widget.bypassPackageFilter)) {
+        continue;
+      }
       final group = _HomeMenuScreen.homeGroupOf(item);
       groupedItems.putIfAbsent(group, () => []);
       groupedItems[group]!.add(MapEntry(i, item));
