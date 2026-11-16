@@ -363,7 +363,10 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
                 .ThenBy(s => s.StartTime ?? (s.ShiftId.HasValue && tplMap.ContainsKey(s.ShiftId.Value) ? tplMap[s.ShiftId.Value].Start : TimeSpan.Zero))
                 .ToList();
             var ws = dayRows.FirstOrDefault();
-            var reg = regs.FirstOrDefault(r => r.Date.Date == d);
+            // Một ngày có thể có nhiều phiếu (đăng ký thêm ca, xin bỏ ca khác…): `registration` chỉ là
+            // phiếu mới nhất (giữ cho bản app cũ), `registrations` là tất cả — app mới hiện đủ.
+            var dayRegs = regs.Where(r => r.Date.Date == d).ToList();
+            var reg = dayRegs.FirstOrDefault();
             var lv = leaves.Where(l => ShiftCoverageRules.LeaveCovers(l.StartDate, l.EndDate, l.ShiftIds, d, ws?.ShiftId)).ToList();
             if (!lv.Any(l => l.Status == LeaveStatus.Approved))
                 foreach (var row in dayRows.Where(r => !r.IsDayOff && r.ShiftId.HasValue))
@@ -398,6 +401,11 @@ public class ShiftHubController(ZKTecoDbContext db, IMediator mediator, IDataSco
                     id = reg.Id, shiftId = reg.ShiftId, replaceShiftId = reg.ReplaceShiftId, isDayOff = reg.IsDayOff,
                     status = reg.Status.ToString(), rejectionReason = reg.RejectionReason, note = reg.Note,
                 },
+                registrations = dayRegs.Select(r => new
+                {
+                    id = r.Id, shiftId = r.ShiftId, replaceShiftId = r.ReplaceShiftId, isDayOff = r.IsDayOff,
+                    status = r.Status.ToString(), rejectionReason = r.RejectionReason, note = r.Note,
+                }),
                 leaves = lv.Select(l => new
                 {
                     id = l.Id, status = l.Status.ToString(), type = l.Type.ToString(), halfShift = l.IsHalfShift,

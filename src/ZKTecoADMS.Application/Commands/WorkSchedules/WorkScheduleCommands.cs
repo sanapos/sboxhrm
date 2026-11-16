@@ -505,12 +505,15 @@ public class CreateScheduleRegistrationHandler(
                 cancellationToken: cancellationToken);
             if (duplicateReg != null)
             {
+                // Câu báo phải nói rõ NGÀY nào và phiếu cũ đang ở trạng thái gì — trước đây cụt ở «cho ngày».
+                var dayText = request.Date.ToString("dd/MM/yyyy");
+                var stateText = duplicateReg.Status == ScheduleRegistrationStatus.Approved ? "đã duyệt" : "đang chờ duyệt";
                 return AppResponse<ScheduleRegistrationDto>.Error(
                     request.IsDayOff
-                        ? "Đã có đăng ký nghỉ cho ngày này"
+                        ? $"Ngày {dayText} đã có đăng ký nghỉ ({stateText})"
                         : request.ShiftId == null
-                            ? "Đã có đăng ký bỏ ca này cho ngày"
-                            : "Đã có đăng ký ca này cho ngày");
+                            ? $"Ngày {dayText} đã có đăng ký bỏ ca này ({stateText})"
+                            : $"Ngày {dayText} đã có đăng ký ca này ({stateText})");
             }
 
             // Một người làm được nhiều ca / ngày: đăng ký thêm ca (ReplaceShiftId null), đổi một ca đang xếp

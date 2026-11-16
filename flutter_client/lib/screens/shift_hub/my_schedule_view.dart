@@ -106,6 +106,23 @@ class _MyScheduleViewState extends State<MyScheduleView> {
   Map<String, dynamic>? _tpl(dynamic id) =>
       id == null ? null : _templates.where((t) => t['id'].toString() == id.toString()).firstOrNull;
 
+  /// Mọi phiếu đăng ký của ngày. Máy chủ cũ chỉ có `registration` (phiếu mới nhất).
+  List<Map<String, dynamic>> _regsOf(Map<String, dynamic> d) {
+    final all = _rows(d['registrations']);
+    if (all.isNotEmpty) return all;
+    final one = d['registration'];
+    return one is Map ? [Map<String, dynamic>.from(one)] : const [];
+  }
+
+  /// Nhãn ngắn của một phiếu đăng ký: «Đăng ký Ca sáng», «Xin bỏ Ca chiều», «Đổi Ca A → Ca B»…
+  String _regLabel(Map<String, dynamic> r) => r['isDayOff'] == true
+      ? 'Đăng ký nghỉ'
+      : r['replaceShiftId'] != null && r['shiftId'] == null
+          ? 'Xin bỏ ${_tpl(r['replaceShiftId'])?['name'] ?? 'ca'}'
+          : r['replaceShiftId'] != null
+              ? 'Đổi ${_tpl(r['replaceShiftId'])?['name'] ?? 'ca'} → ${_tpl(r['shiftId'])?['name'] ?? 'ca'}'
+              : 'Đăng ký ${_tpl(r['shiftId'])?['name'] ?? 'ca'}';
+
   @override
   Widget build(BuildContext context) {
     if (_loading && _d == null) return const Center(child: CircularProgressIndicator());
@@ -306,12 +323,23 @@ class _MyScheduleViewState extends State<MyScheduleView> {
     final past = d['isPast'] == true;
     final today = d['isToday'] == true;
     final s = d['schedule'] as Map?;
-    final reg = d['registration'] as Map?;
+    // Một ngày có thể có nhiều phiếu (thêm ca, xin bỏ ca khác…). Máy chủ cũ chỉ trả `registration`.
+    final regs = _regsOf(d);
+    // Hiện mọi phiếu đang chờ; phiếu bị từ chối chỉ hiện khi là phiếu mới nhất của ngày (để nhân
+    // viên biết lý do), không thì những lần từ chối cũ cứ nằm lại mãi trên lịch.
+    final newestReg = regs.firstOrNull;
+    final openRegs = [
+      ...regs.where((r) => r['status'] == 'Pending'),
+      if (newestReg != null && newestReg['status'] == 'Rejected') newestReg,
+    ];
     final leaves = _rows(d['leaves']);
     final swaps = _rows(d['swaps']);
     final tp = _tpl(s?['shiftId']);
     final color = tp == null ? SboxColors.slate300 : ShiftUi.shiftColor(ShiftUi.n(tp['colorIndex']).toInt());
     final approvedLeave = leaves.where((l) => l['status'] == 'Approved').firstOrNull;
+    // Ngày đã gửi yêu cầu: nhãn bên dưới đã nói rõ trạng thái — không bảo nhân viên «Bấm nút ⋯ rồi
+    // chọn Đăng ký ca» thêm lần nữa (trước đây hiện cả hai, đọc như là chưa gửi gì).
+    final hasRequest = openRegs.isNotEmpty || leaves.any((l) => l['status'] != 'Approved') || swaps.isNotEmpty;
 
     return Opacity(
       opacity: past ? 0.6 : 1,
@@ -344,12 +372,13 @@ class _MyScheduleViewState extends State<MyScheduleView> {
                 child: approvedLeave != null
                     ? _line(Icons.beach_access_rounded, 'Nghỉ phép', ShiftUi.leaveTypes[approvedLeave['type']] ?? '', SboxColors.success)
                     : s == null
-                        ? _line(Icons.event_busy_rounded, 'Chưa có ca', past ? '' : 'Bấm nút ⋯ rồi chọn «Đăng ký ca»', SboxColors.slate400)
+                        ? _line(Icons.event_busy_rounded, 'Chưa có ca',
+                            past || hasRequest ? '' : 'Bấm nút ⋯ rồi chọn «Đăng ký ca»', SboxColors.slate400)
                         : s['isDayOff'] == true
                             ? _line(Icons.weekend_rounded, 'Ngày nghỉ', s['note']?.toString() ?? '', SboxColors.slate500)
                             : _line(Icons.schedule_rounded, tp?['name']?.toString() ?? 'Ca làm', '${s['start']} – ${s['end']}', color),
               ),
-              if (!past) _menu(d, date, s, tp, reg),
+              if (!past) _menu(d, date, s, tp),
             ]),
           ),
           // Ngày có nhiều ca: hiện thêm các ca còn lại.
@@ -363,17 +392,17 @@ class _MyScheduleViewState extends State<MyScheduleView> {
                 ShiftUi.shiftColor(ShiftUi.n(_tpl(x['shiftId'])?['colorIndex']).toInt()),
               ),
             ),
-          if (reg != null || leaves.any((l) => l['status'] != 'Approved') || swaps.isNotEmpty)
+          if (openRegs.isNotEmpty || leaves.any((l) => l['status'] != 'Approved') || swaps.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
               child: Wrap(spacing: 6, runSpacing: 6, children: [
                 // Cùng một kiểu nhãn «loại · trạng thái» cho đăng ký / đơn nghỉ / đổi ca (ShiftUi.requestStatusLabel).
-                if (reg != null && reg['status'] != 'Approved')
+                // Hiện ĐỦ các phiếu của ngày: trước chỉ hiện phiếu mới nhất nên phiếu kia như biến mất.
+                for (final r in openRegs)
                   ShiftUi.pill(
-                    '${reg['isDayOff'] == true ? 'Đăng ký nghỉ' : reg['replaceShiftId'] != null && reg['shiftId'] == null ? 'Xin bỏ ${_tpl(reg['replaceShiftId'])?['name'] ?? 'ca'}' : reg['replaceShiftId'] != null ? 'Đổi ${_tpl(reg['replaceShiftId'])?['name'] ?? 'ca'} → ${_tpl(reg['shiftId'])?['name'] ?? 'ca'}' : 'Đăng ký ${_tpl(reg['shiftId'])?['name'] ?? 'ca'}'} · '
-                    '${ShiftUi.requestStatusLabel('reg', reg['status']?.toString())}'
-                    '${reg['status'] == 'Rejected' && (reg['rejectionReason']?.toString() ?? '').isNotEmpty ? ': ${reg['rejectionReason']}' : ''}',
-                    ShiftUi.statusColor(reg['status']?.toString()),
+                    '${_regLabel(r)} · ${ShiftUi.requestStatusLabel('reg', r['status']?.toString())}'
+                    '${r['status'] == 'Rejected' && (r['rejectionReason']?.toString() ?? '').isNotEmpty ? ': ${r['rejectionReason']}' : ''}',
+                    ShiftUi.statusColor(r['status']?.toString()),
                     icon: Icons.how_to_reg_rounded,
                   ),
                 for (final l in leaves.where((l) => l['status'] != 'Approved'))
@@ -440,103 +469,130 @@ class _MyScheduleViewState extends State<MyScheduleView> {
     return r['isSuccess'] == true;
   }
 
-  Widget _menu(Map<String, dynamic> d, DateTime date, Map? s, Map<String, dynamic>? tp, Map? reg) {
+  /// Danh sách thao tác của một ngày: (mã, biểu tượng, nhãn, màu đỏ?).
+  List<(String, IconData, String, bool)> _dayActions(
+      Map<String, dynamic> d, Map? s, bool hasShift, List<Map<String, dynamic>> extraShifts,
+      List<Map<String, dynamic>> pendingRegs) {
+    return [
+      ('register', Icons.how_to_reg_rounded, hasShift ? 'Đăng ký thêm ca / đổi ca' : 'Đăng ký ca', false),
+      ('leave', Icons.beach_access_rounded, 'Xin nghỉ phép', false),
+      if (hasShift) ('swap', Icons.swap_horiz_rounded, 'Đổi ca với đồng nghiệp', false),
+      for (var i = 0; i < extraShifts.length; i++)
+        ('swap:$i', Icons.swap_horiz_rounded, 'Đổi ${_tpl(extraShifts[i]['shiftId'])?['name'] ?? 'ca'} với đồng nghiệp', false),
+      // Bỏ hẳn một ca (không thay bằng ca khác): gửi phiếu chờ quản lý duyệt.
+      for (final x in [if (hasShift) s!, ...extraShifts])
+        ('drop:${x['shiftId']}', Icons.remove_circle_outline_rounded, 'Xin bỏ ${_tpl(x['shiftId'])?['name'] ?? 'ca'}', true),
+      // Mỗi phiếu chờ duyệt một dòng huỷ riêng — ngày có hai phiếu thì trước đây chỉ huỷ được phiếu mới nhất.
+      for (final r in pendingRegs)
+        ('cancelReg:${r['id']}', Icons.undo_rounded,
+            pendingRegs.length == 1 ? 'Huỷ đăng ký đang chờ' : 'Huỷ «${_regLabel(r)}»', true),
+    ];
+  }
+
+  Widget _menu(Map<String, dynamic> d, DateTime date, Map? s, Map<String, dynamic>? tp) {
     final hasShift = s != null && s['isDayOff'] != true && s['shiftId'] != null;
     final extraShifts = _rows(d['schedules']).skip(1).where((x) => x['isDayOff'] != true && x['shiftId'] != null).toList();
-    return PopupMenuButton<String>(
+    final pendingRegs = _regsOf(d).where((r) => r['status'] == 'Pending').toList();
+    // Hộp thao tác kiểu bảng trượt từ dưới lên thay cho trình đơn bật ra: ngày nhiều ca / nhiều phiếu
+    // có tới 6–7 dòng, trình đơn cũ nằm đè lên thanh điều hướng nên dòng cuối bị cắt mất.
+    return IconButton(
       tooltip: tr('Thao tác'),
       icon: const Icon(Icons.more_vert_rounded, color: SboxColors.slate500),
-      onSelected: (v) async {
-        var changed = false;
-        if (v.startsWith('drop:')) {
-          changed = await _askDrop(date, v.substring(5));
-          if (changed) _changed();
-          return;
-        }
-        if (v.startsWith('swap:')) {
-          final x = extraShifts[int.parse(v.substring(5))];
-          final xt = _tpl(x['shiftId']);
-          changed = await showSwapRequestSheet(context,
-              myDate: date,
-              myShiftId: x['shiftId'].toString(),
-              myShiftLabel: '${xt?['name'] ?? ''} ${x['start']}–${x['end']}');
-          if (changed) _changed();
-          return;
-        }
-        switch (v) {
-          case 'register':
-            changed = await showRegisterShiftSheet(context,
-                date: date,
-                templates: _templates,
-                slots: _rows(d['slots']),
-                currentShiftId: s?['shiftId']?.toString(),
-                currentShiftIds: [
-                  for (final x in _rows(d['schedules']))
-                    if (x['isDayOff'] != true && x['shiftId'] != null) x['shiftId'].toString(),
-                ],
-                hasShiftToday: hasShift,
-                isDayOffToday: s?['isDayOff'] == true);
-          case 'leave':
-            changed = await showLeaveRequestSheet(context,
-                date: date,
-                templates: _templates,
-                scheduledShiftId: hasShift ? s['shiftId'].toString() : null,
-                employeeId: (_d?['employee'] as Map?)?['id']?.toString());
-          case 'swap':
-            changed = await showSwapRequestSheet(context,
-                myDate: date,
-                myShiftId: s!['shiftId'].toString(),
-                myShiftLabel: '${tp?['name'] ?? ''} ${s['start']}–${s['end']}');
-          case 'cancelReg':
-            final r = await _api.deleteScheduleRegistration(reg!['id'].toString());
-            _result(r, 'Đã huỷ đăng ký');
-        }
-        if (changed) _changed();
+      onPressed: () async {
+        final actions = _dayActions(d, s, hasShift, extraShifts, pendingRegs);
+        final picked = await showModalBottomSheet<String>(
+          context: context,
+          isScrollControlled: true,
+          showDragHandle: true,
+          backgroundColor: Colors.white,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+          builder: (ctx) => SafeArea(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(ctx).height * 0.75),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                  child: Row(children: [
+                    Expanded(
+                      child: Text(tr('${ShiftUi.weekdaysLong[date.weekday - 1]}, ${ShiftUi.dmy(date)}'),
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: SboxColors.slate900)),
+                    ),
+                  ]),
+                ),
+                Flexible(
+                  child: ListView(shrinkWrap: true, children: [
+                    for (final a in actions)
+                      ListTile(
+                        leading: Icon(a.$2, color: a.$4 ? SboxColors.danger : SboxColors.slate600),
+                        title: Text(tr(a.$3),
+                            style: TextStyle(fontWeight: FontWeight.w600, color: a.$4 ? SboxColors.danger : SboxColors.slate900)),
+                        onTap: () => Navigator.pop(ctx, a.$1),
+                      ),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+        );
+        if (picked != null && mounted) await _runDayAction(picked, d, date, s, tp, hasShift, extraShifts, pendingRegs);
       },
-      itemBuilder: (_) => [
-        PopupMenuItem(
-          value: 'register',
-          child: ListTile(
-            dense: true,
-            leading: const Icon(Icons.how_to_reg_rounded),
-            title: Text(tr(hasShift ? 'Đăng ký thêm ca / đổi ca' : 'Đăng ký ca')),
-          ),
-        ),
-        PopupMenuItem(
-          value: 'leave',
-          child: ListTile(dense: true, leading: const Icon(Icons.beach_access_rounded), title: Text(tr('Xin nghỉ phép'))),
-        ),
-        if (hasShift)
-          PopupMenuItem(
-            value: 'swap',
-            child: ListTile(dense: true, leading: const Icon(Icons.swap_horiz_rounded), title: Text(tr('Đổi ca với đồng nghiệp'))),
-          ),
-        // Bỏ hẳn một ca (không thay bằng ca khác): gửi phiếu chờ quản lý duyệt.
-        for (final x in [if (hasShift) s, ...extraShifts])
-          PopupMenuItem(
-            value: 'drop:${x['shiftId']}',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.remove_circle_outline_rounded, color: SboxColors.danger),
-              title: Text(tr('Xin bỏ ${_tpl(x['shiftId'])?['name'] ?? 'ca'}')),
-            ),
-          ),
-        for (var i = 0; i < extraShifts.length; i++)
-          PopupMenuItem(
-            value: 'swap:$i',
-            child: ListTile(
-              dense: true,
-              leading: const Icon(Icons.swap_horiz_rounded),
-              title: Text(tr('Đổi ${_tpl(extraShifts[i]['shiftId'])?['name'] ?? 'ca'} với đồng nghiệp')),
-            ),
-          ),
-        if (reg != null && reg['status'] == 'Pending')
-          PopupMenuItem(
-            value: 'cancelReg',
-            child: ListTile(
-                dense: true, leading: const Icon(Icons.undo_rounded, color: SboxColors.danger), title: Text(tr('Huỷ đăng ký đang chờ'))),
-          ),
-      ],
     );
+  }
+
+  Future<void> _runDayAction(String v, Map<String, dynamic> d, DateTime date, Map? s, Map<String, dynamic>? tp,
+      bool hasShift, List<Map<String, dynamic>> extraShifts, List<Map<String, dynamic>> pendingRegs) async {
+    var changed = false;
+    if (v.startsWith('cancelReg:')) {
+      final r = await _api.deleteScheduleRegistration(v.substring(10));
+      _result(r, 'Đã huỷ đăng ký');
+      return;
+    }
+    if (v.startsWith('drop:')) {
+      changed = await _askDrop(date, v.substring(5));
+      if (changed) _changed();
+      return;
+    }
+    if (v.startsWith('swap:')) {
+      final x = extraShifts[int.parse(v.substring(5))];
+      final xt = _tpl(x['shiftId']);
+      changed = await showSwapRequestSheet(context,
+          myDate: date,
+          myShiftId: x['shiftId'].toString(),
+          myShiftLabel: '${xt?['name'] ?? ''} ${x['start']}–${x['end']}');
+      if (changed) _changed();
+      return;
+    }
+    switch (v) {
+      case 'register':
+        changed = await showRegisterShiftSheet(context,
+            date: date,
+            templates: _templates,
+            slots: _rows(d['slots']),
+            currentShiftId: s?['shiftId']?.toString(),
+            currentShiftIds: [
+              for (final x in _rows(d['schedules']))
+                if (x['isDayOff'] != true && x['shiftId'] != null) x['shiftId'].toString(),
+            ],
+            // Ca đã gửi đăng ký, đang chờ duyệt: hộp chọn ca khoá lại thay vì để bấm rồi báo lỗi.
+            pendingShiftIds: [
+              for (final r in pendingRegs)
+                if (r['isDayOff'] != true && r['shiftId'] != null) r['shiftId'].toString(),
+            ],
+            pendingDayOff: pendingRegs.any((r) => r['isDayOff'] == true),
+            hasShiftToday: hasShift,
+            isDayOffToday: s?['isDayOff'] == true);
+      case 'leave':
+        changed = await showLeaveRequestSheet(context,
+            date: date,
+            templates: _templates,
+            scheduledShiftId: hasShift ? s!['shiftId'].toString() : null,
+            employeeId: (_d?['employee'] as Map?)?['id']?.toString());
+      case 'swap':
+        changed = await showSwapRequestSheet(context,
+            myDate: date,
+            myShiftId: s!['shiftId'].toString(),
+            myShiftLabel: '${tp?['name'] ?? ''} ${s['start']}–${s['end']}');
+    }
+    if (changed) _changed();
   }
 }

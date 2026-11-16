@@ -5909,6 +5909,7 @@
   "Nghỉ việc": "Resignation",
   "Nghỉ việc chưa trả tiền phép": "Resigned with unpaid leave pay",
   "Nghỉ việc còn phép": "Resigned with leave left",
+  "Nghỉ · chờ duyệt": "Day off · pending approval",
   "Ngoài POS": "Outside POS",
   "Ngoài giờ ca": "Outside shift hours",
   "Ngoài giờ khách vẫn đặt — đơn ghi «ĐẶT NGOÀI GIỜ», không tự xác nhận / in bếp, quán xử lý khi mở cửa.": "Customers can still order outside hours — the order is marked «ORDERED OUTSIDE HOURS», not auto-confirmed / kitchen-printed; the shop handles it when open.",
@@ -10509,6 +10510,7 @@
   "Đã gửi yêu cầu dọn": "Cleanup request sent",
   "Đã gửi đăng ký ca — chờ quản lý duyệt": "Shift registration sent — awaiting manager approval",
   "Đã gửi đăng ký nghỉ ngày này": "Day-off registration for this day sent",
+  "Đã gửi đăng ký nghỉ, chờ duyệt": "Day-off request sent, pending approval",
   "Đã gửi đơn nghỉ — chờ duyệt": "Leave request sent — pending approval",
   "Đã hiện gói trên màn đăng ký": "Plan is shown on the sign-up screen",
   "Đã hoàn": "Refunded",
@@ -10826,6 +10828,7 @@
   "Đăng ký cửa hàng": "Store sign-up",
   "Đăng ký hội viên lên máy": "Register members to the device",
   "Đăng ký lên máy chấm công": "Register to attendance device",
+  "Đăng ký nghỉ": "Day-off request",
   "Đăng ký nghỉ ngày": "Day-off sign-up",
   "Đăng ký nghỉ ngày này": "Register day off for this day",
   "Đăng ký thiết bị chấm công": "Register attendance device",
@@ -15294,6 +15297,10 @@
    "Active ({0}%)"
   ],
   [
+   "Huỷ «{0}»",
+   "Cancel «{0}»"
+  ],
+  [
    "HÓA ĐƠN ĐIỆN TỬ (BẢN NHÁP) — đơn {0}",
    "E-INVOICE (DRAFT) — order {0}"
   ],
@@ -18888,6 +18895,18 @@
   [
    "Sẽ gửi lúc {0} cho {1} người",
    "Will be sent at {0} to {1} people"
+  ],
+  [
+   "Sẽ trừ {0} ngày phép năm",
+   "Will deduct {0} day(s) of annual leave"
+  ],
+  [
+   "Sẽ trừ {0} ngày phép năm · còn {1} ngày",
+   "Will deduct {0} day(s) of annual leave · {1} day(s) left"
+  ],
+  [
+   "Sẽ trừ {0} ngày phép năm · vượt {1} ngày so với phép còn lại",
+   "Will deduct {0} day(s) of annual leave · {1} day(s) over your balance"
   ],
   [
    "Sẽ trừ {0} ngày phép năm. Còn lại: ",
@@ -24322,6 +24341,10 @@
    "{0} · closed at {1}:{2}"
   ],
   [
+   "{0} · chờ duyệt",
+   "{0} · pending approval"
+  ],
+  [
    "{0} · còn {1}",
    "{0} · {1} left"
   ],
@@ -24596,6 +24619,10 @@
   [
    "{0} · Đã có trong lịch",
    "{0} · Already scheduled"
+  ],
+  [
+   "{0} · Đã gửi đăng ký, chờ duyệt",
+   "{0} · request sent, pending approval"
   ],
   [
    "{0} · đang có",

@@ -3938,6 +3938,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
           )) {
         continue;
       }
+      if (_hiddenByShiftHub(code,
+          allowedModules: allowedModules, perm: permProvider, bypassPackageFilter: bypassPackage)) {
+        continue;
+      }
       final group = _navItems[i].group.isEmpty ? 'Khác' : _navItems[i].group;
       groupedItems.putIfAbsent(group, () => []);
       groupedItems[group]!.add(MapEntry(i, _navItems[i]));
@@ -4616,6 +4620,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (!PermissionNavigation.canNavigate(permProvider, item.moduleCode)) {
         continue;
       }
+      if (_hiddenByShiftHub(item.moduleCode,
+          allowedModules: allowedModules, perm: permProvider, bypassPackageFilter: bypassPackage)) {
+        continue;
+      }
       final group = item.group.isEmpty ? 'Khác' : item.group;
       groupedItems.putIfAbsent(group, () => []);
       groupedItems[group]!.add(MapEntry(i, item));
@@ -4769,6 +4777,26 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       ),
     );
   }
+}
+
+/// «Ca làm việc» (Shift Hub) đã gồm lịch của tôi, đăng ký ca, xin nghỉ, đổi ca và hộp duyệt.
+/// Khi mục đó có trong menu thì «Đổi ca làm việc» mở ra đúng màn ấy (nhân viên về tab «Lịch của
+/// tôi», quản lý về «Cần duyệt» như «Duyệt lịch làm việc») — ẩn đi để menu không có hai dòng
+/// dẫn tới cùng một chỗ.
+bool _hiddenByShiftHub(
+  String? code, {
+  required List<String>? allowedModules,
+  required PermissionProvider perm,
+  required bool bypassPackageFilter,
+}) {
+  if (code != 'ShiftSwap') return false;
+  return PermissionNavigation.isAllowedByPackageOrRole(
+        'WorkSchedule',
+        allowedModules: allowedModules,
+        perm: perm,
+        bypassPackageFilter: bypassPackageFilter,
+      ) &&
+      PermissionNavigation.canNavigate(perm, 'WorkSchedule');
 }
 
 class NavItem {

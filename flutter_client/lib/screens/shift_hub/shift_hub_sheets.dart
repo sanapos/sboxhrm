@@ -45,6 +45,8 @@ Future<bool> showRegisterShiftSheet(
   required List<Map<String, dynamic>> slots,
   String? currentShiftId,
   List<String> currentShiftIds = const [],
+  List<String> pendingShiftIds = const [],
+  bool pendingDayOff = false,
   bool hasShiftToday = false,
   bool isDayOffToday = false,
 }) async {
@@ -56,6 +58,8 @@ Future<bool> showRegisterShiftSheet(
           slots: slots,
           currentShiftId: currentShiftId,
           currentShiftIds: currentShiftIds,
+          pendingShiftIds: pendingShiftIds,
+          pendingDayOff: pendingDayOff,
           hasShiftToday: hasShiftToday,
           isDayOffToday: isDayOffToday));
   return ok == true;
@@ -68,11 +72,16 @@ class _RegisterSheet extends StatefulWidget {
     required this.slots,
     this.currentShiftId,
     this.currentShiftIds = const [],
+    this.pendingShiftIds = const [],
+    this.pendingDayOff = false,
     this.hasShiftToday = false,
     this.isDayOffToday = false,
   });
   /// Các ca đang xếp ngày này (một người có thể làm nhiều ca).
   final List<String> currentShiftIds;
+  /// Các ca đã gửi đăng ký, đang chờ quản lý duyệt — gửi lại sẽ bị máy chủ từ chối.
+  final List<String> pendingShiftIds;
+  final bool pendingDayOff;
   final bool hasShiftToday;
   final bool isDayOffToday;
   final DateTime date;
@@ -171,11 +180,16 @@ class _RegisterSheetState extends State<_RegisterSheet> {
               color: SboxColors.slate500,
               icon: Icons.beach_access_rounded,
               title: 'Đăng ký nghỉ ngày này',
-              subtitle: 'Không xếp ca (không phải đơn nghỉ phép)',
-              onTap: () => setState(() {
-                _dayOff = true;
-                _shiftId = null;
-              }),
+              subtitle: widget.pendingDayOff
+                  ? 'Đã gửi đăng ký nghỉ, chờ duyệt'
+                  : 'Không xếp ca (không phải đơn nghỉ phép)',
+              badge: widget.pendingDayOff ? ShiftUi.requestStatusPill('reg', 'Pending') : null,
+              onTap: widget.pendingDayOff
+                  ? null
+                  : () => setState(() {
+                        _dayOff = true;
+                        _shiftId = null;
+                      }),
             ),
           ),
           if ((_dayOff && widget.hasShiftToday) || (!_dayOff && _shiftId != null && widget.isDayOffToday))
@@ -239,6 +253,9 @@ class _RegisterSheetState extends State<_RegisterSheet> {
       if (status == 'short') sub += ' · Đang thiếu người';
     }
     final mine = _current.contains(id);
+    // Đã gửi đăng ký ca này và đang chờ duyệt: khoá luôn, kèm lý do — trước đây vẫn bấm chọn rồi
+    // bấm Gửi được, tới lúc đó máy chủ mới báo «đã có đăng ký ca này».
+    final pending = !mine && widget.pendingShiftIds.contains(id);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: _choice(
@@ -246,10 +263,20 @@ class _RegisterSheetState extends State<_RegisterSheet> {
         color: color,
         icon: Icons.schedule_rounded,
         title: '${t['name']}${mine ? ' (ca đang làm)' : ''}',
-        subtitle: mine ? '$sub · Đã có trong lịch' : sub,
-        badge: status == 'short' ? ShiftUi.pill('Ưu tiên', SboxColors.danger) : full ? ShiftUi.pill('Đủ người', SboxColors.slate500) : null,
+        subtitle: mine
+            ? '$sub · Đã có trong lịch'
+            : pending
+                ? '$sub · Đã gửi đăng ký, chờ duyệt'
+                : sub,
+        badge: pending
+            ? ShiftUi.requestStatusPill('reg', 'Pending')
+            : status == 'short'
+                ? ShiftUi.pill('Ưu tiên', SboxColors.danger)
+                : full
+                    ? ShiftUi.pill('Đủ người', SboxColors.slate500)
+                    : null,
         // Ca đang làm: không đăng ký lại (muốn bỏ ca thì xin nghỉ / đổi ca với đồng nghiệp).
-        onTap: mine ? null : () => setState(() => _pickShift(id)),
+        onTap: mine || pending ? null : () => setState(() => _pickShift(id)),
       ),
     );
   }
@@ -351,6 +378,14 @@ class _RegisterWeekSheetState extends State<_RegisterWeekSheet> {
   Map<String, dynamic>? _tpl(dynamic id) =>
       id == null ? null : widget.templates.where((t) => t['id'].toString() == id.toString()).firstOrNull;
 
+  /// Mọi phiếu đăng ký của ngày. Máy chủ cũ chỉ trả `registration` (phiếu mới nhất).
+  List<Map<String, dynamic>> _regsOf(Map<String, dynamic> d) {
+    final all = [for (final x in (d['registrations'] as List? ?? const [])) if (x is Map) Map<String, dynamic>.from(x)];
+    if (all.isNotEmpty) return all;
+    final one = d['registration'];
+    return one is Map ? [Map<String, dynamic>.from(one)] : const [];
+  }
+
   Future<void> _save() async {
     setState(() => _saving = true);
     var ok = 0, fail = 0;
@@ -414,14 +449,20 @@ class _RegisterWeekSheetState extends State<_RegisterWeekSheet> {
     final key = d['date'].toString();
     final date = ShiftUi.parse(key)!;
     final s = d['schedule'] as Map?;
-    final reg = d['registration'] as Map?;
+    final regs = _regsOf(d);
     final mine = _scheduled(d);
+    // Ca đã gửi đăng ký, đang chờ duyệt: khoá ô chọn (máy chủ từ chối phiếu trùng).
+    final waiting = {
+      for (final r in regs)
+        if (r['status'] == 'Pending' && r['isDayOff'] != true && r['shiftId'] != null) r['shiftId'].toString(),
+    };
+    final waitingOff = regs.any((r) => r['status'] == 'Pending' && r['isDayOff'] == true);
     final now = mine.isNotEmpty
         ? 'Đang có ${mine.map((x) => _tpl(x)?['name'] ?? 'ca').join(', ')}'
         : s?['isDayOff'] == true
             ? 'Đang là ngày nghỉ'
             : 'Chưa có ca';
-    final pending = reg != null && reg['status'] == 'Pending';
+    final pending = waiting.isNotEmpty || waitingOff;
     final slots = [for (final x in (d['slots'] as List? ?? const [])) if (x is Map) x];
     String? slotStatus(String id) => slots.where((x) => x['shiftId']?.toString() == id).firstOrNull?['status']?.toString();
     return Container(
@@ -443,28 +484,37 @@ class _RegisterWeekSheetState extends State<_RegisterWeekSheet> {
               final has = mine.contains(id);
               final picked = _pick[key]?.contains(id) == true;
               final clash = !picked && !has && _clash(d, id);
+              final sent = !has && waiting.contains(id);
+              // Cửa hàng hay có nhiều ca trùng tên («Ca sáng» 06:00 và 08:00): phải kèm giờ mới
+              // phân biệt được — ô chọn cũ chỉ ghi tên nên không biết đang chọn ca nào.
+              final name = '${t['name']} ${t['start']}–${t['end']}';
               return FilterChip(
                 avatar: CircleAvatar(radius: 5, backgroundColor: ShiftUi.shiftColor(ShiftUi.n(t['colorIndex']).toInt())),
                 label: Text(has
-                    ? tr('${t['name']} · đang có')
-                    : clash
-                        ? tr('${t['name']} · trùng giờ')
-                        : '${t['name']}${slotStatus(id) == 'short' ? ' · thiếu' : (slotStatus(id) == 'full' || slotStatus(id) == 'over') ? ' · đủ' : ''}'),
+                    ? tr('$name · đang có')
+                    : sent
+                        ? tr('$name · chờ duyệt')
+                        : clash
+                            ? tr('$name · trùng giờ')
+                            : '$name${slotStatus(id) == 'short' ? ' · thiếu' : (slotStatus(id) == 'full' || slotStatus(id) == 'over') ? ' · đủ' : ''}'),
                 selected: picked,
-                // Ca đang có / chồng giờ ca khác trong ngày: không chọn được (đổi ca dùng «Đăng ký thêm ca / đổi ca»).
-                onSelected: has || clash ? null : (v) => setState(() => _toggle(key, id, v)),
+                // Ca đang có / đã gửi / chồng giờ ca khác trong ngày: không chọn được (đổi ca dùng «Đăng ký thêm ca / đổi ca»).
+                onSelected: has || sent || clash ? null : (v) => setState(() => _toggle(key, id, v)),
               );
             }),
           FilterChip(
-            label: Text(tr('Nghỉ')),
+            label: Text(tr(waitingOff ? 'Nghỉ · chờ duyệt' : 'Nghỉ')),
             selected: _pick[key]?.contains('off') == true,
-            onSelected: (v) => setState(() => _toggle(key, 'off', v)),
+            onSelected: waitingOff ? null : (v) => setState(() => _toggle(key, 'off', v)),
           ),
         ]),
       ]),
     );
   }
 }
+
+/// Số ngày phép: bỏ đuôi «.0» (1.0 → 1), giữ nửa ngày (0.5).
+String _num(num? v) => v == null ? '' : (v % 1 == 0 ? v.toInt().toString() : v.toString());
 
 Widget _choice({
   required bool selected,
@@ -712,7 +762,7 @@ class _LeaveSheetState extends State<_LeaveSheet> {
         ? 'Tạo hộ ${widget.employeeName ?? 'nhân viên'}${_annualLeft == null ? '' : ' · phép năm còn $_annualLeft ngày'}'
         : _annualLeft == null
             ? 'Gửi đơn tới quản lý duyệt'
-            : 'Phép năm còn lại: $_annualLeft ngày';
+            : 'Phép năm còn lại: ${_num(_annualLeft)} ngày';
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.only(bottom: 16),
@@ -773,7 +823,13 @@ class _LeaveSheetState extends State<_LeaveSheet> {
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
               child: Text(
-                tr('Sẽ trừ $_deduct ngày phép năm${_annualLeft != null ? ' (còn $_annualLeft ngày)' : ''}'),
+                // Số trong ngoặc trước đây là phép CÒN LẠI HIỆN TẠI, đọc như là số còn sau khi trừ
+                // («Sẽ trừ 1 ngày phép năm (còn 3 ngày)» trong khi đang có đúng 3 ngày).
+                tr(_annualLeft == null
+                    ? 'Sẽ trừ ${_num(_deduct)} ngày phép năm'
+                    : _annualLeft! >= _deduct!
+                        ? 'Sẽ trừ ${_num(_deduct)} ngày phép năm · còn ${_num(_annualLeft! - _deduct!)} ngày'
+                        : 'Sẽ trừ ${_num(_deduct)} ngày phép năm · vượt ${_num(_deduct! - _annualLeft!)} ngày so với phép còn lại'),
                 style: TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
