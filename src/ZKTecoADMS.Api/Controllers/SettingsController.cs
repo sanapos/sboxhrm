@@ -253,6 +253,10 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
                 Group = "Salary",
                 DataType = "string",
                 StoreId = storeId,
+                // Thiết lập lương là dữ liệu nội bộ của cửa hàng: KHÔNG public.
+                // (Entity mặc định IsPublic = true nên phải tắt rõ ràng, nếu không endpoint
+                //  /api/PublicSettings sẽ gom cả các khóa này của mọi cửa hàng.)
+                IsPublic = false,
                 CreatedAt = DateTime.UtcNow,
                 CreatedBy = CurrentUserId.ToString(),
             };

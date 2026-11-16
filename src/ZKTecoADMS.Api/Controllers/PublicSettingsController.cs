@@ -38,9 +38,25 @@ public class PublicSettingsController : ControllerBase
         try
         {
             var settings = await _cache.GetOrCreateAsync("public_settings", async () =>
-                await _dbContext.AppSettings
-                    .Where(s => s.IsPublic)
-                    .ToDictionaryAsync(s => s.Key, s => s.Value),
+            {
+                // Chỉ lấy thiết lập CẤP HỆ THỐNG (StoreId = null) — đây là các khóa dùng cho trang chủ,
+                // trang đăng nhập, SEO… Thiết lập riêng của từng cửa hàng (vd «overtime_rate» trong
+                // thiết lập lương) cũng được ghi với IsPublic = true nên nếu không lọc theo StoreId thì
+                // nhiều cửa hàng sẽ cho nhiều dòng cùng Key và ToDictionary ném ArgumentException.
+                var rows = await _dbContext.AppSettings
+                    .AsNoTracking()
+                    .Where(s => s.IsPublic && s.StoreId == null)
+                    .Select(s => new { s.Key, s.Value, s.LastModified, s.CreatedAt })
+                    .ToListAsync();
+
+                // Phòng xa dữ liệu cũ còn dòng trùng Key: lấy dòng được cập nhật gần nhất
+                // (LastModified, nếu chưa sửa thì CreatedAt).
+                return rows
+                    .GroupBy(s => s.Key)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.OrderByDescending(s => s.LastModified ?? s.CreatedAt).First().Value);
+            },
                 TimeSpan.FromMinutes(10)) ?? new Dictionary<string, string?>();
 
             var response = new PublicAppSettingsResponse(
@@ -120,9 +136,14 @@ public class PublicSettingsController : ControllerBase
 
         try
         {
+            // Cũng chỉ trả thiết lập cấp hệ thống: nếu không lọc StoreId thì endpoint công khai này
+            // có thể trả ra thiết lập nội bộ của một cửa hàng bất kỳ (dòng nào vào trước trả trước).
             var setting = await _cache.GetOrCreateAsync($"public_setting:{key}", async () =>
                 await _dbContext.AppSettings
-                    .FirstOrDefaultAsync(s => s.Key == key && s.IsPublic),
+                    .AsNoTracking()
+                    .Where(s => s.Key == key && s.IsPublic && s.StoreId == null)
+                    .OrderByDescending(s => s.LastModified ?? s.CreatedAt)
+                    .FirstOrDefaultAsync(),
                 TimeSpan.FromMinutes(10));
 
             if (setting == null)
