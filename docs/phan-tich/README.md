@@ -20,6 +20,9 @@ Chép từ thư mục ghi chú chung của các phiên Claude ngày 10/11/2026, 
 ## Rà soát SBOX BOSS trên App Store — `boss-app-store/`
 - [SBOX BOSS trên App Store — rà soát 09/11/2026](boss-app-store/boss-app-store-ra-soat-20261109.md)
 
+## Các phương pháp chấm công — `cham-cong-phuong-phap/`
+- [Phân tích – Giới thiệu: Các phương pháp chấm công của SBOX HRM (16/11/2026)](cham-cong-phuong-phap/cham-cong-sbox-hrm.md)
+
 ## Tổng hợp chấm công và Tổng quan trên điện thoại — `cham-cong-tong-quan-mobile/`
 - [Phân tích «Tổng hợp chấm công» trên điện thoại (góc nhìn chủ cửa hàng nhiều nhân viên)](cham-cong-tong-quan-mobile/phan-tich-tong-hop-cham-cong-mobile.md)
 - [Phân tích màn «Tổng quan» (góc nhìn chủ quán)](cham-cong-tong-quan-mobile/phan-tich-tong-quan.md)
