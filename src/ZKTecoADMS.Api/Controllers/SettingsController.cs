@@ -494,7 +494,9 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         if (storeId.HasValue)
             setting = await dbContext.AppSettings.FirstOrDefaultAsync(s => s.StoreId == storeId.Value && s.Key == key);
         else
-            setting = await dbContext.AppSettings.FirstOrDefaultAsync(s => s.Key == key);
+            // Tài khoản không theo cửa hàng chỉ đọc thiết lập cấp hệ thống; không lọc StoreId thì
+            // cùng một Key có ở nhiều cửa hàng và sẽ trả về dòng của một cửa hàng bất kỳ.
+            setting = await dbContext.AppSettings.FirstOrDefaultAsync(s => s.StoreId == null && s.Key == key);
         if (setting == null)
         {
             return Ok(AppResponse<AppSettingsDto>.Success(new AppSettingsDto(
@@ -520,7 +522,9 @@ public class SettingsController(IMediator mediator, ZKTecoDbContext dbContext) :
         if (storeId.HasValue)
             setting = await dbContext.AppSettings.AsTracking().FirstOrDefaultAsync(s => s.StoreId == storeId.Value && s.Key == request.Key);
         else
-            setting = await dbContext.AppSettings.AsTracking().FirstOrDefaultAsync(s => s.Key == request.Key);
+            // Tương tự khi ghi: thiếu lọc StoreId thì tài khoản hệ thống có thể GHI ĐÈ thiết lập
+            // nội bộ của một cửa hàng (vd overtime_rate) thay vì tạo/sửa dòng cấp hệ thống.
+            setting = await dbContext.AppSettings.AsTracking().FirstOrDefaultAsync(s => s.StoreId == null && s.Key == request.Key);
 
         if (setting == null)
         {

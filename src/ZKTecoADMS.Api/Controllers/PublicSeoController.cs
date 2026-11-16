@@ -187,7 +187,9 @@ public class PublicSeoController(ZKTecoDbContext db) : ControllerBase
     /// <summary>Bảng giá máy trên trang lắp đặt = danh sách «Sản phẩm thiết bị» của trang chủ (landing_products).</summary>
     async Task<List<SeoPages.DeviceOffer>> Devices(CancellationToken ct) =>
         SeoPages.ParseDevices(await db.AppSettings.AsNoTracking()
-            .Where(x => x.Key == AppSettingKeys.LandingProducts).Select(x => x.Value).FirstOrDefaultAsync(ct));
+            // StoreId = null: nội dung trang chủ là thiết lập cấp hệ thống, không lấy dòng của cửa hàng.
+            .Where(x => x.StoreId == null && x.Key == AppSettingKeys.LandingProducts)
+            .Select(x => x.Value).FirstOrDefaultAsync(ct));
 
     [HttpGet("/tai-lieu")]
     public IActionResult Resources() => Html(SeoPages.ResourcesPage(Site), cacheSeconds: 600);

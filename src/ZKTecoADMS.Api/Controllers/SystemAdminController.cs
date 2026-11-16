@@ -3372,7 +3372,10 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
+            // Màn thiết lập hệ thống chỉ quản lý dòng cấp hệ thống (StoreId = null). Không lọc thì
+            // danh sách lẫn cả thiết lập riêng của từng cửa hàng và hiện trùng khóa.
             var settings = await _dbContext.AppSettings
+                .Where(s => s.StoreId == null)
                 .OrderBy(s => s.Group)
                 .ThenBy(s => s.DisplayOrder)
                 .Select(s => new AppSettingsDto(
@@ -3406,7 +3409,7 @@ public class SystemAdminController : AuthenticatedControllerBase
         try
         {
             var setting = await _dbContext.AppSettings
-                .FirstOrDefaultAsync(s => s.Key == key);
+                .FirstOrDefaultAsync(s => s.StoreId == null && s.Key == key);
 
             if (setting == null)
             {
@@ -3442,9 +3445,11 @@ public class SystemAdminController : AuthenticatedControllerBase
     {
         try
         {
+            // Lọc StoreId = null: nếu không, SuperAdmin sửa thiết lập hệ thống có thể ghi đè
+            // đúng dòng thiết lập nội bộ của một cửa hàng trùng khóa.
             var setting = await _dbContext.AppSettings
                 .AsTracking()
-                .FirstOrDefaultAsync(s => s.Key == request.Key);
+                .FirstOrDefaultAsync(s => s.StoreId == null && s.Key == request.Key);
 
             if (setting == null)
             {
@@ -3514,9 +3519,11 @@ public class SystemAdminController : AuthenticatedControllerBase
         {
             // Pre-load all settings by keys to avoid N+1
             var keys = request.Settings.Select(s => s.Key).ToList();
+            // Chỉ dòng cấp hệ thống. Thiếu lọc StoreId thì hai cửa hàng cùng một khóa trong danh sách
+            // gửi lên sẽ làm ToDictionary ném ArgumentException (trùng khóa) và cả lần lưu bị 500.
             var existingSettings = await _dbContext.AppSettings
                 .AsTracking()
-                .Where(s => keys.Contains(s.Key))
+                .Where(s => s.StoreId == null && keys.Contains(s.Key))
                 .ToDictionaryAsync(s => s.Key);
 
             foreach (var item in request.Settings)
@@ -3627,8 +3634,10 @@ public class SystemAdminController : AuthenticatedControllerBase
 
             // Pre-load all existing setting keys to avoid N+1
             var allKeys = defaultSettings.Select(d => d.Key).ToList();
+            // Chỉ xét dòng cấp hệ thống: nếu không, một cửa hàng đã có khóa cùng tên sẽ làm
+            // thiết lập mặc định cấp hệ thống không bao giờ được tạo.
             var existingKeys = (await _dbContext.AppSettings
-                .Where(s => allKeys.Contains(s.Key))
+                .Where(s => s.StoreId == null && allKeys.Contains(s.Key))
                 .Select(s => s.Key)
                 .ToListAsync()).ToHashSet();
 
