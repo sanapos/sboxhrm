@@ -160,7 +160,8 @@ class _PosOfflineSalesScreenState extends State<PosOfflineSalesScreen> {
               _thisDevice(canManage),
               _deviceSales(),
               const PosHealthGlossary(entries: [
-                ('Bán offline', 'Khi mất mạng, máy POS Android vẫn thu tiền mặt và in hóa đơn tạm; có mạng lại thì tự gửi đơn lên máy chủ.'),
+                ('Bán offline', 'Khi mất mạng, máy POS Android và máy tính Windows (app SBOX) vẫn thu tiền mặt '
+                    'và in hóa đơn tạm; có mạng lại thì tự gửi đơn lên máy chủ.'),
                 ('Số HĐ offline (OFF-000123)', 'Máy chủ cấp trước cho từng máy một dải số. Mỗi đơn offline dùng một số — '
                     'nhờ vậy chủ quán biết có đơn nào «biến mất» không.'),
                 ('Nhảy cóc', 'Có số đã dùng (đã in cho khách) mà đơn không về máy chủ. Ví dụ có OFF-1 và OFF-3 nhưng thiếu OFF-2.'),

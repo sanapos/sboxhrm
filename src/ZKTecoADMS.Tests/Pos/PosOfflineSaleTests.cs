@@ -51,6 +51,22 @@ public class PosOfflineSaleTests(PosPgFixture fx) : PosFlowTestBase(fx)
         Assert.Equal(now.AddHours(-2), PosOfflineSaleRules.ResolveOfflineSaleAt("OFF-1", now.AddHours(-2), now, true));
     }
 
+    /// <summary>Máy được cấp số offline: Android (a: = ANDROID_ID) và Windows (w: = MachineGuid), đúng nền tảng.</summary>
+    [Fact]
+    public void Durable_device_key_allows_android_and_windows_only()
+    {
+        Assert.True(PosOfflineSaleRules.IsDurableDeviceKey("a:9f1c2b3d4e5f6071", "android"));
+        Assert.True(PosOfflineSaleRules.IsDurableDeviceKey("w:0e4b1c22-7c86-4f0f-90a3-815214078b6f", "Windows"));
+        // Sai cặp mã máy ↔ nền tảng: máy giả mạo tiền tố để xin số.
+        Assert.False(PosOfflineSaleRules.IsDurableDeviceKey("w:0e4b1c22", "android"));
+        Assert.False(PosOfflineSaleRules.IsDurableDeviceKey("a:9f1c2b3d", "windows"));
+        // «d:» là UUID app tự sinh (xóa dữ liệu app là mất) — không kiểm soát được, kể cả trên máy Windows.
+        Assert.False(PosOfflineSaleRules.IsDurableDeviceKey("d:0e4b1c22", "windows"));
+        Assert.False(PosOfflineSaleRules.IsDurableDeviceKey("d:web-1", "web"));
+        Assert.False(PosOfflineSaleRules.IsDurableDeviceKey(null, "android"));
+        Assert.False(PosOfflineSaleRules.IsDurableDeviceKey("a:dev", null));
+    }
+
     [Fact]
     public async Task Offline_sale_sync_is_idempotent_backdated_and_allows_negative_stock()
     {
@@ -242,8 +258,32 @@ public class PosOfflineSaleTests(PosPgFixture fx) : PosFlowTestBase(fx)
         await using (var db = Fx.NewDb())
             Assert.NotNull(Error(await Offline(db, store).Reserve(
                 new PosOfflineController.ReserveDto { DeviceKey = "a:never", InstallId = "x", Count = 10 }, default)));
+        // Máy Windows nhưng mã máy là UUID app tự sinh («d:») → vẫn không được cấp số.
+        await InstallAsync(store, "d:win-uuid", "w2", platform: "windows");
+        await using (var db = Fx.NewDb())
+            Assert.NotNull(Error(await Offline(db, store).Reserve(
+                new PosOfflineController.ReserveDto { DeviceKey = "d:win-uuid", InstallId = "w2", Count = 10 }, default)));
         await using (var db = Fx.NewDb())
             Assert.False(await db.PosOfflineSerialBlocks.AnyAsync(b => b.StoreId == store));
+    }
+
+    /// <summary>Máy tính Windows cài app (mã máy = MachineGuid) bán offline được như máy POS Android.</summary>
+    [Fact]
+    public async Task Reserve_allows_windows_pos_with_machine_guid()
+    {
+        if (NoDb) return;
+        var store = await Fx.NewStoreAsync();
+        await EnableOfflineAsync(store);
+        const string key = "w:0e4b1c22-7c86-4f0f-90a3-815214078b6f";
+        await InstallAsync(store, key, "inst-win", platform: "windows");
+        await using (var db = Fx.NewDb())
+            await Offline(db, store).Reserve(
+                new PosOfflineController.ReserveDto { DeviceKey = key, InstallId = "inst-win", Count = 15 }, default);
+        await using (var db = Fx.NewDb())
+        {
+            var block = await db.PosOfflineSerialBlocks.SingleAsync(b => b.StoreId == store);
+            Assert.Equal((key, 1, 15), (block.DeviceKey, block.FromSeq, block.ToSeq));
+        }
     }
 
     [Fact]

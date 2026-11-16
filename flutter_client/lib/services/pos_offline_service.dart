@@ -9,6 +9,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../utils/pos_device_identity.dart';
+import '../utils/pos_machine_id.dart';
 import 'api_service.dart';
 import 'pos_network_monitor.dart';
 
@@ -134,7 +135,8 @@ class PosOfflineService {
   /// Trình duyệt web KHÔNG bán offline: bộ nhớ trình duyệt ai cũng xóa / sửa được, không có mã máy bền
   /// để kiểm soát số hóa đơn — web chỉ giữ giỏ hàng chờ có mạng.
   static const webBlockedReason =
-      'Trình duyệt web không bán offline — dùng máy POS Android (giỏ hàng vẫn giữ, có mạng lưu tiếp)';
+      'Trình duyệt web không bán offline — dùng app trên máy POS Android hoặc máy tính Windows '
+      '(giỏ hàng vẫn giữ, có mạng lưu tiếp)';
 
   /// Phiên bàn mở lúc mất mạng (chưa có trên máy chủ).
   static bool isOfflineSession(String? sessionId) => (sessionId ?? '').startsWith('offline-');
@@ -289,12 +291,19 @@ class PosOfflineService {
     return 'i$r$h';
   }
 
+  /// Mã máy gửi lên máy chủ. Tiền tố cho biết nguồn — máy chủ chỉ cấp số hóa đơn offline cho
+  /// mã bền (`a:` ANDROID_ID, `w:` MachineGuid của Windows), không cấp cho `d:` (UUID lưu trong
+  /// thiết lập app — xóa dữ liệu app là mất, không kiểm soát được việc cài lại).
   Future<String> _readDeviceKey() async {
     if (!kIsWeb) {
       try {
         final k = await _channel.invokeMethod<String>('deviceKey');
         if (k != null && k.trim().isNotEmpty) return 'a:${k.trim()}';
-      } catch (_) {}
+      } catch (_) {
+        // Không phải Android (kênh native không có) → thử mã máy của Windows.
+      }
+      final machineGuid = readWindowsMachineGuid();
+      if (machineGuid != null) return 'w:$machineGuid';
     }
     return 'd:${(await PosDeviceIdentity.get()).id}';
   }

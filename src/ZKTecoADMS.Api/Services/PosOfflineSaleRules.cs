@@ -59,6 +59,22 @@ public static partial class PosOfflineSaleRules
         order.OfflineDeviceKey = key.Length == 0 ? null : key.Length > 128 ? key[..128] : key;
     }
 
+    /// <summary>
+    /// Máy được cấp số hóa đơn offline: mã máy phải lấy từ hệ điều hành (giữ nguyên khi gỡ / cài lại app,
+    /// khi xóa dữ liệu app) và khớp nền tảng đã báo lúc cài — Android «a:» (ANDROID_ID),
+    /// Windows «w:» (MachineGuid). «d:» là UUID app tự sinh (xóa được) và web thì không được cấp.
+    /// </summary>
+    public static bool IsDurableDeviceKey(string? deviceKey, string? platform)
+    {
+        var key = (deviceKey ?? "").Trim();
+        var os = (platform ?? "").Trim();
+        if (key.StartsWith("a:", StringComparison.Ordinal))
+            return string.Equals(os, "android", StringComparison.OrdinalIgnoreCase);
+        if (key.StartsWith("w:", StringComparison.Ordinal))
+            return string.Equals(os, "windows", StringComparison.OrdinalIgnoreCase);
+        return false;
+    }
+
     public record Settings(bool Enabled, int MaxHours);
 
     /// <summary>Cài đặt bán offline trong ExtraJson của thiết lập bán hàng. Không có / lỗi → TẮT.</summary>
