@@ -269,10 +269,33 @@ def strip_hrm_ui_strings() -> None:
     """Bỏ chuỗi giao diện của HRM khỏi bảng dịch và gói ngôn ngữ của bản bán hàng."""
     rel = "lib/l10n/en_ui_map.g.dart"
     lines = read(rel).split("\n")
-    kept = [l for l in lines if not (l.startswith("  '") and _is_hrm_line(l))]
-    dropped = len(lines) - len(kept)
+    # Bỏ CẢ MỤC chứ không bỏ từng dòng: mục dài được generator xuống dòng, khóa ở dòng này còn bản dịch ở
+    # dòng sau. Bỏ mỗi dòng khóa thì dòng dịch mồ côi → tệp hỏng cú pháp, build IPA chết (18/11/2026).
+    kept: list[str] = []
+    entry: list[str] = []
+    dropped = 0
+    for line in lines:
+        if entry:
+            entry.append(line)
+        elif line.startswith("  '"):
+            entry = [line]
+        else:
+            kept.append(line)
+            continue
+        # Mục kết thúc khi dòng cuối đóng bằng dấu phẩy.
+        if entry[-1].rstrip().endswith(","):
+            if any(_is_hrm_line(l) for l in entry):
+                dropped += len(entry)
+            else:
+                kept.extend(entry)
+            entry = []
+    kept.extend(entry)
     if dropped == 0:
         raise SystemExit(f"Expected HRM strings in {rel}, found none")
+    # Dòng tiếp nối mồ côi = đã cắt sai, dừng build còn hơn nộp gói hỏng.
+    for i, l in enumerate(kept):
+        if l.startswith("      '") and not kept[i - 1].startswith("  '"):
+            raise SystemExit(f"{rel}: dòng {i + 1} mồ côi sau khi lọc")
     write(rel, "\n".join(kept))
     print(f"{rel}: bỏ {dropped} dòng chuỗi HRM")
 
