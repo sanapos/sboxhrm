@@ -12,6 +12,7 @@ import '../l10n/app_locale.dart';
 import '../providers/auth_provider.dart';
 import '../providers/theme_provider.dart';
 import '../config/sbox_app_variant.dart';
+import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../services/biometric_login_service.dart';
 import '../services/zalo_bot_api.dart';
@@ -49,6 +50,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// Zalo bot của cửa hàng (/api/zalo-bot/me) — dòng «Liên kết Zalo» chỉ hiện khi cửa hàng đã bật bot.
   Map<String, dynamic>? _zalo;
 
+  /// Gói dịch vụ của cửa hàng (/api/store/license-status) — chủ cửa hàng xem còn bao nhiêu ngày.
+  Map<String, dynamic>? _license;
+
   @override
   void initState() {
     super.initState();
@@ -56,6 +60,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadAppVersion();
     _loadBiometric();
     _loadZalo();
+    _loadLicense();
+  }
+
+  Future<void> _loadLicense() async {
+    final r = await ApiService().getStoreLicenseStatus();
+    if (!mounted || r['isSuccess'] != true || r['data'] is! Map) return;
+    setState(() => _license = Map<String, dynamic>.from(r['data'] as Map));
   }
 
   Future<void> _loadZalo() async {
@@ -324,6 +335,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               title: l.information,
               icon: Icons.info,
               children: [
+                if (_license != null) _buildLicenseTile(context),
                 _buildSettingTile(
                   context,
                   icon: Icons.app_shortcut,
@@ -495,6 +507,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () => _showEditProfileDialog(context),
           ),
         ],
+      ),
+    );
+  }
+
+  /// «Gói dịch vụ — còn N ngày». Chỉ báo số ngày, KHÔNG mời mua hay mời gia hạn: bản bán trên
+  /// App Store bị cấm điều đó (điều 3.1.1), xem `SboxAppVariant.stripIosPosUpsell`.
+  Widget _buildLicenseTile(BuildContext context) {
+    final lic = _license!;
+    final days = lic['daysLeft'] is num ? (lic['daysLeft'] as num).toInt() : null;
+    final expired = lic['isExpired'] == true;
+    final trial = lic['isTrial'] == true;
+    final pkg = (lic['packageName'] ?? '').toString().trim();
+    final raw = (lic['effectiveExpiryDate'] ?? lic['expiryDate'] ?? '').toString();
+    final until = DateTime.tryParse(raw)?.toLocal();
+    final untilText =
+        until == null ? '' : DateFormat('dd/MM/yyyy').format(until);
+
+    final String remain;
+    if (expired) {
+      remain = tr('Đã hết hạn');
+    } else if (days == null) {
+      remain = tr('Không giới hạn');
+    } else if (days == 0) {
+      remain = tr('Hết hạn hôm nay');
+    } else {
+      remain = '${tr('Còn')} $days ${tr('ngày')}';
+    }
+
+    // Đỏ khi đã hết hoặc còn ≤ 7 ngày, vàng khi còn ≤ 30 ngày.
+    final Color? tone = expired || (days != null && days <= 7)
+        ? SboxColors.dangerText
+        : (days != null && days <= 30 ? SboxColors.warningText : null);
+
+    return _buildSettingTile(
+      context,
+      icon: Icons.verified_user_outlined,
+      title: 'Gói dịch vụ',
+      subtitle: Row(
+        children: [
+          Flexible(
+            child: Text(
+              [
+                if (pkg.isNotEmpty) pkg,
+                if (trial) tr('dùng thử'),
+                if (untilText.isNotEmpty) '${tr('đến')} $untilText',
+              ].join(' · '),
+              style: TextStyle(color: SboxColors.slate400, fontSize: 13),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+      trailing: Text(
+        remain,
+        style: TextStyle(
+          color: tone ?? SboxColors.slate400,
+          fontWeight: tone == null ? FontWeight.w500 : FontWeight.w700,
+          fontSize: 13,
+        ),
       ),
     );
   }

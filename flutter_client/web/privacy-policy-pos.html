@@ -70,6 +70,18 @@
   </div>
 
   <div class="card">
+    <h2>2c. Check-in hội viên (phòng tập, spa, sân thể thao)</h2>
+    <p>Khi gói dịch vụ của cửa hàng có chức năng hội viên, SBOX Bán Hàng (SBOX POS) ghi lượt tập của khách hàng. Khách được ghi lượt tại quầy, hoặc tự quét trên <strong>máy quét ZKTeco của cửa hàng</strong> — thiết bị riêng do cửa hàng mua, nối với máy chủ SBOX.</p>
+    <ul>
+      <li>Ứng dụng gửi lệnh đăng ký hội viên lên máy quét và cho biết hội viên đã lấy vân tay / khuôn mặt hay chưa. Việc lấy mẫu diễn ra <strong>trên máy quét</strong>; ứng dụng không mở camera để lấy khuôn mặt, không xử lý và không lưu dữ liệu khuôn mặt.</li>
+      <li>Mẫu vân tay / khuôn mặt của hội viên do máy quét của cửa hàng lưu giữ; mẫu mà máy gửi về theo giao thức ADMS được lưu trên máy chủ SBOX tại Việt Nam và bị xóa khi hội viên bị xóa khỏi máy.</li>
+      <li>Đây là lượt tập của <strong>khách hàng</strong> — không phải chấm công nhân viên và không dùng để tính lương.</li>
+      <li>Không gửi dữ liệu sinh trắc của hội viên tới dịch vụ AI hay bất kỳ bên thứ ba nào.</li>
+    </ul>
+    <p><em>Stores selling gym, spa or sports-court packages can record customer visits. A member checks in at the counter or scans at the store's own ZKTeco scanner — separate hardware owned by the store and connected to the SBOX server. The app only sends an enrolment command to that scanner and shows whether a member already has a fingerprint or face on it; enrolment happens on the scanner, and the app never opens the camera for a face, never processes and never stores face data. Templates the scanner uploads over the ADMS protocol are stored on the SBOX server in Vietnam and deleted when the member is removed from the scanner. These are customer gym visits, not employee attendance, and are never used for payroll or sent to AI services.</em></p>
+  </div>
+
+  <div class="card">
     <h2>3. Mục đích sử dụng</h2>
     <ul>
       <li>Đăng nhập và phân quyền thu ngân / quản lý cửa hàng</li>

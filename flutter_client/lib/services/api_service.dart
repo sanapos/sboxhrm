@@ -4810,6 +4810,22 @@ class ApiService implements PayrollApi {
     }
   }
 
+  /// Gói dịch vụ của cửa hàng: còn bao nhiêu ngày, hạn đến ngày nào, có đang dùng thử không.
+  Future<Map<String, dynamic>> getStoreLicenseStatus() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('$baseUrl/api/store/license-status'),
+            headers: _headers,
+          )
+          .timeout(const Duration(seconds: 10));
+      return _handleResponse(response);
+    } catch (e) {
+      debugPrint('Error getting store license status: $e');
+      return _connectionFailure(e);
+    }
+  }
+
   // SBOX-POS-STRIP-BEGIN — chỉ SBOX HRM: ba lệnh API đăng ký khuôn mặt cho chấm công di động.
   // Bản SBOX Bán Hàng trên iOS bị Apple từ chối (2.5.19) vì có nhóm mã này trong gói; chỉ
   // `mobile_attendance_settings_screen` gọi tới, mà màn đó không có trong bản bán hàng.
