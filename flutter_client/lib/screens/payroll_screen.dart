@@ -11,6 +11,7 @@ import '../utils/attendance_bootstrap_loader.dart';
 import 'attendance/payroll_summary_tab.dart';
 import 'main_layout.dart';
 import '../utils/screen_refresh_notifier.dart';
+import '../utils/hrm_refresh_notifier.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../providers/auth_provider.dart';
@@ -60,7 +61,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
     super.initState();
     _loadData();
     _loadEmployeesAndBranches();
-    ScreenRefreshNotifier.payroll.addListener(_onExternalRefresh);
+    HrmRefresh.payroll.addListener(_onExternalRefresh);
   }
 
   Future<void> _loadEmployeesAndBranches() async {
@@ -102,7 +103,7 @@ class _PayrollScreenState extends State<PayrollScreen> {
 
   @override
   void dispose() {
-    ScreenRefreshNotifier.payroll.removeListener(_onExternalRefresh);
+    HrmRefresh.payroll.removeListener(_onExternalRefresh);
     super.dispose();
   }
 

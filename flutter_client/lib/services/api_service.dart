@@ -4810,6 +4810,9 @@ class ApiService implements PayrollApi {
     }
   }
 
+  // SBOX-POS-STRIP-BEGIN — chỉ SBOX HRM: ba lệnh API đăng ký khuôn mặt cho chấm công di động.
+  // Bản SBOX Bán Hàng trên iOS bị Apple từ chối (2.5.19) vì có nhóm mã này trong gói; chỉ
+  // `mobile_attendance_settings_screen` gọi tới, mà màn đó không có trong bản bán hàng.
   /// Lấy danh sách đăng ký khuôn mặt
   Future<Map<String, dynamic>> getFaceRegistrations() async {
     try {
@@ -4869,6 +4872,7 @@ class ApiService implements PayrollApi {
       return _connectionFailure(e);
     }
   }
+  // SBOX-POS-STRIP-END
 
   /// Lấy danh sách thiết bị được cấp phép
   Future<Map<String, dynamic>> getAuthorizedDevices() async {

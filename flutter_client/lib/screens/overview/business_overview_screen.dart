@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import '../../widgets/attendance/attendance_people_sheet.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../pos_sale_order_list_screen.dart';
 import 'package:provider/provider.dart';
@@ -14,7 +13,7 @@ import '../../utils/dashboard_ui_capabilities.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/permission_navigation.dart';
 import '../../widgets/sbox/sbox_ui.dart';
-import 'late_penalty_sheet.dart';
+import '../../utils/hrm_shell_hooks.dart';
 
 /// Chế độ tổng quan theo gói + quyền người xem.
 enum OverviewMode { hrm, pos, combined }
@@ -179,40 +178,13 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       if (_can('AttendanceSummary')) _go('AttendanceSummary');
       return;
     }
-    String shift(Map<String, dynamic> r) {
-      final s = r['shiftStart'], e = r['shiftEnd'];
-      if (s == null) return '';
-      return e == null ? 'Ca $s' : 'Ca $s–$e';
-    }
-    showAttendancePeopleSheet(
+    // Bảng chi tiết là của bản HRM; bản bán hàng không gắn hook nên nhóm mã đó không vào gói iOS.
+    hrmOverviewPeopleSheet?.call(
       context,
       title: title,
       subtitle: subtitle,
-      rows: [
-        for (final r in rows)
-          AttendancePersonRow(
-            name: '${r['fullName'] ?? ''}',
-            subtitle: [
-              if ('${r['department'] ?? ''}'.isNotEmpty) '${r['department']}',
-              if (shift(r).isNotEmpty) shift(r),
-              if (r['checkIn'] != null) 'Vào ${r['checkIn']}${r['checkOut'] != null ? ' · Ra ${r['checkOut']}' : ''}',
-              if ('${r['note'] ?? ''}'.isNotEmpty) '${r['note']}',
-            ].join(' · '),
-            trailing: switch ('${r['status']}') {
-              'Late' => 'Trễ ${r['lateMinutes'] ?? 0}p',
-              'Absent' => 'Vắng',
-              'On Leave' => 'Nghỉ phép',
-              'Off' => 'Không có ca',
-              _ => r['checkIn'] == null ? null : '${r['checkIn']}',
-            },
-            trailingColor: switch ('${r['status']}') {
-              'Late' => SboxColors.warningText,
-              'Absent' => SboxColors.dangerText,
-              _ => null,
-            },
-            onTap: _can('AttendanceSummary') ? () => _go('AttendanceSummary') : null,
-          ),
-      ],
+      rows: rows,
+      onTapRow: _can('AttendanceSummary') ? () => _go('AttendanceSummary') : null,
     );
   }
 
@@ -228,7 +200,12 @@ class _BusinessOverviewScreenState extends State<BusinessOverviewScreen> {
       _showPeople('Đi trễ hôm nay', day, {'Late'});
       return;
     }
-    showLatePenaltySheet(
+    final sheet = hrmLatePenaltySheet;
+    if (sheet == null) {
+      _showPeople('Đi trễ hôm nay', day, {'Late'});
+      return;
+    }
+    sheet(
       context,
       lateRows: _list(day['employees']).where((e) => '${e['status']}' == 'Late').toList(),
       canApprove: _can('PenaltyTickets'),

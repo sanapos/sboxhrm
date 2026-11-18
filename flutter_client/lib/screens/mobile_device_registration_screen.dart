@@ -17,6 +17,7 @@ import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../services/signalr_service.dart';
 import '../utils/screen_refresh_notifier.dart';
+import '../utils/hrm_refresh_notifier.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../config/sbox_app_variant.dart';
@@ -82,7 +83,7 @@ class _MobileDeviceRegistrationScreenState
   void initState() {
     super.initState();
     _initScreen();
-    ScreenRefreshNotifier.mobileDeviceRegistration.addListener(_onExternalRefresh);
+    HrmRefresh.mobileDeviceRegistration.addListener(_onExternalRefresh);
     _notificationSubscription =
         SignalRService().onNewNotification.listen(_onRegistrationNotification);
   }
@@ -127,7 +128,7 @@ class _MobileDeviceRegistrationScreenState
 
   @override
   void dispose() {
-    ScreenRefreshNotifier.mobileDeviceRegistration.removeListener(_onExternalRefresh);
+    HrmRefresh.mobileDeviceRegistration.removeListener(_onExternalRefresh);
     _notificationSubscription?.cancel();
     super.dispose();
   }

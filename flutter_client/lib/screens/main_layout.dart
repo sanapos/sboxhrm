@@ -55,7 +55,6 @@ import '../models/hrm.dart';
 import '../models/user.dart';
 import '../models/attendance.dart';
 import '../widgets/notification_overlay.dart';
-import '../widgets/device_sync_progress_overlay.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/system_ui_inset_mode.dart';
 import '../utils/app_fullscreen.dart';
@@ -68,7 +67,6 @@ import 'settings_hub_screen.dart';
 import '../utils/settings_hub_catalog.dart';
 import 'notifications_screen.dart';
 import 'task_management_screen.dart';
-import 'overtime_screen.dart';
 
 import 'cash_report_screen.dart';
 import 'downloaded_documents_screen.dart';
@@ -124,7 +122,6 @@ import '../theme/sbox_tokens.dart';
 import '../utils/pos_icon_set.dart';
 import '../widgets/sbox/sbox_command_palette.dart';
 import 'overview/overview_entry.dart';
-import 'hr_finance/hr_finance_hub_screen.dart';
 import 'branch_ops/branch_report_screen.dart';
 import 'branch_ops/branch_stock_view.dart';
 import 'branch_ops/stock_transfer_screen.dart';
@@ -132,6 +129,7 @@ import '../utils/pos_notify_focus.dart';
 import '../utils/pos_printer_auto_detect.dart';
 import '../utils/screen_refresh_notifier.dart';
 import 'main_layout_nav_hook.dart';
+import '../utils/hrm_shell_hooks.dart';
 export '../utils/navigation_notifier.dart';
 
 
@@ -557,13 +555,15 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (openOvertime) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          _openOvertimeScreen();
+          _openOvertimePage();
         });
       }
     }
   }
 
-  void _openOvertimeScreen() {
+  void _openOvertimePage() {
+    // Bản SBOX Bán Hàng không gắn màn tăng ca (Apple 2.5.19) — menu cũng không có mục này.
+    if (hrmOvertimePage == null) return;
     final perm = Provider.of<PermissionProvider>(context, listen: false);
     if (!perm.canView('Overtime')) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -573,9 +573,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     }
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => const HrmPushedScreenShell(
+        builder: (_) => HrmPushedScreenShell(
           title: 'Quản lý tăng ca',
-          child: OvertimeScreen(),
+          child: hrmOvertimePage!(),
         ),
       ),
     );
@@ -602,7 +602,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       if (openOvertime) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted) return;
-          _openOvertimeScreen();
+          _openOvertimePage();
         });
       }
       return;
@@ -658,7 +658,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     if (openOvertime) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        _openOvertimeScreen();
+        _openOvertimePage();
       });
     }
   }
@@ -1222,7 +1222,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return HrmShellChrome(
       visible: shellChromeVisible,
       child: NotificationOverlay(
-        child: DeviceSyncProgressOverlay(child: child),
+        child: hrmShellOverlay?.call(child) ?? child,
       ),
     );
   }
@@ -1231,9 +1231,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
   void _handleNewAttendance(Attendance attendance) {
     if (!mounted) return;
 
-    if (DeviceSyncProgressManager.shouldSuppressAttendancePopup(
-        attendance.attendanceTime)) {
-      ScreenRefreshNotifier.scheduleAttendanceDataRefresh();
+    if (hrmSuppressPunchPopup?.call(attendance.attendanceTime) ?? false) {
+      hrmOnPunchRefresh?.call();
       ScreenRefreshNotifier.scheduleNotificationCountRefresh();
       return;
     }
@@ -1267,7 +1266,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     });
 
     // Auto-refresh attendance screen (debounced — tránh refresh storm khi nhiều máy chấm)
-    ScreenRefreshNotifier.scheduleAttendanceDataRefresh();
+    hrmOnPunchRefresh?.call();
     ScreenRefreshNotifier.scheduleNotificationCountRefresh();
   }
 
@@ -1361,7 +1360,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
             entityTypeLower == 'devicechangerequest';
 
         if (isAttendanceOrDevice &&
-            DeviceSyncProgressManager.shouldSuppressAttendanceNotifications) {
+            (hrmSuppressPunchNotifications?.call() ?? false)) {
           return;
         }
 
@@ -1375,8 +1374,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
 
         if (entityTypeLower == 'authorizedmobiledevice' ||
             entityTypeLower == 'devicechangerequest') {
-          ScreenRefreshNotifier.refreshMobileAttendanceSettings();
-          ScreenRefreshNotifier.refreshMobileDeviceRegistration();
+          hrmOnMobileDeviceRefresh?.call();
         }
 
         if (isMobile) {
@@ -1640,7 +1638,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       // App SBOX POS chỉ có sổ thu chi của cửa hàng, không có ứng lương / thưởng phạt / công tác phí.
       screen: SboxAppVariant.standalonePos
           ? const CashTransactionScreen()
-          : const HrFinanceHubScreen(initialTab: HrFinTab.cash),
+          : (hrmCashHubScreen?.call() ?? const CashTransactionScreen()),
       group: 'Tài chính',
       showInSidebar: false,
       themeColor: HrmPageChrome.primaryNavy,

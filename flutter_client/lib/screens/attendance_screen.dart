@@ -31,6 +31,7 @@ import '../widgets/app_button.dart';
 import 'attendance/attendance_correction_tab.dart'
     show CorrectionRequestInternal, CorrectionStatus;
 import '../utils/screen_refresh_notifier.dart';
+import '../utils/hrm_refresh_notifier.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_collapsible_overview.dart';
@@ -127,7 +128,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     _connectSignalR();
 
     // Listen for external refresh triggers
-    ScreenRefreshNotifier.attendance.addListener(_onExternalRefresh);
+    HrmRefresh.attendance.addListener(_onExternalRefresh);
   }
 
   Future<void> _loadEmployeesAndBranches() async {
@@ -289,7 +290,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     _refreshTimer?.cancel();
     _attendanceSubscription?.cancel();
     _tableScrollController.dispose();
-    ScreenRefreshNotifier.attendance.removeListener(_onExternalRefresh);
+    HrmRefresh.attendance.removeListener(_onExternalRefresh);
     super.dispose();
   }
 

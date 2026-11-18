@@ -21,6 +21,7 @@ import '../widgets/camera_face_capture.dart';
 import '../widgets/auth_cached_image.dart';
 import '../utils/navigation_notifier.dart';
 import '../utils/screen_refresh_notifier.dart';
+import '../utils/hrm_refresh_notifier.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../theme/sbox_tokens.dart';
 enum _DeviceOutsideCheckInFilter { all, outsideOn, outsideOff }
@@ -78,7 +79,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
     }
     NavigationNotifier.mobileAttendanceSettingsTab
         .addListener(_onPendingSettingsTab);
-    ScreenRefreshNotifier.mobileAttendanceSettings.addListener(_onExternalRefresh);
+    HrmRefresh.mobileAttendanceSettings.addListener(_onExternalRefresh);
     _loadData();
   }
 
@@ -265,7 +266,7 @@ class _MobileAttendanceSettingsScreenState extends State<MobileAttendanceSetting
   void dispose() {
     NavigationNotifier.mobileAttendanceSettingsTab
         .removeListener(_onPendingSettingsTab);
-    ScreenRefreshNotifier.mobileAttendanceSettings.removeListener(_onExternalRefresh);
+    HrmRefresh.mobileAttendanceSettings.removeListener(_onExternalRefresh);
     _tabController.dispose();
     _faceSearchController.dispose();
     _deviceSearchController.dispose();

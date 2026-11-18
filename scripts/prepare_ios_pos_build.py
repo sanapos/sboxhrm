@@ -314,6 +314,23 @@ def strip_hrm_ui_strings() -> None:
     write(legal, "\n".join(kept))
     print(f"{legal}: bỏ {dropped} dòng")
 
+    # Bảng chuỗi tiếng Việt của app (một mục / một dòng) và bảng tên module phân quyền. Thiếu khóa thì
+    # `AppLocalizations.get` trả lại chính khóa và `PermissionModuleLabels.resolve` trả lại mã module,
+    # nên bỏ mục là an toàn — bản bán hàng không có màn nào dùng tới chúng.
+    for rel in ("lib/l10n/app_localizations.dart", "lib/utils/permission_module_labels.dart"):
+        lines = read(rel).split("\n")
+        kept, dropped = [], 0
+        for line in lines:
+            # Chỉ bỏ dòng có dạng trọn vẹn `'khóa': 'giá trị',` — không chạm mã.
+            if _is_hrm_line(line) and re.fullmatch(r"\s*'[^']+':\s*'.*',?\s*", line):
+                dropped += 1
+                continue
+            kept.append(line)
+        if dropped == 0:
+            raise SystemExit(f"Expected HRM entries in {rel}, found none")
+        write(rel, "\n".join(kept))
+        print(f"{rel}: bỏ {dropped} mục chuỗi HRM")
+
     for lang in ("en", "ja", "ko", "zh"):
         pack = f"assets/l10n/{lang}.json"
         path = ROOT / pack
@@ -327,10 +344,34 @@ def strip_hrm_ui_strings() -> None:
         print(f"{pack}: còn {len(data['m'])}/{before} chuỗi")
 
 
+def strip_marked_regions() -> None:
+    """Bỏ các khối mã đánh dấu `// SBOX-POS-STRIP-BEGIN … // SBOX-POS-STRIP-END` khỏi bản bán hàng.
+
+    Dùng cho nhóm mã chỉ SBOX HRM nằm lẫn trong tệp dùng chung (ví dụ ba lệnh API đăng ký khuôn mặt
+    trong `api_service.dart`) — không tách ra tệp riêng được vì chúng gọi thành viên private.
+    """
+    pattern = re.compile(
+        r"[ \t]*//\s*SBOX-POS-STRIP-BEGIN.*?//\s*SBOX-POS-STRIP-END[^\n]*\n",
+        re.S,
+    )
+    total = 0
+    for path in sorted((ROOT / "lib").rglob("*.dart")):
+        rel = path.relative_to(ROOT).as_posix()
+        text = read(rel)
+        new, count = pattern.subn("", text)
+        if count:
+            write(rel, new)
+            total += count
+            print(f"{rel}: bỏ {count} khối chỉ-HRM")
+    if total == 0:
+        raise SystemExit("Expected SBOX-POS-STRIP blocks, found none")
+
+
 def main() -> None:
     vendor_file_picker()
     patch_pubspec()
     strip_hrm_ui_strings()
+    strip_marked_regions()
     patch_app_delegate()
 
     for rel in REMOVED_FILES:

@@ -4,6 +4,9 @@ import 'package:zkteco_flutter_client/features/boss/boss_dashboard_screen.dart';
 import 'package:zkteco_flutter_client/features/boss/boss_shell.dart';
 import 'package:zkteco_flutter_client/screens/overview/business_overview_screen.dart';
 
+import 'package:zkteco_flutter_client/screens/overview/business_overview_hrm_sheets.dart';
+import 'package:zkteco_flutter_client/utils/hrm_shell_hooks.dart';
+
 import 'guide_shot_kit.dart';
 
 // Tổng quan cho chủ quán: mọi con số bấm ra chi tiết (BOSS «Tổng quan hôm nay», HRM/POS «Tổng quan»).
@@ -87,6 +90,10 @@ final _api = guideApi({
 });
 
 void main() {
+  // Hai bảng chi tiết chuyên cần / phiếu phạt chỉ có ở bản HRM — `lib/main.dart` gắn, test phải gắn lại.
+  hrmOverviewPeopleSheet = showHrmOverviewPeopleSheet;
+  hrmLatePenaltySheet = showHrmLatePenaltySheet;
+
   testWidgets('overview-boss-0: lãi gộp, đi trễ / nghỉ phép; thanh dưới gọn như SBOX HRM', (t) async {
     await guideShot(t, name: 'overview-boss-0', screen: const BossShell(), api: _api, size: mobileSize,
         act: (t) async {

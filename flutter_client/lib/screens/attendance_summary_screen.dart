@@ -14,6 +14,7 @@ import '../utils/travel_hours_load_utils.dart';
 import '../utils/travel_eligibility_utils.dart';
 import 'attendance/attendance_summary_tab.dart';
 import '../utils/screen_refresh_notifier.dart';
+import '../utils/hrm_refresh_notifier.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/vietnamese_font.dart';
 import '../widgets/notification_overlay.dart';
@@ -94,7 +95,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
       _loadData();
       _loadEmployeesAndBranches();
     });
-    ScreenRefreshNotifier.attendanceSummary.addListener(_onExternalRefresh);
+    HrmRefresh.attendanceSummary.addListener(_onExternalRefresh);
   }
 
   Future<void> _loadEmployeesAndBranches() async {
@@ -164,7 +165,7 @@ class _AttendanceSummaryScreenState extends State<AttendanceSummaryScreen> {
 
   @override
   void dispose() {
-    ScreenRefreshNotifier.attendanceSummary.removeListener(_onExternalRefresh);
+    HrmRefresh.attendanceSummary.removeListener(_onExternalRefresh);
     super.dispose();
   }
 

@@ -27,6 +27,7 @@ import '../utils/travel_hours_calculator.dart';
 import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/screen_refresh_notifier.dart';
+import '../utils/hrm_refresh_notifier.dart';
 import 'mobile_attendance_history_screen.dart';
 import 'mobile_device_registration_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
@@ -1095,8 +1096,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
 
         _loadTodayRecords();
         ScreenRefreshNotifier.refreshDashboardScreen();
-        ScreenRefreshNotifier.refreshAttendanceSummaryScreen();
-        ScreenRefreshNotifier.refreshAttendanceScreen();
+        HrmRefresh.refreshAttendanceSummaryScreen();
+        HrmRefresh.refreshAttendanceScreen();
         // Reset face verification for next punch
         setState(() {
           _isFaceVerified = false;
@@ -1165,8 +1166,8 @@ class _MobileAttendanceScreenState extends State<MobileAttendanceScreen>
               );
               _loadTodayRecords();
               ScreenRefreshNotifier.refreshDashboardScreen();
-              ScreenRefreshNotifier.refreshAttendanceSummaryScreen();
-              ScreenRefreshNotifier.refreshAttendanceScreen();
+              HrmRefresh.refreshAttendanceSummaryScreen();
+              HrmRefresh.refreshAttendanceScreen();
               setState(() {
                 _isFaceVerified = false;
                 _faceMatchScore = null;

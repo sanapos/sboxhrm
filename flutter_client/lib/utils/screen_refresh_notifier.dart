@@ -12,11 +12,7 @@ class _PendingPosStockRefresh {
 
 /// Global notifiers for screen refresh
 class ScreenRefreshNotifier {
-  static final ValueNotifier<int> attendance = ValueNotifier<int>(0);
   static final ValueNotifier<int> devices = ValueNotifier<int>(0);
-  static final ValueNotifier<int> attendanceByShift = ValueNotifier<int>(0);
-  static final ValueNotifier<int> attendanceSummary = ValueNotifier<int>(0);
-  static final ValueNotifier<int> payroll = ValueNotifier<int>(0);
   static final ValueNotifier<int> dashboard = ValueNotifier<int>(0);
 
   static void refreshDashboardScreen() {
@@ -24,43 +20,15 @@ class ScreenRefreshNotifier {
     debugPrint('🔄 Triggered dashboard screen refresh: ${dashboard.value}');
   }
 
-  static void refreshAttendanceScreen() {
-    attendance.value++;
-    debugPrint('🔄 Triggered attendance screen refresh: ${attendance.value}');
-  }
-
   static void refreshDevicesScreen() {
     devices.value++;
     debugPrint('🔄 Triggered devices screen refresh: ${devices.value}');
-  }
-
-  static void refreshAttendanceByShiftScreen() {
-    attendanceByShift.value++;
-  }
-
-  static void refreshAttendanceSummaryScreen() {
-    attendanceSummary.value++;
-  }
-
-  static void refreshPayrollScreen() {
-    payroll.value++;
   }
 
   static final ValueNotifier<int> notifications = ValueNotifier<int>(0);
 
   static void refreshNotificationCount() {
     notifications.value++;
-  }
-
-  static final ValueNotifier<int> mobileAttendanceSettings = ValueNotifier<int>(0);
-  static final ValueNotifier<int> mobileDeviceRegistration = ValueNotifier<int>(0);
-
-  static void refreshMobileAttendanceSettings() {
-    mobileAttendanceSettings.value++;
-  }
-
-  static void refreshMobileDeviceRegistration() {
-    mobileDeviceRegistration.value++;
   }
 
   static final ValueNotifier<int> posProducts = ValueNotifier<int>(0);
@@ -176,7 +144,6 @@ class ScreenRefreshNotifier {
     _posStockRefreshTimer = Timer(const Duration(milliseconds: 300), _flushPosStockRefresh);
   }
 
-  static Timer? _attendanceRefreshTimer;
   static Timer? _notificationCountTimer;
   static Timer? _dashboardPunchTimer;
   static DateTime? _lastDashboardPunchRefresh;
@@ -184,19 +151,8 @@ class ScreenRefreshNotifier {
   /// Trang chủ tải lại ~25 API — giờ vào ca (máy chấm liên tục) chỉ tải lại tối đa 1 lần / 30 giây.
   static const dashboardPunchRefreshInterval = Duration(seconds: 30);
 
-  /// Gom refresh chấm công — tối đa 1 lần / 2s thay vì mỗi punch.
-  static void scheduleAttendanceDataRefresh() {
-    _attendanceRefreshTimer?.cancel();
-    _attendanceRefreshTimer = Timer(const Duration(seconds: 2), () {
-      refreshAttendanceScreen();
-      refreshAttendanceSummaryScreen();
-      refreshAttendanceByShiftScreen();
-      refreshPayrollScreen();
-      _scheduleDashboardPunchRefresh();
-    });
-  }
-
-  static void _scheduleDashboardPunchRefresh() {
+  /// Trang chủ HRM tải lại sau một loạt lượt quét; `HrmRefresh` gọi tới.
+  static void schedulePunchDashboardRefresh() {
     if (_dashboardPunchTimer?.isActive == true) return; // đã hẹn lần tải sau
     final last = _lastDashboardPunchRefresh;
     final wait = last == null

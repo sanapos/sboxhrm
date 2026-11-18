@@ -6,6 +6,7 @@ import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
 import '../../utils/screen_refresh_notifier.dart';
+import '../../utils/hrm_refresh_notifier.dart';
 import '../notifications_screen.dart';
 import 'staff_entries.dart';
 import 'staff_nav.dart';
@@ -35,7 +36,7 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
   @override
   void initState() {
     super.initState();
-    ScreenRefreshNotifier.attendance.addListener(_load);
+    HrmRefresh.attendance.addListener(_load);
     ScreenRefreshNotifier.dashboard.addListener(_load);
     ScreenRefreshNotifier.notifications.addListener(_refreshUnread);
     _load();
@@ -44,7 +45,7 @@ class _StaffHomeTabState extends State<StaffHomeTab> {
 
   @override
   void dispose() {
-    ScreenRefreshNotifier.attendance.removeListener(_load);
+    HrmRefresh.attendance.removeListener(_load);
     ScreenRefreshNotifier.dashboard.removeListener(_load);
     ScreenRefreshNotifier.notifications.removeListener(_refreshUnread);
     super.dispose();

@@ -4,7 +4,7 @@ import '../models/hrm.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import 'cash_report_helpers.dart';
-import 'salary_profile_load_utils.dart';
+import 'user_role_scope.dart';
 import '../l10n/app_tr.dart';
 
 import '../widgets/pos/pos_theme.dart';

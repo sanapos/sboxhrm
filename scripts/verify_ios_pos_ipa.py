@@ -21,12 +21,31 @@ FORBIDDEN_PATHS = re.compile(
 FORBIDDEN_SYMBOLS = re.compile(
     rb"TfLiteModelCreate|MLKFaceDetector|VNDetectFaceRectanglesRequest|VNDetectFaceLandmarksRequest|"
     rb"CIDetectorTypeFace|CLLocation|requestWhenInUseAuthorization|requestAlwaysAuthorization|"
-    rb"LAContext|canEvaluatePolicy|evaluatePolicy"
+    # Chỉ chặn khi GỌI API sinh trắc. Lớp LAContext tự xuất hiện vì flutter_secure_storage_darwin
+    # khoá keychain bằng kSecAccessControl (biometryCurrentSet) — lưu token, không phải chấm công.
+    rb"canEvaluatePolicy|evaluatePolicy|LAPolicyDeviceOwnerAuthenticationWithBiometrics"
 )
 
 # Apple 2.5.19 (17/11/2026): máy quét đọc mã trong gói và kết luận app «chứa chấm công, sinh trắc, theo dõi
 # vị trí và tính lương» dù giao diện đã ẩn — vì bản POS build từ nguyên codebase HRM. Bản POS phải KHÔNG
 # biên dịch phần đó vào gói, nên dò luôn trong ảnh Dart (App.framework/App).
+# Tên lớp màn hình HRM: có trong ảnh Dart nghĩa là màn đó ĐÃ được biên dịch vào gói — đúng thứ
+# Apple nêu ở điều 2.5.19. Nhãn chữ chung chung (tên module, nhãn menu, gợi ý trợ lý) chỉ được
+# đếm và in ra ở phần cảnh báo: chúng là dữ liệu, không phải chức năng.
+HIDDEN_FEATURE_SYMBOLS = (
+    "AttendanceScreen",
+    "AttendanceSummaryScreen",
+    "MobileAttendanceScreen",
+    "PayrollScreen",
+    "PayslipScreen",
+    "SalarySettingsScreen",
+    "LeaveRequestScreen",
+    "OvertimeScreen",
+    "HrFinanceHubScreen",
+    "FaceRegistration",
+    "DeviceSyncProgressOverlay",
+)
+
 HIDDEN_FEATURE_WORDS = (
     "chấm công",
     "tính lương",
@@ -34,23 +53,24 @@ HIDDEN_FEATURE_WORDS = (
     "phiếu lương",
     "nghỉ phép",
     "khuôn mặt",
-    "AttendanceScreen",
-    "PayrollScreen",
-    "SalarySettings",
-    "LeaveRequest",
-    "FaceRegistration",
-    "LocalAuthentication",
 )
 
 
-def feature_words_in(binary: Path) -> list[str]:
+def _hits(binary: Path, needles) -> list[str]:
     """Chuỗi Dart nằm trong ảnh AOT ở cả dạng một byte lẫn UTF-16LE (chữ có dấu) — phải dò cả hai."""
     data = binary.read_bytes()
-    found = []
-    for word in HIDDEN_FEATURE_WORDS:
-        if word.encode("utf-8") in data or word.encode("utf-16-le") in data:
-            found.append(word)
-    return found
+    return [w for w in needles
+            if w.encode("utf-8") in data or w.encode("utf-16-le") in data]
+
+
+def feature_symbols_in(binary: Path) -> list[str]:
+    return _hits(binary, HIDDEN_FEATURE_SYMBOLS)
+
+
+def feature_words_in(binary: Path) -> list[str]:
+    return _hits(binary, HIDDEN_FEATURE_WORDS)
+
+
 FORBIDDEN_PLIST_KEYS = (
     "NSLocationWhenInUseUsageDescription",
     "NSLocationAlwaysUsageDescription",
@@ -68,6 +88,7 @@ def macho_files(app: Path) -> list[Path]:
 def main() -> None:
     ipa = Path(sys.argv[1])
     problems: list[str] = []
+    warnings: list[str] = []
     with tempfile.TemporaryDirectory() as tmp, zipfile.ZipFile(ipa) as archive:
         problems += [f"file: {name}" for name in archive.namelist() if FORBIDDEN_PATHS.search(name)]
         archive.extractall(tmp)
@@ -88,8 +109,14 @@ def main() -> None:
                 problems.append(f"links CoreLocation: {binary.name}")
             for symbol in sorted(set(FORBIDDEN_SYMBOLS.findall(binary.read_bytes()))):
                 problems.append(f"symbol {symbol.decode()}: {binary.name}")
-            problems += [f"hidden feature «{word}»: {binary.name}" for word in feature_words_in(binary)]
+            problems += [f"hidden feature «{name}»: {binary.name}"
+                         for name in feature_symbols_in(binary)]
+            labels = feature_words_in(binary)
+            if labels:
+                warnings.append(f"{binary.name}: còn nhãn chữ HRM {labels}")
 
+    for line in warnings:
+        print(f"  cảnh báo — {line}")
     if problems:
         print("SBOX POS IPA still contains face or location code:")
         print("\n".join(f"  {problem}" for problem in problems))

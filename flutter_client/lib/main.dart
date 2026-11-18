@@ -18,6 +18,12 @@ import 'services/biometric_auth_local.dart';
 import 'services/global_location_reporter.dart';
 import 'utils/location_reporting.dart';
 import 'utils/settings_hub_hrm_hook.dart';
+import 'utils/hrm_shell_hooks.dart';
+import 'screens/overview/business_overview_hrm_sheets.dart';
+import 'utils/hrm_refresh_notifier.dart';
+import 'screens/overtime_screen.dart';
+import 'screens/hr_finance/hr_finance_hub_screen.dart';
+import 'widgets/device_sync_progress_overlay.dart';
 import 'app_boot.dart';
 
 /// Điểm vào SBOX HRM / BOSS / Nhân Viên / SBOX POS Android.
@@ -41,6 +47,20 @@ void main() async {
         load: system_admin.loadLibrary,
         builder: () => system_admin.SystemAdminScreen(agentMode: agentMode),
       );
+  // Các mảnh HRM mà khung màn chung gọi tới; bản SBOX Bán Hàng không gắn nên không vào gói iOS.
+  hrmOvertimePage = () => const OvertimeScreen();
+  hrmCashHubScreen = () => const HrFinanceHubScreen(initialTab: HrFinTab.cash);
+  hrmShellOverlay = (child) => DeviceSyncProgressOverlay(child: child);
+  hrmSuppressPunchPopup = DeviceSyncProgressManager.shouldSuppressAttendancePopup;
+  hrmSuppressPunchNotifications =
+      () => DeviceSyncProgressManager.shouldSuppressAttendanceNotifications;
+  hrmOverviewPeopleSheet = showHrmOverviewPeopleSheet;
+  hrmLatePenaltySheet = showHrmLatePenaltySheet;
+  hrmOnPunchRefresh = HrmRefresh.scheduleDataRefresh;
+  hrmOnMobileDeviceRefresh = () {
+    HrmRefresh.refreshMobileAttendanceSettings();
+    HrmRefresh.refreshMobileDeviceRegistration();
+  };
   biometricAuth = LocalAuthBiometric();
   locationReporter = GlobalLocationReporter.instance;
   await runSbox();

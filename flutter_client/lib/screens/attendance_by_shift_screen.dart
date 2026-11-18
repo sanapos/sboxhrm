@@ -17,6 +17,7 @@ import 'attendance/attendance_by_shift_tab.dart';
 import 'attendance/attendance_summary_tab.dart'
     show AttendanceCorrectionRequest;
 import '../utils/screen_refresh_notifier.dart';
+import '../utils/hrm_refresh_notifier.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/attendance_load_utils.dart';
 import '../utils/attendance_date_range_presets.dart';
@@ -91,7 +92,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
       _loadData();
       _loadEmployeesAndBranches();
     });
-    ScreenRefreshNotifier.attendanceByShift.addListener(_onExternalRefresh);
+    HrmRefresh.attendanceByShift.addListener(_onExternalRefresh);
   }
 
   Future<void> _loadEmployeesAndBranches() async {
@@ -161,7 +162,7 @@ class _AttendanceByShiftScreenState extends State<AttendanceByShiftScreen> {
 
   @override
   void dispose() {
-    ScreenRefreshNotifier.attendanceByShift.removeListener(_onExternalRefresh);
+    HrmRefresh.attendanceByShift.removeListener(_onExternalRefresh);
     super.dispose();
   }
 
