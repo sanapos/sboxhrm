@@ -9,7 +9,7 @@ import '../../models/pos_product.dart';
 import '../../services/api_service.dart';
 import '../../services/pos_product_image_cache.dart';
 import '../../services/pos_sell_catalog_cache.dart';
-import '../../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../../utils/screen_refresh_notifier.dart';
 import '../../utils/pos_category_tree.dart';
 import '../../utils/pos_combo_stock.dart';
 import '../../utils/pos_price_list_resolver.dart';

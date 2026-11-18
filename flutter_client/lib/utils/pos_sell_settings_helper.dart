@@ -1,6 +1,6 @@
 import '../models/pos_sell_industry.dart';
 import '../services/api_service.dart';
-import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import 'screen_refresh_notifier.dart';
 
 /// Load / save chung cho các màn thiết lập ngành / màn phụ / hủy-trả.
 class PosSellSettingsHelper {

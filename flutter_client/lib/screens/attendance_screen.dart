@@ -30,7 +30,7 @@ import '../utils/attendance_correction_privilege.dart';
 import '../widgets/app_button.dart';
 import 'attendance/attendance_correction_tab.dart'
     show CorrectionRequestInternal, CorrectionStatus;
-import 'main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/hrm_collapsible_overview.dart';

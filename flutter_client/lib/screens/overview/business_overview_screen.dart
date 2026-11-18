@@ -14,28 +14,11 @@ import '../../utils/dashboard_ui_capabilities.dart';
 import '../../utils/navigation_notifier.dart';
 import '../../utils/permission_navigation.dart';
 import '../../widgets/sbox/sbox_ui.dart';
-import '../dashboard_screen.dart';
 import 'late_penalty_sheet.dart';
 
 /// Chế độ tổng quan theo gói + quyền người xem.
 enum OverviewMode { hrm, pos, combined }
 
-/// Trang «Tổng quan»: nhân viên → màn cá nhân cũ; quản lý → tổng quan mới theo gói.
-class OverviewRouterScreen extends StatelessWidget {
-  const OverviewRouterScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final perm = context.watch<PermissionProvider>();
-    final auth = context.watch<AuthProvider>();
-    if (!perm.isLoaded) return const SboxLoading();
-    final caps = DashboardUiCapabilities.from(perm, role: auth.userRole, allowedModules: auth.user?.allowedModules);
-    if (caps.useEmployeeLayout) return const DashboardScreen();
-    final mode = BusinessOverviewScreen.resolveMode(perm, auth);
-    if (mode == null) return const DashboardScreen();
-    return BusinessOverviewScreen(mode: mode);
-  }
-}
 
 class BusinessOverviewScreen extends StatefulWidget {
   const BusinessOverviewScreen({super.key, required this.mode, this.leading = const [], this.showLegacyLink = true, this.canAccess});

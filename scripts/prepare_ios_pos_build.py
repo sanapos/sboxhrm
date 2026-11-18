@@ -22,8 +22,21 @@ from urllib.request import url2pathname
 
 ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent / "flutter_client"
 
-REMOVED_DEPENDENCIES = ("google_mlkit_face_detection", "geolocator", "tflite_flutter")
+# local_auth: Apple 2.5.19 (17/11/2026) nêu đích danh «biometric». Bản bán hàng vốn đã ẩn đăng nhập Face ID
+# (SboxAppVariant.iosPosApp), nhưng plugin vẫn nhúng framework vào gói nên máy quét của Apple vẫn thấy.
+# flutter_map / latlong2 chỉ dùng cho bản đồ chấm công và bản đồ nhân sự.
+REMOVED_DEPENDENCIES = (
+    "google_mlkit_face_detection",
+    "geolocator",
+    "tflite_flutter",
+    "local_auth",
+    "local_auth_android",
+    "flutter_map",
+    "latlong2",
+)
 REMOVED_ASSETS = ("assets/mobilefacenet.tflite", "assets/w600k_mbf.onnx")
+# Các tệp còn import gói vừa gỡ. Điểm vào lib/main_pos.dart không với tới chúng nên không được biên dịch,
+# nhưng vẫn xóa để một import lỡ tay sau này làm hỏng build ngay thay vì lọt vào gói nộp Apple.
 REMOVED_FILES = (
     "assets/mobilefacenet.tflite",
     "assets/w600k_mbf.onnx",
@@ -31,6 +44,11 @@ REMOVED_FILES = (
     "ios/Runner/TFLiteSymbolKeepalive.m",
     "lib/services/ios_native_face_embedder.dart",
     "lib/services/mlkit_face_signature_service.dart",
+    "lib/services/biometric_auth_local.dart",
+    "lib/screens/attendance_approval_v2/aa_detail.dart",
+    "lib/screens/staff_map/staff_map_screen.dart",
+    "lib/widgets/map_location_picker.dart",
+    "lib/widgets/punch_location_preview.dart",
 )
 
 GEOLOCATION = """class GeoPosition {
@@ -226,9 +244,70 @@ def patch_app_delegate() -> None:
     write("ios/Runner/AppDelegate.swift", text)
 
 
+
+# Từ vựng HRM trong chuỗi giao diện. Apple 2.5.19 đọc mã trong gói, mà bảng chuỗi Việt → Anh được biên dịch
+# thẳng vào ảnh Dart: 452 dòng chứa «chấm công», 29 dòng chứa «tính lương». Bản bán hàng không có những màn
+# đó nên bỏ hẳn các dòng này, vừa sạch gói vừa nhẹ bớt.
+HRM_STRING_WORDS = (
+    "chấm công",
+    "lương",
+    "nghỉ phép",
+    "khuôn mặt",
+    "bảo hiểm",
+    "thuế tncn",
+    "tăng ca",
+    "phụ cấp",
+)
+
+
+def _is_hrm_line(line: str) -> bool:
+    low = line.lower()
+    return any(word in low for word in HRM_STRING_WORDS)
+
+
+def strip_hrm_ui_strings() -> None:
+    """Bỏ chuỗi giao diện của HRM khỏi bảng dịch và gói ngôn ngữ của bản bán hàng."""
+    rel = "lib/l10n/en_ui_map.g.dart"
+    lines = read(rel).split("\n")
+    kept = [l for l in lines if not (l.startswith("  '") and _is_hrm_line(l))]
+    dropped = len(lines) - len(kept)
+    if dropped == 0:
+        raise SystemExit(f"Expected HRM strings in {rel}, found none")
+    write(rel, "\n".join(kept))
+    print(f"{rel}: bỏ {dropped} dòng chuỗi HRM")
+
+    # Chính sách / điều khoản / trợ giúp dùng chung 4 app. SboxAppVariant.stripIosPosLegal đã lọc lúc HIỂN THỊ,
+    # nhưng nguyên văn vẫn nằm trong gói — đúng thứ máy quét của Apple đọc. Lọc luôn ở mã nguồn.
+    legal = "lib/content/app_legal_pages.dart"
+    lines = read(legal).split("\n")
+    kept = [
+        l for l in lines
+        if not (_is_hrm_line(l) or re.search(r"khuôn mặt|sinh trắc|vị trí|GPS", l, re.IGNORECASE))
+        or l.lstrip().startswith(("static ", "abstract ", "class ", "}", "'''"))
+    ]
+    dropped = len(lines) - len(kept)
+    if dropped == 0:
+        raise SystemExit(f"Expected HRM lines in {legal}, found none")
+    write(legal, "\n".join(kept))
+    print(f"{legal}: bỏ {dropped} dòng")
+
+    for lang in ("en", "ja", "ko", "zh"):
+        pack = f"assets/l10n/{lang}.json"
+        path = ROOT / pack
+        if not path.is_file():
+            continue
+        data = json.loads(read(pack))
+        before = len(data.get("m", {}))
+        data["m"] = {k: v for k, v in data.get("m", {}).items() if not _is_hrm_line(k)}
+        data["t"] = [p for p in data.get("t", []) if not _is_hrm_line(str(p[0]))]
+        write(pack, json.dumps(data, ensure_ascii=False, separators=(",", ":")))
+        print(f"{pack}: còn {len(data['m'])}/{before} chuỗi")
+
+
 def main() -> None:
     vendor_file_picker()
     patch_pubspec()
+    strip_hrm_ui_strings()
     patch_app_delegate()
 
     for rel in REMOVED_FILES:

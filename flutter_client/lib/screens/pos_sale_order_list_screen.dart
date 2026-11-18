@@ -28,7 +28,7 @@ import '../utils/pos_print_store_info.dart';
 import '../utils/pos_sell_stock_patch.dart';
 import '../utils/pos_mutation_result.dart';
 import '../widgets/loading_widget.dart';
-import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_list_filters.dart';
 import '../widgets/pos/pos_mobile_widgets.dart';

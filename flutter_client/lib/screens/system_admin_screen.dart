@@ -14,7 +14,7 @@ import '../utils/notification_navigation.dart';
 import '../utils/pending_notification_launch.dart';
 import '../widgets/notification_overlay.dart';
 import 'notifications_screen.dart';
-import 'main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import '../widgets/admin/admin_mobile_widgets.dart';
 import '../widgets/hrm_page_chrome.dart';
 import 'system_admin/system_admin_helpers.dart';

@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/api_datetime.dart';
-import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/pos_kiot_time_range.dart';
 import '../widgets/pos/pos_hub_scope.dart';

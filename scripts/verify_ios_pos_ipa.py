@@ -15,13 +15,42 @@ from pathlib import Path
 
 FORBIDDEN_PATHS = re.compile(
     r"mobilefacenet|w600k_mbf|FaceNet|TensorFlowLite|MLKit|MLKFace|GoogleMlKit|tflite_flutter|geolocator|network_info_plus|"
-    r"DKImagePickerController|DKCamera|DKPhotoGallery",
+    r"DKImagePickerController|DKCamera|DKPhotoGallery|local_auth",
     re.IGNORECASE,
 )
 FORBIDDEN_SYMBOLS = re.compile(
     rb"TfLiteModelCreate|MLKFaceDetector|VNDetectFaceRectanglesRequest|VNDetectFaceLandmarksRequest|"
-    rb"CIDetectorTypeFace|CLLocation|requestWhenInUseAuthorization|requestAlwaysAuthorization"
+    rb"CIDetectorTypeFace|CLLocation|requestWhenInUseAuthorization|requestAlwaysAuthorization|"
+    rb"LAContext|canEvaluatePolicy|evaluatePolicy"
 )
+
+# Apple 2.5.19 (17/11/2026): máy quét đọc mã trong gói và kết luận app «chứa chấm công, sinh trắc, theo dõi
+# vị trí và tính lương» dù giao diện đã ẩn — vì bản POS build từ nguyên codebase HRM. Bản POS phải KHÔNG
+# biên dịch phần đó vào gói, nên dò luôn trong ảnh Dart (App.framework/App).
+HIDDEN_FEATURE_WORDS = (
+    "chấm công",
+    "tính lương",
+    "bảng lương",
+    "phiếu lương",
+    "nghỉ phép",
+    "khuôn mặt",
+    "AttendanceScreen",
+    "PayrollScreen",
+    "SalarySettings",
+    "LeaveRequest",
+    "FaceRegistration",
+    "LocalAuthentication",
+)
+
+
+def feature_words_in(binary: Path) -> list[str]:
+    """Chuỗi Dart nằm trong ảnh AOT ở cả dạng một byte lẫn UTF-16LE (chữ có dấu) — phải dò cả hai."""
+    data = binary.read_bytes()
+    found = []
+    for word in HIDDEN_FEATURE_WORDS:
+        if word.encode("utf-8") in data or word.encode("utf-16-le") in data:
+            found.append(word)
+    return found
 FORBIDDEN_PLIST_KEYS = (
     "NSLocationWhenInUseUsageDescription",
     "NSLocationAlwaysUsageDescription",
@@ -59,6 +88,7 @@ def main() -> None:
                 problems.append(f"links CoreLocation: {binary.name}")
             for symbol in sorted(set(FORBIDDEN_SYMBOLS.findall(binary.read_bytes()))):
                 problems.append(f"symbol {symbol.decode()}: {binary.name}")
+            problems += [f"hidden feature «{word}»: {binary.name}" for word in feature_words_in(binary)]
 
     if problems:
         print("SBOX POS IPA still contains face or location code:")

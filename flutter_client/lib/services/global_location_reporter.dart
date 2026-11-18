@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../utils/location_reporting.dart';
 import 'package:flutter/foundation.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../config/sbox_app_variant.dart';
@@ -8,7 +9,7 @@ import 'api_service.dart';
 
 /// GPS định kỳ cho cửa hàng có chức năng "Bản đồ nhân sự" — quản lý thấy vị trí
 /// realtime trên bản đồ. Server chỉ lưu trong thời gian ca làm việc đã duyệt.
-class GlobalLocationReporter {
+class GlobalLocationReporter implements LocationReporting {
   GlobalLocationReporter._();
   static final GlobalLocationReporter instance = GlobalLocationReporter._();
 
@@ -35,6 +36,7 @@ class GlobalLocationReporter {
   /// Chạy khi cửa hàng bật chức năng "Bản đồ nhân sự" (trackLocation).
   /// Server chỉ lưu vị trí trong thời gian ca làm việc đã duyệt — NV chưa cài ca
   /// thì server tự bỏ qua, nên client có thể báo định kỳ an toàn.
+  @override
   Future<void> startIfEligible({String? employeeId}) async {
     // SBOX POS / KDS: máy bán hàng, máy bếp; SBOX BOSS: chủ / quản lý — không xin quyền / báo vị trí.
     if (SboxAppVariant.standalonePos || SboxAppVariant.bossApp) return;
@@ -73,6 +75,7 @@ class GlobalLocationReporter {
   }
 
   /// Gọi khi app resume — khởi động lại reporter và gửi GPS ngay (không chờ chu kỳ 30s).
+  @override
   Future<void> resume({String? employeeId}) async {
     // Mở lại app: có thể vừa cấp quyền vị trí trong Cài đặt máy → thử lại ngay.
     _noPermissionUntil = null;
@@ -91,6 +94,7 @@ class GlobalLocationReporter {
     _timer = Timer.periodic(interval, (_) => _reportWithRetry());
   }
 
+  @override
   void stop() {
     _timer?.cancel();
     _timer = null;

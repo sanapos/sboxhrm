@@ -8,7 +8,7 @@ import '../../config/sbox_app_variant.dart';
 import '../../l10n/app_tr.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/permission_provider.dart';
-import '../../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../../utils/screen_refresh_notifier.dart';
 import '../../screens/notifications_screen.dart';
 import '../../screens/settings_screen.dart';
 import '../../screens/staff/staff_nav.dart';

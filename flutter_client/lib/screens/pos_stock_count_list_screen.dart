@@ -24,7 +24,7 @@ import '../widgets/pos/pos_module_toolbar.dart';
 import '../widgets/pos/pos_stock_count_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
 import 'pos_stock_count_editor_screen.dart';
-import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../theme/sbox_tokens.dart';
 

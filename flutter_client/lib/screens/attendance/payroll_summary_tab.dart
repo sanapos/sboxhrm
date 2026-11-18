@@ -32,7 +32,7 @@ import '../../widgets/synced_scroll_list_view.dart'
 import 'package:payroll_engine/payroll/payroll_engine.dart';
 import 'package:payroll_engine/payroll/payroll_finalize.dart';
 import '../../utils/mobile_attendance_vertical_layout.dart';
-import '../main_layout.dart' show NavigationNotifier;
+import '../../utils/navigation_notifier.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import 'package:zkteco_flutter_client/l10n/app_ui_locale.dart';
 

@@ -16,7 +16,7 @@ import '../../services/api_service.dart';
 import '../../utils/permission_navigation.dart';
 import '../../utils/pos_sell_settings_helper.dart';
 import '../../utils/store_role_helper.dart';
-import '../main_layout.dart' show ScreenRefreshNotifier;
+import '../../utils/screen_refresh_notifier.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';

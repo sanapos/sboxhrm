@@ -16,7 +16,7 @@ import '../widgets/circle_face_capture_widget.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/notification_overlay.dart';
 import '../services/signalr_service.dart';
-import 'main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../config/sbox_app_variant.dart';

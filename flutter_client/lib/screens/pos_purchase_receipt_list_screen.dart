@@ -12,7 +12,7 @@ import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
 import '../utils/pos_doc_status.dart';
 import '../utils/pos_mutation_result.dart';
-import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import '../widgets/loading_widget.dart';
 import '../widgets/notification_overlay.dart';
 import '../widgets/pos/pos_barcode_label_dialog.dart';

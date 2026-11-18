@@ -5,7 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../models/pos_product.dart';
-import '../../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../../utils/screen_refresh_notifier.dart';
 import '../../services/api_service.dart';
 import '../../utils/number_formatter.dart';
 import '../notification_overlay.dart';

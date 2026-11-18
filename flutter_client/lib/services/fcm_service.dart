@@ -12,7 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/sbox_app_variant.dart';
 import '../firebase_options.dart';
-import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import '../utils/notification_display_utils.dart';
 import '../utils/notification_navigation.dart';
 import '../utils/pending_notification_launch.dart';

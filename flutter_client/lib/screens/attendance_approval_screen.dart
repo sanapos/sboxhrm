@@ -24,7 +24,7 @@ import '../widgets/page_top_actions.dart';
 import 'package:provider/provider.dart';
 import '../providers/permission_provider.dart';
 import '../utils/attendance_correction_privilege.dart';
-import '../screens/main_layout.dart' show NavigationNotifier;
+import '../utils/navigation_notifier.dart';
 import '../widgets/hrm_pushed_screen_shell.dart';
 import 'mobile_attendance_approval_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';

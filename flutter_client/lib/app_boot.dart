@@ -1,0 +1,101 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+import 'utils/play_system_ui.dart';
+import 'utils/web_route_parser.dart';
+import 'utils/vietnamese_font.dart';
+import 'utils/low_ram_tuning.dart';
+import 'utils/app_error_utils.dart';
+import 'utils/module_deep_link_stub.dart'
+    if (dart.library.html) 'utils/module_deep_link_web.dart' as module_deep_link;
+import 'config/sbox_app_variant.dart';
+import 'widgets/app_fatal_error_screen.dart';
+import 'app/app.dart';
+import 'providers/auth_provider.dart';
+import 'providers/permission_provider.dart';
+import 'providers/theme_provider.dart';
+import 'services/api_service.dart';
+import 'services/app_icon_badge.dart';
+import 'services/fcm_service_stub.dart'
+    if (dart.library.io) 'services/fcm_service.dart';
+import 'utils/windows_data_migration_stub.dart'
+    if (dart.library.io) 'utils/windows_data_migration_io.dart';
+
+
+/// Phần khởi động dùng chung cho mọi bản app (SBOX HRM, BOSS, Nhân Viên, SBOX Bán Hàng).
+///
+/// Mỗi điểm vào gắn phần riêng của mình TRƯỚC khi gọi hàm này: `lib/main.dart` gắn khung HRM, mục Thiết lập
+/// HRM, cảm biến sinh trắc và báo vị trí; `lib/main_pos.dart` không gắn gì để các phần đó không vào gói.
+Future<void> runSbox() async {
+  applyLowRamImageCache();
+
+  if (!kIsWeb) {
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnLightBg);
+    // edgeToEdge vừa hiện lại thanh điều hướng — SBOX HRM ẩn đi (vuốt lên để hiện tạm).
+    await hideNavigationBarIfHrm();
+  }
+
+  // Tắt Widget Inspector overlay trong debug mode
+  WidgetsApp.debugAllowBannerOverride = false;
+
+  // Ẩn sọc vàng đen overflow trong debug mode
+  debugDisableClipLayers = false;
+  debugDisablePhysicalShapeLayers = false;
+  debugRepaintRainbowEnabled = false;
+
+  // Suppress overflow error indicators visually
+  final originalOnError = FlutterError.onError;
+  FlutterError.onError = (FlutterErrorDetails details) {
+    final exception = details.exception;
+    if (exception is FlutterError &&
+        exception.toString().contains('overflowed by')) {
+      debugPrint('⚠️ Overflow: ${details.summary}');
+      return;
+    }
+    AppErrorUtils.logFlutterError(details);
+    originalOnError?.call(details);
+  };
+
+  // Widget build lỗi → màn báo rõ (mạng / timeout / chi tiết kỹ thuật).
+  ErrorWidget.builder = (FlutterErrorDetails details) {
+    AppErrorUtils.logFlutterError(details);
+    if (kDebugMode) {
+      return ErrorWidget(details.exception);
+    }
+    return AppFatalErrorScreen(details: details);
+  };
+
+  // Bản Windows «SBOX»: chép dữ liệu từ thư mục cũ «SBOX HRM» trước khi đọc thiết lập.
+  await migrateWindowsDataDir();
+
+  // Biết biến thể HRM/POS trước khi chọn máy chủ API.
+  await SboxAppVariant.bootstrap();
+  await ApiService.loadSavedBaseUrl();
+  await AppIconBadge.set(0);
+  await preloadVietnameseFonts();
+
+  InitialWebRoute.capture();
+  // Trước runApp: chặn route `/m/<Mã>` trước WidgetsApp (xem module_deep_link_web.dart).
+  module_deep_link.installModuleDeepLinkRouteGuard();
+
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => PermissionProvider()),
+      ],
+      child: const ZKTecoApp(),
+    ),
+  );
+
+  // FCM sau frame đầu — giảm tranh CPU với paint đầu tiên trên iOS cold start.
+  // Face model: khởi tạo lazy khi vào chấm công khuôn mặt (mobile_attendance / camera).
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    // ignore: discarded_futures
+    FcmService.instance.initialize();
+  });
+}

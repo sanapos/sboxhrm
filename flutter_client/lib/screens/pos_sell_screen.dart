@@ -98,7 +98,7 @@ import '../widgets/pos/pos_cart_fly_effect.dart';
 import '../widgets/pos/pos_sell_cart_chrome.dart';
 import '../utils/pos_qr_order_voice.dart';
 import '../widgets/notification_overlay.dart';
-import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import '../screens/pos/pos_product_editor_page.dart';
 import '../widgets/pos/pos_discount_editor_dialog.dart';
 import '../widgets/pos/pos_customer_form_dialog.dart';

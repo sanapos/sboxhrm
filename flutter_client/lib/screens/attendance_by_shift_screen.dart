@@ -16,7 +16,7 @@ import '../utils/travel_eligibility_utils.dart';
 import 'attendance/attendance_by_shift_tab.dart';
 import 'attendance/attendance_summary_tab.dart'
     show AttendanceCorrectionRequest;
-import 'main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import '../widgets/notification_overlay.dart';
 import '../utils/attendance_load_utils.dart';
 import '../utils/attendance_date_range_presets.dart';

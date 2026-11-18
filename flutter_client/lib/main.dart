@@ -1,98 +1,47 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
-import 'package:flutter/services.dart';
-import 'package:provider/provider.dart';
-import 'utils/play_system_ui.dart';
-import 'utils/web_route_parser.dart';
-import 'utils/vietnamese_font.dart';
-import 'utils/low_ram_tuning.dart';
-import 'utils/app_error_utils.dart';
-import 'utils/module_deep_link_stub.dart'
-    if (dart.library.html) 'utils/module_deep_link_web.dart' as module_deep_link;
-import 'config/sbox_app_variant.dart';
-import 'widgets/app_fatal_error_screen.dart';
-import 'app/app.dart';
-import 'providers/auth_provider.dart';
-import 'providers/permission_provider.dart';
-import 'providers/theme_provider.dart';
-import 'services/api_service.dart';
-import 'services/app_icon_badge.dart';
-import 'services/fcm_service_stub.dart'
-    if (dart.library.io) 'services/fcm_service.dart';
-import 'utils/windows_data_migration_stub.dart'
-    if (dart.library.io) 'utils/windows_data_migration_io.dart';
+import 'package:flutter/widgets.dart';
+import 'app/app_shells.dart';
+import 'features/boss/boss_shell.dart';
+import 'screens/landing_guide_screen.dart';
+import 'utils/landing_usage_guide.dart';
+import 'utils/landing_usage_guide_hrm.dart';
+import 'screens/main_layout.dart';
+import 'screens/main_layout_hrm_nav.dart';
+import 'screens/overview/overview_entry.dart';
+import 'screens/overview/overview_router_screen.dart';
+import 'screens/main_layout_nav_hook.dart';
+import 'screens/staff/staff_shell.dart';
+import 'screens/system_admin_screen.dart' deferred as system_admin;
+import 'widgets/deferred_screen.dart';
+import 'screens/settings_hub_pages_hrm.dart';
+import 'services/biometric_auth.dart';
+import 'services/biometric_auth_local.dart';
+import 'services/global_location_reporter.dart';
+import 'utils/location_reporting.dart';
+import 'utils/settings_hub_hrm_hook.dart';
+import 'app_boot.dart';
 
+/// Điểm vào SBOX HRM / BOSS / Nhân Viên / SBOX POS Android.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  applyLowRamImageCache();
-
-  if (!kIsWeb) {
-    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
-    SystemChrome.setSystemUIOverlayStyle(kPlayOverlayOnLightBg);
-    // edgeToEdge vừa hiện lại thanh điều hướng — SBOX HRM ẩn đi (vuốt lên để hiện tạm).
-    await hideNavigationBarIfHrm();
-  }
-
-  // Tắt Widget Inspector overlay trong debug mode
-  WidgetsApp.debugAllowBannerOverride = false;
-
-  // Ẩn sọc vàng đen overflow trong debug mode
-  debugDisableClipLayers = false;
-  debugDisablePhysicalShapeLayers = false;
-  debugRepaintRainbowEnabled = false;
-
-  // Suppress overflow error indicators visually
-  final originalOnError = FlutterError.onError;
-  FlutterError.onError = (FlutterErrorDetails details) {
-    final exception = details.exception;
-    if (exception is FlutterError &&
-        exception.toString().contains('overflowed by')) {
-      debugPrint('⚠️ Overflow: ${details.summary}');
-      return;
-    }
-    AppErrorUtils.logFlutterError(details);
-    originalOnError?.call(details);
-  };
-
-  // Widget build lỗi → màn báo rõ (mạng / timeout / chi tiết kỹ thuật).
-  ErrorWidget.builder = (FlutterErrorDetails details) {
-    AppErrorUtils.logFlutterError(details);
-    if (kDebugMode) {
-      return ErrorWidget(details.exception);
-    }
-    return AppFatalErrorScreen(details: details);
-  };
-
-  // Bản Windows «SBOX»: chép dữ liệu từ thư mục cũ «SBOX HRM» trước khi đọc thiết lập.
-  await migrateWindowsDataDir();
-
-  // Biết biến thể HRM/POS trước khi chọn máy chủ API.
-  await SboxAppVariant.bootstrap();
-  await ApiService.loadSavedBaseUrl();
-  await AppIconBadge.set(0);
-  await preloadVietnameseFonts();
-
-  InitialWebRoute.capture();
-  // Trước runApp: chặn route `/m/<Mã>` trước WidgetsApp (xem module_deep_link_web.dart).
-  module_deep_link.installModuleDeepLinkRouteGuard();
-
-  runApp(
-    MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => PermissionProvider()),
-      ],
-      child: const ZKTecoApp(),
-    ),
-  );
-
-  // FCM sau frame đầu — giảm tranh CPU với paint đầu tiên trên iOS cold start.
-  // Face model: khởi tạo lazy khi vào chấm công khuôn mặt (mobile_attendance / camera).
-  WidgetsBinding.instance.addPostFrameCallback((_) {
-    // ignore: discarded_futures
-    FcmService.instance.initialize();
-  });
+  // Gắn các mục Thiết lập của HRM. Bản SBOX Bán Hàng có điểm vào riêng và không gắn,
+  // nên mã chấm công / lương không vào gói (Apple 2.5.19).
+  settingsHubHrmPage = hrmSettingsHubPage;
+  // Khung màn chính của từng bản app; bản SBOX Bán Hàng (main_pos.dart) không gắn.
+  hrmNavItemsHook = hrmNavItems;
+  hrmOverviewScreen = () => const OverviewRouterScreen();
+  AppShells.hrm = () => const MainLayout();
+  AppShells.landingGuide = () => const LandingGuideScreen();
+  // Bài hướng dẫn phần HRM (bản SBOX Bán Hàng không gắn).
+  hrmGuideBasicSteps = () => hrmBasicSteps;
+  hrmGuideAdvancedSteps = () => hrmAdvancedSteps;
+  hrmGuideKeywords = () => hrmAllKeywords;
+  AppShells.boss = () => const BossShell();
+  AppShells.staff = () => const StaffShell();
+  AppShells.systemAdmin = (agentMode) => DeferredScreen(
+        load: system_admin.loadLibrary,
+        builder: () => system_admin.SystemAdminScreen(agentMode: agentMode),
+      );
+  biometricAuth = LocalAuthBiometric();
+  locationReporter = GlobalLocationReporter.instance;
+  await runSbox();
 }
-

@@ -17,7 +17,7 @@ import '../services/api_service.dart';
 import '../services/system_notification_service.dart';
 import '../services/signalr_service.dart';
 import '../widgets/hrm_responsive_list_layout.dart';
-import 'main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import 'notification_settings_screen.dart';
 import 'notifications/notification_composer_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';

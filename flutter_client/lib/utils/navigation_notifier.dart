@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../screens/settings_hub_screen.dart';
+import 'settings_hub_pending.dart';
 
 /// Global navigation notifier - allows navigating from any screen.
 class NavigationNotifier {
@@ -352,7 +352,7 @@ class NavigationNotifier {
   static void goToSalarySettings() => goToModule('SalarySettings');
 
   static void goToNotificationSettings() {
-    SettingsHubScreen.openCode('notifications');
+    SettingsHubPending.openCode('notifications');
     goToModule('SettingsHub');
   }
   static void goToBonusPenalty() => goToModule('BonusPenalty');
@@ -360,7 +360,7 @@ class NavigationNotifier {
   static void goToAttendanceByShift() => goTo(attendanceByShift);
   static void goToKpi() => goToModule('KPI');
   static void goToDeviceSettings() {
-    SettingsHubScreen.openCode('device');
+    SettingsHubPending.openCode('device');
     goToModule('SettingsHub');
   }
 
@@ -390,6 +390,6 @@ class NavigationNotifier {
     taskOpenComments.value = false;
     feedbackPreferInbox.value = false;
     posHandleSystemBack = null;
-    SettingsHubScreen.pendingSubIndex.value = null;
+    SettingsHubPending.subIndex.value = null;
   }
 }

@@ -5,6 +5,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:local_auth_platform_interface/local_auth_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zkteco_flutter_client/services/api_service.dart';
+import 'package:zkteco_flutter_client/services/biometric_auth.dart';
+import 'package:zkteco_flutter_client/services/biometric_auth_local.dart';
 import 'package:zkteco_flutter_client/services/biometric_login_service.dart';
 
 class _FakeLocalAuth extends LocalAuthPlatform {
@@ -46,9 +48,14 @@ void main() {
     FlutterSecureStorage.setMockInitialValues({});
     auth = _FakeLocalAuth();
     LocalAuthPlatform.instance = auth;
+    // Lớp đọc cảm biến nay được gắn từ điểm vào (bản SBOX Bán Hàng không gắn).
+    biometricAuth = LocalAuthBiometric();
   });
 
-  tearDown(() => debugDefaultTargetPlatformOverride = null);
+  tearDown(() {
+    debugDefaultTargetPlatformOverride = null;
+    biometricAuth = null;
+  });
 
   test('bật sau khi xác thực → Face ID trả lại đúng mật khẩu', () async {
     expect(await bio.isAvailable(), isTrue);

@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'navigation_notifier.dart';
 import 'admin_navigation.dart';
-import '../screens/settings_hub_screen.dart';
+import 'settings_hub_pending.dart';
 
 /// Đích điều hướng khi user bấm thông báo (in-app, system tray, FCM).
 class NotificationNavigationTarget {
@@ -656,7 +656,7 @@ void navigateFromNotification({
   }
 
   if (target.settingsHubSubIndex != null) {
-    SettingsHubScreen.pendingSubIndex.value = target.settingsHubSubIndex;
+    SettingsHubPending.subIndex.value = target.settingsHubSubIndex;
   }
   if (target.scheduleApprovalTab != null) {
     NavigationNotifier.scheduleApprovalTab.value = target.scheduleApprovalTab!;

@@ -26,7 +26,7 @@ import '../utils/app_error_utils.dart';
 import '../utils/travel_hours_calculator.dart';
 import '../widgets/mobile_attendance_record_detail_sheet.dart';
 import '../widgets/notification_overlay.dart';
-import 'main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import 'mobile_attendance_history_screen.dart';
 import 'mobile_device_registration_screen.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';

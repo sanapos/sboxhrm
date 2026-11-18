@@ -1,0 +1,456 @@
+import 'package:flutter/material.dart';
+
+import 'main_layout.dart';
+import 'system_admin_screen.dart' deferred as system_admin;
+import '../widgets/deferred_screen.dart';
+import '../widgets/deferred_screen.dart';
+import '../widgets/hrm_page_chrome.dart';
+import 'advance_report_screen.dart';
+import 'analytics_reports_hrm_screen.dart';
+import 'asset_management_screen.dart';
+import 'asset_report_screen.dart';
+import 'attendance_approval_v2/aa_hub_screen.dart';
+import 'attendance_by_shift_screen.dart';
+import 'attendance_report_screen.dart';
+import 'attendance_screen.dart';
+import 'attendance_summary_screen.dart';
+import 'business_trip_expense_screen.dart';
+import 'business_trip_report_screen.dart';
+import 'department_screen.dart';
+import 'device_users_screen.dart';
+import 'employees_screen.dart';
+import 'feedback_screen.dart';
+import 'hr_finance/hr_finance_hub_screen.dart';
+import 'kpi_screen.dart';
+import 'late_early_report_screen.dart';
+import 'leave_report_screen.dart';
+import 'leave_screen.dart';
+import 'meal_tracking_screen.dart';
+import 'mobile_attendance_screen.dart';
+import 'mobile_devices_v2/md_hub_screen.dart';
+import 'payroll_screen.dart';
+import 'payslip_screen.dart';
+import 'penalty_report_screen.dart';
+import 'production_output_screen.dart';
+import 'salary_settings_screen.dart';
+import 'schedule_approval_screen.dart';
+import 'shift_hub/shift_hub_screen.dart';
+import 'shift_swap_screen.dart';
+import 'staff_map/staff_map_screen.dart';
+import 'travel_hours_report_screen.dart';
+import 'work/work_hub_screen.dart';
+import 'comm/comm_hub_screen.dart' deferred as comm_hub;
+
+/// Các mục điều hướng chỉ có ở SBOX HRM (chấm công, nghỉ phép, lương, nhân sự, tài sản, công việc…).
+/// `lib/main.dart` gắn vào `hrmNavItemFor`; bản SBOX Bán Hàng không gắn nên 34 mục này — và toàn bộ màn
+/// hình chúng dựng — không được biên dịch vào gói (Apple 2.5.19).
+final Map<String, NavItem> hrmNavItems = {
+  'SystemAdmin': NavItem(
+    icon: Icons.admin_panel_settings_outlined,
+    activeIcon: Icons.admin_panel_settings,
+    label: 'Quản trị hệ thống',
+    subtitle: 'Server',
+    screen: DeferredScreen(
+      load: system_admin.loadLibrary,
+      builder: () => system_admin.SystemAdminScreen(),
+    ),
+    group: 'Cài đặt',
+    showInSidebar: true,
+    themeColor: HrmPageChrome.primaryNavy,
+    adminOnly: true,
+    moduleCode: 'SystemAdmin',
+  ),
+  'Employee': NavItem(
+        icon: Icons.people_outline,
+        activeIcon: Icons.people,
+        label: 'Hồ sơ nhân sự',
+        subtitle: 'Hồ sơ NV',
+        screen: const EmployeesScreen(),
+        group: 'Hồ sơ nhân sự',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'Employee',
+      ),
+  'DeviceUser': NavItem(
+        icon: Icons.badge_outlined,
+        activeIcon: Icons.badge,
+        label: 'Nhân sự chấm công',
+        subtitle: 'User máy CC',
+        screen: const DeviceUsersScreen(),
+        group: 'Chấm công',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'DeviceUser',
+      ),
+  'Department': NavItem(
+        icon: Icons.business_outlined,
+        activeIcon: Icons.business,
+        label: 'Phòng ban',
+        subtitle: 'Phòng ban',
+        screen: const DepartmentScreen(),
+        group: 'Hồ sơ nhân sự',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'Department',
+      ),
+  'Leave': NavItem(
+        icon: Icons.event_busy_outlined,
+        activeIcon: Icons.event_busy,
+        label: 'Nghỉ phép',
+        subtitle: 'Đơn nghỉ',
+        // Màn riêng (số ngày phép còn lại, đơn nghỉ) — không gộp vào Ca làm việc để hai mục khác nhau.
+        screen: const LeaveScreen(),
+        group: 'Chấm công',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'Leave',
+      ),
+  'SalarySettings': NavItem(
+        icon: Icons.price_change_outlined,
+        activeIcon: Icons.price_change,
+        label: 'Thiết lập lương',
+        subtitle: 'Cấu hình lương',
+        screen: const SalarySettingsScreen(),
+        group: 'Hồ sơ nhân sự',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'SalarySettings',
+      ),
+  'Attendance': NavItem(
+        icon: Icons.access_time_outlined,
+        activeIcon: Icons.access_time_filled,
+        label: 'Chấm công thô',
+        subtitle: 'Log máy CC',
+        screen: const AttendanceScreen(),
+        group: 'Chấm công',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'Attendance',
+      ),
+  'WorkSchedule': NavItem(
+        icon: Icons.calendar_month_outlined,
+        activeIcon: Icons.calendar_month,
+        label: 'Ca làm việc',
+        subtitle: 'Lịch, đăng ký, nghỉ, đổi ca',
+        screen: const ShiftHubScreen(),
+        group: 'Chấm công',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'WorkSchedule',
+      ),
+  'AttendanceSummary': NavItem(
+        icon: Icons.summarize_outlined,
+        activeIcon: Icons.summarize,
+        label: 'Tổng hợp chấm công',
+        subtitle: 'Tổng hợp công',
+        screen: const AttendanceSummaryScreen(),
+        group: 'Báo cáo nhân sự',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'AttendanceSummary',
+      ),
+  'AttendanceByShift': NavItem(
+        icon: Icons.schedule_outlined,
+        activeIcon: Icons.schedule,
+        label: 'Tổng hợp chấm công theo ca',
+        homeLabel: 'Chấm công theo ca',
+        subtitle: 'Công theo ca',
+        screen: const AttendanceByShiftScreen(),
+        group: 'Báo cáo nhân sự',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'AttendanceByShift',
+      ),
+  'LateEarlyReport': NavItem(
+        icon: Icons.timer_off_outlined,
+        activeIcon: Icons.timer_off,
+        label: 'Đi trễ / Về sớm',
+        subtitle: 'Trễ / sớm',
+        screen: const LateEarlyReportScreen(),
+        group: 'Báo cáo nhân sự',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'LateEarlyReport',
+      ),
+  'TravelHoursReport': NavItem(
+        icon: Icons.directions_car_outlined,
+        activeIcon: Icons.directions_car,
+        label: 'Báo cáo đi đường',
+        subtitle: 'Giờ đi đường',
+        screen: const TravelHoursReportScreen(),
+        group: 'Báo cáo nhân sự',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'TravelHoursReport',
+      ),
+  'AttendanceApproval': NavItem(
+        icon: Icons.fact_check_outlined,
+        activeIcon: Icons.fact_check,
+        label: 'Duyệt chấm công',
+        subtitle: 'Duyệt CC',
+        screen: const AttendanceApprovalHubScreen(),
+        group: 'Chấm công',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'AttendanceApproval',
+      ),
+  'ScheduleApproval': NavItem(
+        icon: Icons.assignment_turned_in_outlined,
+        activeIcon: Icons.assignment_turned_in,
+        label: 'Duyệt lịch làm việc',
+        subtitle: 'Duyệt lịch',
+        screen: const ShiftHubEntry(tab: 'inbox', fallback: ScheduleApprovalScreen()),
+        group: 'Chấm công',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'ScheduleApproval',
+      ),
+  'Payslip': NavItem(
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long,
+        label: 'Phiếu lương',
+        subtitle: 'Phiếu lương',
+        screen: const PayslipScreen(),
+        group: 'Báo cáo nhân sự',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'Payslip',
+      ),
+  'Payroll': NavItem(
+        icon: Icons.payments_outlined,
+        activeIcon: Icons.payments,
+        label: 'Tổng hợp lương',
+        subtitle: 'Bảng lương',
+        screen: const PayrollScreen(),
+        group: 'Báo cáo nhân sự',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'Payroll',
+      ),
+  'MobileDeviceRegistration': NavItem(
+        icon: Icons.app_registration_outlined,
+        activeIcon: Icons.app_registration,
+        label: 'Đăng ký chấm công Mobile',
+        homeLabel: 'Đăng ký chấm công',
+        subtitle: 'Đăng ký TB',
+        screen: const MobileDevicesHubScreen(),
+        group: 'Chấm công',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'MobileDeviceRegistration',
+      ),
+  'MobileAttendance': NavItem(
+        icon: Icons.phone_android_outlined,
+        activeIcon: Icons.phone_android,
+        label: 'Chấm công Mobile',
+        subtitle: 'Chấm trên ĐT',
+        screen: const MobileAttendanceScreen(),
+        group: 'Chấm công',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'MobileAttendance',
+      ),
+  'Meal': NavItem(
+        icon: Icons.restaurant_outlined,
+        activeIcon: Icons.restaurant,
+        label: 'Chấm cơm',
+        subtitle: 'Suất ăn',
+        screen: const MealTrackingScreen(),
+        group: 'Quản lý Vận hành',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'Meal',
+      ),
+  'BonusPenalty': NavItem(
+        icon: Icons.card_giftcard_outlined,
+        activeIcon: Icons.card_giftcard,
+        label: 'Thưởng phạt',
+        subtitle: 'Thưởng, phạt thủ công',
+        screen: const HrFinanceHubScreen(initialTab: HrFinTab.rewards),
+        group: 'Tài chính',
+        showInSidebar: true,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'BonusPenalty',
+      ),
+  'AdvanceRequests': NavItem(
+        icon: Icons.money_outlined,
+        activeIcon: Icons.money,
+        label: 'Ứng lương',
+        subtitle: 'Ứng lương',
+        screen: const HrFinanceHubScreen(initialTab: HrFinTab.advances),
+        group: 'Tài chính',
+        showInSidebar: true,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'AdvanceRequests',
+      ),
+  'BusinessTripExpense': NavItem(
+        icon: Icons.flight_takeoff_outlined,
+        activeIcon: Icons.flight_takeoff,
+        label: 'Công tác phí',
+        subtitle: 'Công tác phí',
+        screen: const BusinessTripExpenseScreen(),
+        group: 'Tài chính',
+        showInSidebar: true,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'BusinessTripExpense',
+      ),
+  'Asset': NavItem(
+        icon: Icons.inventory_2_outlined,
+        activeIcon: Icons.inventory_2,
+        label: 'Tài sản',
+        subtitle: 'Tài sản',
+        screen: const AssetManagementScreen(),
+        group: 'Quản lý Vận hành',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'Asset',
+      ),
+  'Task': NavItem(
+        icon: Icons.task_alt_outlined,
+        activeIcon: Icons.task_alt,
+        label: 'Công việc',
+        subtitle: 'Công việc',
+        screen: const WorkHubScreen(),
+        group: 'Quản lý Vận hành',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'Task',
+      ),
+  'Communication': NavItem(
+        icon: Icons.campaign_outlined,
+        activeIcon: Icons.campaign,
+        label: 'Truyền thông',
+        subtitle: 'Thông báo',
+        screen: DeferredScreen(
+          load: comm_hub.loadLibrary,
+          builder: () => comm_hub.CommHubScreen(),
+        ),
+        group: 'Quản lý Vận hành',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'Communication',
+      ),
+  'KPI': NavItem(
+        icon: Icons.trending_up_outlined,
+        activeIcon: Icons.trending_up,
+        label: 'KPI',
+        subtitle: 'KPI',
+        screen: const KpiScreen(),
+        group: 'Quản lý Vận hành',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'KPI',
+      ),
+  'Production': NavItem(
+        icon: Icons.precision_manufacturing_outlined,
+        activeIcon: Icons.precision_manufacturing,
+        label: 'Sản lượng',
+        subtitle: 'Sản lượng',
+        screen: const ProductionOutputScreen(),
+        group: 'Quản lý Vận hành',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'Production',
+      ),
+  'Feedback': NavItem(
+        icon: Icons.feedback_outlined,
+        activeIcon: Icons.feedback,
+        label: 'Phản ánh / Ý kiến',
+        subtitle: 'Góp ý',
+        screen: const FeedbackScreen(),
+        group: 'Quản lý Vận hành',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'Feedback',
+      ),
+  'FieldCheckIn': NavItem(
+        icon: Icons.map_outlined,
+        activeIcon: Icons.map,
+        label: 'Bản đồ nhân sự',
+        subtitle: 'Vị trí & lộ trình NV',
+        screen: const StaffMapScreen(),
+        group: 'Quản lý Vận hành',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'FieldCheckIn',
+      ),
+  'AttendanceReport': NavItem(
+        icon: Icons.fact_check_outlined,
+        activeIcon: Icons.fact_check,
+        label: 'Báo cáo chấm công',
+        subtitle: 'Vắng / trễ',
+        screen: const AttendanceReportScreen(),
+        group: 'Báo cáo nhân sự',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'AttendanceReport',
+      ),
+  'PenaltyReport': NavItem(
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long,
+        label: 'Báo cáo phạt',
+        subtitle: 'Phiếu phạt',
+        screen: const PenaltyReportScreen(),
+        group: 'Báo cáo nhân sự',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'PenaltyReport',
+      ),
+  'AdvanceReport': NavItem(
+        icon: Icons.money_outlined,
+        activeIcon: Icons.money,
+        label: 'Báo cáo ứng lương',
+        subtitle: 'Ứng lương',
+        screen: const AdvanceReportScreen(),
+        group: 'Báo cáo nhân sự',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'AdvanceReport',
+      ),
+  'BusinessTripReport': NavItem(
+        icon: Icons.flight_takeoff_outlined,
+        activeIcon: Icons.flight_takeoff,
+        label: 'Báo cáo công tác phí',
+        subtitle: 'Công tác',
+        screen: const BusinessTripReportScreen(),
+        group: 'Báo cáo nhân sự',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'BusinessTripReport',
+      ),
+  'LeaveReport': NavItem(
+        icon: Icons.event_busy_outlined,
+        activeIcon: Icons.event_busy,
+        label: 'Báo cáo nghỉ phép',
+        subtitle: 'Nghỉ phép',
+        screen: const LeaveReportScreen(),
+        group: 'Báo cáo nhân sự',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'LeaveReport',
+      ),
+  'AssetReport': NavItem(
+        icon: Icons.inventory_2_outlined,
+        activeIcon: Icons.inventory_2,
+        label: 'Báo cáo tài sản',
+        subtitle: 'Tài sản',
+        screen: const AssetReportScreen(),
+        group: 'Báo cáo kinh doanh',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'AssetReport',
+      ),
+  'PenaltyTickets': NavItem(
+        icon: Icons.receipt_long_outlined,
+        activeIcon: Icons.receipt_long,
+        label: 'Phiếu phạt',
+        subtitle: 'Phạt tự động',
+        screen: const HrFinanceHubScreen(initialTab: HrFinTab.rewards, initialRewardKind: 'penalty'),
+        group: 'Tài chính',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'PenaltyTickets',
+      ),
+  'ShiftSwap': NavItem(
+        icon: Icons.swap_horiz_outlined,
+        activeIcon: Icons.swap_horiz,
+        label: 'Đổi ca làm việc',
+        subtitle: 'Đổi ca',
+        screen: const ShiftHubEntry(tab: 'inbox', fallback: ShiftSwapScreen()),
+        group: 'Chấm công',
+        showInSidebar: false,
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'ShiftSwap',
+      ),
+  'HrAnalyticsReport': NavItem(
+        icon: Icons.insert_chart_outlined,
+        activeIcon: Icons.insert_chart,
+        label: 'Báo cáo phân tích',
+        subtitle: 'Chuyên cần, phép, KPI, điều hành',
+        screen: const AnalyticsReportsScreen(),
+        group: 'Báo cáo nhân sự',
+        themeColor: HrmPageChrome.primaryNavy,
+        moduleCode: 'HrAnalyticsReport',
+      ),
+};
+

@@ -24,7 +24,7 @@ import '../l10n/app_tr.dart';
 import '../providers/auth_provider.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
-import '../services/global_location_reporter.dart';
+import '../utils/location_reporting.dart';
 import '../services/notification_preferences_cache.dart';
 import '../services/signalr_service.dart';
 import '../services/pos_print_agent_service.dart';
@@ -32,8 +32,6 @@ import '../utils/pos_print_agent_settings.dart';
 import '../utils/pos_print_orchestrator.dart';
 import '../utils/pos_qr_order_voice.dart';
 import '../utils/pos_payment_gateway_listener.dart';
-import '../services/pos_sell_catalog_cache.dart';
-import '../utils/pos_sell_stock_patch.dart';
 import '../models/mobile_bottom_nav_config.dart';
 import '../models/mobile_quick_actions_config.dart';
 import '../services/mobile_bottom_nav_prefs.dart';
@@ -64,52 +62,20 @@ import '../utils/app_fullscreen.dart';
 import '../widgets/page_max_width.dart';
 import '../utils/pos_kds_alert.dart';
 import 'notification_settings_screen.dart';
-import 'employees_screen.dart';
-import 'device_users_screen.dart';
-import 'attendance_screen.dart';
 import 'settings_screen.dart';
 // Deferred: bản web tách thành file JS riêng (flutter_quill, flutter_html) — chỉ tải khi mở.
-import 'system_admin_screen.dart' deferred as system_admin;
-import '../widgets/deferred_screen.dart';
 import 'settings_hub_screen.dart';
 import '../utils/settings_hub_catalog.dart';
-import 'business_trip_expense_screen.dart';
 import 'notifications_screen.dart';
-import 'schedule_approval_screen.dart';
-import 'department_screen.dart';
-import 'leave_screen.dart';
 import 'task_management_screen.dart';
-import 'asset_management_screen.dart';
-import 'payroll_screen.dart';
-import 'payslip_screen.dart';
-import 'salary_settings_screen.dart';
-import 'attendance_summary_screen.dart';
-import 'attendance_by_shift_screen.dart';
-import 'kpi_screen.dart';
 import 'overtime_screen.dart';
 
-import 'penalty_report_screen.dart';
 import 'cash_report_screen.dart';
-import 'advance_report_screen.dart';
-import 'business_trip_report_screen.dart';
-import 'leave_report_screen.dart';
-import 'attendance_report_screen.dart';
-import 'analytics_reports_screen.dart';
-import 'late_early_report_screen.dart';
-import 'travel_hours_report_screen.dart';
-import 'asset_report_screen.dart';
 import 'downloaded_documents_screen.dart';
 import 'agent_license_keys_screen.dart';
-import 'production_output_screen.dart';
-import 'feedback_screen.dart';
-import 'mobile_attendance_screen.dart';
 import '../utils/notification_display_utils.dart';
 import '../utils/notification_navigation.dart';
 import '../utils/pending_notification_launch.dart';
-import 'mobile_devices_v2/md_hub_screen.dart';
-import 'meal_tracking_screen.dart';
-import 'staff_map/staff_map_screen.dart';
-import 'shift_hub/shift_hub_screen.dart';
 import 'pos_products_screen.dart';
 import 'pos/pos_label_print_hub_screen.dart';
 import 'pos_sell_screen.dart';
@@ -141,7 +107,6 @@ import 'pos/pos_cashier_shift_screen.dart';
 import 'pos/pos_price_lists_screen.dart';
 import 'pos/pos_vouchers_screen.dart';
 import 'pos/pos_promotions_screen.dart';
-import 'shift_swap_screen.dart';
 import '../utils/permission_navigation.dart';
 import '../utils/notification_open_screens.dart';
 import '../utils/permission_role_options.dart';
@@ -158,234 +123,18 @@ import '../services/system_notification_service.dart';
 import '../theme/sbox_tokens.dart';
 import '../utils/pos_icon_set.dart';
 import '../widgets/sbox/sbox_command_palette.dart';
-import 'overview/business_overview_screen.dart';
-import 'work/work_hub_screen.dart';
-import 'comm/comm_hub_screen.dart' deferred as comm_hub;
+import 'overview/overview_entry.dart';
 import 'hr_finance/hr_finance_hub_screen.dart';
-import 'attendance_approval_v2/aa_hub_screen.dart';
 import 'branch_ops/branch_report_screen.dart';
 import 'branch_ops/branch_stock_view.dart';
 import 'branch_ops/stock_transfer_screen.dart';
 import '../utils/pos_notify_focus.dart';
 import '../utils/pos_printer_auto_detect.dart';
+import '../utils/screen_refresh_notifier.dart';
+import 'main_layout_nav_hook.dart';
 export '../utils/navigation_notifier.dart';
 
-/// Global notifiers for screen refresh
-class ScreenRefreshNotifier {
-  static final ValueNotifier<int> attendance = ValueNotifier<int>(0);
-  static final ValueNotifier<int> devices = ValueNotifier<int>(0);
-  static final ValueNotifier<int> attendanceByShift = ValueNotifier<int>(0);
-  static final ValueNotifier<int> attendanceSummary = ValueNotifier<int>(0);
-  static final ValueNotifier<int> payroll = ValueNotifier<int>(0);
-  static final ValueNotifier<int> dashboard = ValueNotifier<int>(0);
 
-  static void refreshDashboardScreen() {
-    dashboard.value++;
-    debugPrint('🔄 Triggered dashboard screen refresh: ${dashboard.value}');
-  }
-
-  static void refreshAttendanceScreen() {
-    attendance.value++;
-    debugPrint('🔄 Triggered attendance screen refresh: ${attendance.value}');
-  }
-
-  static void refreshDevicesScreen() {
-    devices.value++;
-    debugPrint('🔄 Triggered devices screen refresh: ${devices.value}');
-  }
-
-  static void refreshAttendanceByShiftScreen() {
-    attendanceByShift.value++;
-  }
-
-  static void refreshAttendanceSummaryScreen() {
-    attendanceSummary.value++;
-  }
-
-  static void refreshPayrollScreen() {
-    payroll.value++;
-  }
-
-  static final ValueNotifier<int> notifications = ValueNotifier<int>(0);
-
-  static void refreshNotificationCount() {
-    notifications.value++;
-  }
-
-  static final ValueNotifier<int> mobileAttendanceSettings = ValueNotifier<int>(0);
-  static final ValueNotifier<int> mobileDeviceRegistration = ValueNotifier<int>(0);
-
-  static void refreshMobileAttendanceSettings() {
-    mobileAttendanceSettings.value++;
-  }
-
-  static void refreshMobileDeviceRegistration() {
-    mobileDeviceRegistration.value++;
-  }
-
-  static final ValueNotifier<int> posProducts = ValueNotifier<int>(0);
-  static final ValueNotifier<int> posSellProductGrid = ValueNotifier<int>(0);
-  static final ValueNotifier<List<PosSellStockLineDelta>?> posSellStockPatch =
-      ValueNotifier<List<PosSellStockLineDelta>?>(null);
-  static final ValueNotifier<int> posSaleOrders = ValueNotifier<int>(0);
-  static final ValueNotifier<int> posPurchaseReceipts = ValueNotifier<int>(0);
-  static final ValueNotifier<int> posOverview = ValueNotifier<int>(0);
-  static final ValueNotifier<int> posPriceLists = ValueNotifier<int>(0);
-  static final ValueNotifier<int> posSellIndustry = ValueNotifier<int>(0);
-
-  static void refreshPosProducts() {
-    posProducts.value++;
-  }
-
-  static void refreshPosSellProductGrid() {
-    posSellProductGrid.value++;
-  }
-
-  static void refreshPosPriceLists() {
-    posPriceLists.value++;
-  }
-
-  /// Đổi hồ sơ ngành / cờ bàn–ghế — màn bán hàng cần tải lại.
-  static void refreshPosSellIndustry() {
-    posSellIndustry.value++;
-  }
-
-  /// Cộng/trừ tồn trên lưới bán hàng (theo SP/biến thể — khớp server).
-  static void patchPosSellStockLines(List<PosSellStockLineDelta> lines) {
-    if (lines.isEmpty) return;
-    posSellStockPatch.value = List<PosSellStockLineDelta>.from(lines);
-  }
-
-  /// Ghi patch vào cache catalog — khi lưới bán chưa mount (F&B sơ đồ / tablet TT)
-  /// vẫn trừ đúng tồn khi mở lại thực đơn trong TTL 20 phút.
-  static Future<void> _applyStockLinesToSellCatalogCache(
-    List<PosSellStockLineDelta> lines, {
-    String? storeId,
-  }) async {
-    final id = (storeId ?? PosSellCatalogCache.instance.lastStoreId)?.trim() ?? '';
-    if (id.isEmpty || lines.isEmpty) return;
-    try {
-      final snap = await PosSellCatalogCache.instance.read(id);
-      if (snap == null || snap.items.isEmpty) return;
-      final updated = snap.items
-          .map((p) => applyPosSellStockLines(p, lines))
-          .toList(growable: false);
-      await PosSellCatalogCache.instance.write(
-        id,
-        items: updated,
-        catalogVersion: snap.catalogVersion,
-      );
-    } catch (_) {}
-  }
-
-  static void refreshPosSaleOrders() {
-    posSaleOrders.value++;
-  }
-
-  static void refreshPosPurchaseReceipts() {
-    posPurchaseReceipts.value++;
-  }
-
-  static void refreshPosOverview() {
-    posOverview.value++;
-  }
-
-  static Timer? _posStockRefreshTimer;
-  static _PendingPosStockRefresh? _pendingPosRefresh;
-
-  static void _flushPosStockRefresh() {
-    final pending = _pendingPosRefresh;
-    _pendingPosRefresh = null;
-    if (pending == null) return;
-    refreshPosProducts();
-    refreshPosSaleOrders();
-    refreshPosPurchaseReceipts();
-    refreshPosOverview();
-    if (pending.reloadCatalog) {
-      unawaited(PosSellCatalogCache.instance.invalidateLast());
-      refreshPosSellProductGrid();
-    }
-  }
-
-  /// [sellStockLines]: patch tồn lưới bán hàng (bán / trả / nhập / hủy).
-  /// Mặc định không reload catalog khi đã có patch — tránh refresh storm.
-  static void refreshPosAfterStockChange({
-    List<PosSellStockLineDelta>? sellStockLines,
-    bool? reloadSellCatalog,
-    String? storeId,
-  }) {
-    final hasPatch = sellStockLines != null && sellStockLines.isNotEmpty;
-    if (hasPatch) {
-      final lines = List<PosSellStockLineDelta>.from(sellStockLines);
-      // Listener lưới (nếu mount) áp dụng ngay + ghi cache + clear notifier.
-      patchPosSellStockLines(lines);
-      // F&B/tablet: lưới dispose → notifier còn lines → ghi cache rồi clear
-      // để remount không trừ lần 2.
-      if (posSellStockPatch.value != null) {
-        unawaited(_applyStockLinesToSellCatalogCache(lines, storeId: storeId)
-            .whenComplete(() {
-          if (posSellStockPatch.value != null) {
-            posSellStockPatch.value = null;
-          }
-        }));
-      }
-    }
-    final reloadCatalog = reloadSellCatalog ?? !hasPatch;
-    _pendingPosRefresh = _PendingPosStockRefresh(reloadCatalog: reloadCatalog);
-    _posStockRefreshTimer?.cancel();
-    _posStockRefreshTimer = Timer(const Duration(milliseconds: 300), _flushPosStockRefresh);
-  }
-
-  static Timer? _attendanceRefreshTimer;
-  static Timer? _notificationCountTimer;
-  static Timer? _dashboardPunchTimer;
-  static DateTime? _lastDashboardPunchRefresh;
-
-  /// Trang chủ tải lại ~25 API — giờ vào ca (máy chấm liên tục) chỉ tải lại tối đa 1 lần / 30 giây.
-  static const dashboardPunchRefreshInterval = Duration(seconds: 30);
-
-  /// Gom refresh chấm công — tối đa 1 lần / 2s thay vì mỗi punch.
-  static void scheduleAttendanceDataRefresh() {
-    _attendanceRefreshTimer?.cancel();
-    _attendanceRefreshTimer = Timer(const Duration(seconds: 2), () {
-      refreshAttendanceScreen();
-      refreshAttendanceSummaryScreen();
-      refreshAttendanceByShiftScreen();
-      refreshPayrollScreen();
-      _scheduleDashboardPunchRefresh();
-    });
-  }
-
-  static void _scheduleDashboardPunchRefresh() {
-    if (_dashboardPunchTimer?.isActive == true) return; // đã hẹn lần tải sau
-    final last = _lastDashboardPunchRefresh;
-    final wait = last == null
-        ? Duration.zero
-        : dashboardPunchRefreshInterval - DateTime.now().difference(last);
-    void run() {
-      _lastDashboardPunchRefresh = DateTime.now();
-      refreshDashboardScreen();
-    }
-
-    if (wait <= Duration.zero) {
-      run();
-    } else {
-      _dashboardPunchTimer = Timer(wait, run);
-    }
-  }
-
-  static void scheduleNotificationCountRefresh() {
-    _notificationCountTimer?.cancel();
-    _notificationCountTimer = Timer(const Duration(milliseconds: 800), () {
-      notifications.value++;
-    });
-  }
-}
-
-class _PendingPosStockRefresh {
-  const _PendingPosStockRefresh({required this.reloadCatalog});
-  final bool reloadCatalog;
-}
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -785,7 +534,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       }
       _loadNotificationCount();
       final user = context.read<AuthProvider>().currentUser;
-      GlobalLocationReporter.instance.resume(
+      locationReporter?.resume(
         employeeId: user?.employeeId ?? user?.id,
       );
     }
@@ -1823,6 +1572,7 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     return 8; // Default index
   }
 
+
   final List<NavItem> _navItems = [
     // ══════════ TỔNG QUAN ══════════
     NavItem(
@@ -1851,241 +1601,37 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       activeIcon: Icons.dashboard,
       label: 'Tổng quan',
       subtitle: 'Tổng quan',
-      screen: const OverviewRouterScreen(),
+      screen: const OverviewEntry(),
       group: 'Tổng quan',
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Dashboard',
     ),
-    NavItem(
-      icon: Icons.people_outline,
-      activeIcon: Icons.people,
-      label: 'Hồ sơ nhân sự',
-      subtitle: 'Hồ sơ NV',
-      screen: const EmployeesScreen(),
-      group: 'Hồ sơ nhân sự',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'Employee',
-    ),
-    NavItem(
-      icon: Icons.badge_outlined,
-      activeIcon: Icons.badge,
-      label: 'Nhân sự chấm công',
-      subtitle: 'User máy CC',
-      screen: const DeviceUsersScreen(),
-      group: 'Chấm công',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'DeviceUser',
-    ),
-    NavItem(
-      icon: Icons.business_outlined,
-      activeIcon: Icons.business,
-      label: 'Phòng ban',
-      subtitle: 'Phòng ban',
-      screen: const DepartmentScreen(),
-      group: 'Hồ sơ nhân sự',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'Department',
-    ),
-    NavItem(
-      icon: Icons.event_busy_outlined,
-      activeIcon: Icons.event_busy,
-      label: 'Nghỉ phép',
-      subtitle: 'Đơn nghỉ',
-      // Màn riêng (số ngày phép còn lại, đơn nghỉ) — không gộp vào Ca làm việc để hai mục khác nhau.
-      screen: const LeaveScreen(),
-      group: 'Chấm công',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'Leave',
-    ),
-    NavItem(
-      icon: Icons.price_change_outlined,
-      activeIcon: Icons.price_change,
-      label: 'Thiết lập lương',
-      subtitle: 'Cấu hình lương',
-      screen: const SalarySettingsScreen(),
-      group: 'Hồ sơ nhân sự',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'SalarySettings',
-    ),
+    ...hrmNav('Employee'),
+    ...hrmNav('DeviceUser'),
+    ...hrmNav('Department'),
+    ...hrmNav('Leave'),
+    ...hrmNav('SalarySettings'),
 
     // ══════════ CHẤM CÔNG ══════════
-    NavItem(
-      icon: Icons.access_time_outlined,
-      activeIcon: Icons.access_time_filled,
-      label: 'Chấm công thô',
-      subtitle: 'Log máy CC',
-      screen: const AttendanceScreen(),
-      group: 'Chấm công',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'Attendance',
-    ),
-    NavItem(
-      icon: Icons.calendar_month_outlined,
-      activeIcon: Icons.calendar_month,
-      label: 'Ca làm việc',
-      subtitle: 'Lịch, đăng ký, nghỉ, đổi ca',
-      screen: const ShiftHubScreen(),
-      group: 'Chấm công',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'WorkSchedule',
-    ),
-    NavItem(
-      icon: Icons.summarize_outlined,
-      activeIcon: Icons.summarize,
-      label: 'Tổng hợp chấm công',
-      subtitle: 'Tổng hợp công',
-      screen: const AttendanceSummaryScreen(),
-      group: 'Báo cáo nhân sự',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'AttendanceSummary',
-    ),
-    NavItem(
-      icon: Icons.schedule_outlined,
-      activeIcon: Icons.schedule,
-      label: 'Tổng hợp chấm công theo ca',
-      homeLabel: 'Chấm công theo ca',
-      subtitle: 'Công theo ca',
-      screen: const AttendanceByShiftScreen(),
-      group: 'Báo cáo nhân sự',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'AttendanceByShift',
-    ),
-    NavItem(
-      icon: Icons.timer_off_outlined,
-      activeIcon: Icons.timer_off,
-      label: 'Đi trễ / Về sớm',
-      subtitle: 'Trễ / sớm',
-      screen: const LateEarlyReportScreen(),
-      group: 'Báo cáo nhân sự',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'LateEarlyReport',
-    ),
-    NavItem(
-      icon: Icons.directions_car_outlined,
-      activeIcon: Icons.directions_car,
-      label: 'Báo cáo đi đường',
-      subtitle: 'Giờ đi đường',
-      screen: const TravelHoursReportScreen(),
-      group: 'Báo cáo nhân sự',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'TravelHoursReport',
-    ),
-    NavItem(
-      icon: Icons.fact_check_outlined,
-      activeIcon: Icons.fact_check,
-      label: 'Duyệt chấm công',
-      subtitle: 'Duyệt CC',
-      screen: const AttendanceApprovalHubScreen(),
-      group: 'Chấm công',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'AttendanceApproval',
-    ),
-    NavItem(
-      icon: Icons.assignment_turned_in_outlined,
-      activeIcon: Icons.assignment_turned_in,
-      label: 'Duyệt lịch làm việc',
-      subtitle: 'Duyệt lịch',
-      screen: const ShiftHubEntry(tab: 'inbox', fallback: ScheduleApprovalScreen()),
-      group: 'Chấm công',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'ScheduleApproval',
-    ),
-    NavItem(
-      icon: Icons.receipt_long_outlined,
-      activeIcon: Icons.receipt_long,
-      label: 'Phiếu lương',
-      subtitle: 'Phiếu lương',
-      screen: const PayslipScreen(),
-      group: 'Báo cáo nhân sự',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'Payslip',
-    ),
-    NavItem(
-      icon: Icons.payments_outlined,
-      activeIcon: Icons.payments,
-      label: 'Tổng hợp lương',
-      subtitle: 'Bảng lương',
-      screen: const PayrollScreen(),
-      group: 'Báo cáo nhân sự',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'Payroll',
-    ),
+    ...hrmNav('Attendance'),
+    ...hrmNav('WorkSchedule'),
+    ...hrmNav('AttendanceSummary'),
+    ...hrmNav('AttendanceByShift'),
+    ...hrmNav('LateEarlyReport'),
+    ...hrmNav('TravelHoursReport'),
+    ...hrmNav('AttendanceApproval'),
+    ...hrmNav('ScheduleApproval'),
+    ...hrmNav('Payslip'),
+    ...hrmNav('Payroll'),
 
-    NavItem(
-      icon: Icons.app_registration_outlined,
-      activeIcon: Icons.app_registration,
-      label: 'Đăng ký chấm công Mobile',
-      homeLabel: 'Đăng ký chấm công',
-      subtitle: 'Đăng ký TB',
-      screen: const MobileDevicesHubScreen(),
-      group: 'Chấm công',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'MobileDeviceRegistration',
-    ),
-    NavItem(
-      icon: Icons.phone_android_outlined,
-      activeIcon: Icons.phone_android,
-      label: 'Chấm công Mobile',
-      subtitle: 'Chấm trên ĐT',
-      screen: const MobileAttendanceScreen(),
-      group: 'Chấm công',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'MobileAttendance',
-    ),
-    NavItem(
-      icon: Icons.restaurant_outlined,
-      activeIcon: Icons.restaurant,
-      label: 'Chấm cơm',
-      subtitle: 'Suất ăn',
-      screen: const MealTrackingScreen(),
-      group: 'Quản lý Vận hành',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'Meal',
-    ),
+    ...hrmNav('MobileDeviceRegistration'),
+    ...hrmNav('MobileAttendance'),
+    ...hrmNav('Meal'),
 
     // ══════════ TÀI CHÍNH ══════════
-    NavItem(
-      icon: Icons.card_giftcard_outlined,
-      activeIcon: Icons.card_giftcard,
-      label: 'Thưởng phạt',
-      subtitle: 'Thưởng, phạt thủ công',
-      screen: const HrFinanceHubScreen(initialTab: HrFinTab.rewards),
-      group: 'Tài chính',
-      showInSidebar: true,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'BonusPenalty',
-    ),
-    NavItem(
-      icon: Icons.money_outlined,
-      activeIcon: Icons.money,
-      label: 'Ứng lương',
-      subtitle: 'Ứng lương',
-      screen: const HrFinanceHubScreen(initialTab: HrFinTab.advances),
-      group: 'Tài chính',
-      showInSidebar: true,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'AdvanceRequests',
-    ),
-    NavItem(
-      icon: Icons.flight_takeoff_outlined,
-      activeIcon: Icons.flight_takeoff,
-      label: 'Công tác phí',
-      subtitle: 'Công tác phí',
-      screen: const BusinessTripExpenseScreen(),
-      group: 'Tài chính',
-      showInSidebar: true,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'BusinessTripExpense',
-    ),
+    ...hrmNav('BonusPenalty'),
+    ...hrmNav('AdvanceRequests'),
+    ...hrmNav('BusinessTripExpense'),
     NavItem(
       icon: Icons.account_balance_wallet_outlined,
       activeIcon: Icons.account_balance_wallet,
@@ -2102,89 +1648,21 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
     ),
 
     // ══════════ QUẢN LÝ VẬN HÀNH ══════════
-    NavItem(
-      icon: Icons.inventory_2_outlined,
-      activeIcon: Icons.inventory_2,
-      label: 'Tài sản',
-      subtitle: 'Tài sản',
-      screen: const AssetManagementScreen(),
-      group: 'Quản lý Vận hành',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'Asset',
-    ),
-    NavItem(
-      icon: Icons.task_alt_outlined,
-      activeIcon: Icons.task_alt,
-      label: 'Công việc',
-      subtitle: 'Công việc',
-      screen: const WorkHubScreen(),
-      group: 'Quản lý Vận hành',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'Task',
-    ),
-    NavItem(
-      icon: Icons.campaign_outlined,
-      activeIcon: Icons.campaign,
-      label: 'Truyền thông',
-      subtitle: 'Thông báo',
-      screen: DeferredScreen(
-        load: comm_hub.loadLibrary,
-        builder: () => comm_hub.CommHubScreen(),
-      ),
-      group: 'Quản lý Vận hành',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'Communication',
-    ),
+    ...hrmNav('Asset'),
+    ...hrmNav('Task'),
+    ...hrmNav('Communication'),
 
     // ══════════ KPI ══════════
-    NavItem(
-      icon: Icons.trending_up_outlined,
-      activeIcon: Icons.trending_up,
-      label: 'KPI',
-      subtitle: 'KPI',
-      screen: const KpiScreen(),
-      group: 'Quản lý Vận hành',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'KPI',
-    ),
+    ...hrmNav('KPI'),
 
     // ══════════ SẢN LƯỢNG ══════════
-    NavItem(
-      icon: Icons.precision_manufacturing_outlined,
-      activeIcon: Icons.precision_manufacturing,
-      label: 'Sản lượng',
-      subtitle: 'Sản lượng',
-      screen: const ProductionOutputScreen(),
-      group: 'Quản lý Vận hành',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'Production',
-    ),
+    ...hrmNav('Production'),
 
     // ══════════ PHẢN ÁNH / Ý KIẾN ══════════
-    NavItem(
-      icon: Icons.feedback_outlined,
-      activeIcon: Icons.feedback,
-      label: 'Phản ánh / Ý kiến',
-      subtitle: 'Góp ý',
-      screen: const FeedbackScreen(),
-      group: 'Quản lý Vận hành',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'Feedback',
-    ),
+    ...hrmNav('Feedback'),
 
     // ══════════ CHECK-IN ĐIỂM BÁN ══════════
-    NavItem(
-      icon: Icons.map_outlined,
-      activeIcon: Icons.map,
-      label: 'Bản đồ nhân sự',
-      subtitle: 'Vị trí & lộ trình NV',
-      screen: const StaffMapScreen(),
-      group: 'Quản lý Vận hành',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'FieldCheckIn',
-    ),
+    ...hrmNav('FieldCheckIn'),
 
     // ══════════ POS / BÁN HÀNG ══════════
     // Sidebar trái (trang chủ): chỉ các chức năng hay dùng.
@@ -2482,26 +1960,8 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'PosSalesReport',
     ),
-    NavItem(
-      icon: Icons.fact_check_outlined,
-      activeIcon: Icons.fact_check,
-      label: 'Báo cáo chấm công',
-      subtitle: 'Vắng / trễ',
-      screen: const AttendanceReportScreen(),
-      group: 'Báo cáo nhân sự',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'AttendanceReport',
-    ),
-    NavItem(
-      icon: Icons.receipt_long_outlined,
-      activeIcon: Icons.receipt_long,
-      label: 'Báo cáo phạt',
-      subtitle: 'Phiếu phạt',
-      screen: const PenaltyReportScreen(),
-      group: 'Báo cáo nhân sự',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'PenaltyReport',
-    ),
+    ...hrmNav('AttendanceReport'),
+    ...hrmNav('PenaltyReport'),
     NavItem(
       icon: Icons.account_balance_wallet_outlined,
       activeIcon: Icons.account_balance_wallet,
@@ -2512,46 +1972,10 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'CashReport',
     ),
-    NavItem(
-      icon: Icons.money_outlined,
-      activeIcon: Icons.money,
-      label: 'Báo cáo ứng lương',
-      subtitle: 'Ứng lương',
-      screen: const AdvanceReportScreen(),
-      group: 'Báo cáo nhân sự',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'AdvanceReport',
-    ),
-    NavItem(
-      icon: Icons.flight_takeoff_outlined,
-      activeIcon: Icons.flight_takeoff,
-      label: 'Báo cáo công tác phí',
-      subtitle: 'Công tác',
-      screen: const BusinessTripReportScreen(),
-      group: 'Báo cáo nhân sự',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'BusinessTripReport',
-    ),
-    NavItem(
-      icon: Icons.event_busy_outlined,
-      activeIcon: Icons.event_busy,
-      label: 'Báo cáo nghỉ phép',
-      subtitle: 'Nghỉ phép',
-      screen: const LeaveReportScreen(),
-      group: 'Báo cáo nhân sự',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'LeaveReport',
-    ),
-    NavItem(
-      icon: Icons.inventory_2_outlined,
-      activeIcon: Icons.inventory_2,
-      label: 'Báo cáo tài sản',
-      subtitle: 'Tài sản',
-      screen: const AssetReportScreen(),
-      group: 'Báo cáo kinh doanh',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'AssetReport',
-    ),
+    ...hrmNav('AdvanceReport'),
+    ...hrmNav('BusinessTripReport'),
+    ...hrmNav('LeaveReport'),
+    ...hrmNav('AssetReport'),
     // Không moduleCode: chỉ mục file local trên máy, không API / không phân quyền.
     NavItem(
       icon: Icons.folder_special_outlined,
@@ -2602,33 +2026,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'Settings',
     ),
-    NavItem(
-      icon: Icons.admin_panel_settings_outlined,
-      activeIcon: Icons.admin_panel_settings,
-      label: 'Quản trị hệ thống',
-      subtitle: 'Server',
-      screen: DeferredScreen(
-        load: system_admin.loadLibrary,
-        builder: () => system_admin.SystemAdminScreen(),
-      ),
-      group: 'Cài đặt',
-      showInSidebar: true,
-      themeColor: HrmPageChrome.primaryNavy,
-      adminOnly: true,
-      moduleCode: 'SystemAdmin',
-    ),
+    ...hrmNav('SystemAdmin'),
     // ══════════ TÀI CHÍNH (phiếu phạt tự động) ══════════
-    NavItem(
-      icon: Icons.receipt_long_outlined,
-      activeIcon: Icons.receipt_long,
-      label: 'Phiếu phạt',
-      subtitle: 'Phạt tự động',
-      screen: const HrFinanceHubScreen(initialTab: HrFinTab.rewards, initialRewardKind: 'penalty'),
-      group: 'Tài chính',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'PenaltyTickets',
-    ),
+    ...hrmNav('PenaltyTickets'),
     // Thiết lập thông báo → vào qua Thiết lập HRM (phân quyền module NotificationSettings).
     NavItem(
       icon: Icons.notifications_active_outlined,
@@ -2641,28 +2041,9 @@ class _MainLayoutState extends State<MainLayout> with WidgetsBindingObserver {
       themeColor: HrmPageChrome.primaryNavy,
       moduleCode: 'NotificationSettings',
     ),
-    NavItem(
-      icon: Icons.swap_horiz_outlined,
-      activeIcon: Icons.swap_horiz,
-      label: 'Đổi ca làm việc',
-      subtitle: 'Đổi ca',
-      screen: const ShiftHubEntry(tab: 'inbox', fallback: ShiftSwapScreen()),
-      group: 'Chấm công',
-      showInSidebar: false,
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'ShiftSwap',
-    ),
+    ...hrmNav('ShiftSwap'),
     // Thêm mới ở CUỐI danh sách — điều hướng dùng chỉ số (NavigationNotifier).
-    NavItem(
-      icon: Icons.insert_chart_outlined,
-      activeIcon: Icons.insert_chart,
-      label: 'Báo cáo phân tích',
-      subtitle: 'Chuyên cần, phép, KPI, điều hành',
-      screen: const AnalyticsReportsScreen(),
-      group: 'Báo cáo nhân sự',
-      themeColor: HrmPageChrome.primaryNavy,
-      moduleCode: 'HrAnalyticsReport',
-    ),
+    ...hrmNav('HrAnalyticsReport'),
     NavItem(
       icon: Icons.fingerprint,
       activeIcon: Icons.fingerprint,
@@ -4797,6 +4178,12 @@ bool _hiddenByShiftHub(
         bypassPackageFilter: bypassPackageFilter,
       ) &&
       PermissionNavigation.canNavigate(perm, 'WorkSchedule');
+}
+
+/// Mục điều hướng chỉ có ở SBOX HRM: trả rỗng khi bản app không gắn (xem [hrmNavItemsHook]).
+List<NavItem> hrmNav(String key) {
+  final item = hrmNavItemsHook?[key];
+  return item == null ? const [] : [item];
 }
 
 class NavItem {

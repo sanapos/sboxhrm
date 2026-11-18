@@ -20,7 +20,7 @@ import '../widgets/map_location_picker.dart';
 import '../widgets/camera_face_capture.dart';
 import '../widgets/auth_cached_image.dart';
 import '../utils/navigation_notifier.dart';
-import 'main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../theme/sbox_tokens.dart';
 enum _DeviceOutsideCheckInFilter { all, outsideOn, outsideOff }

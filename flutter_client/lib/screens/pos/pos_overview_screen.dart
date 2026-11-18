@@ -10,7 +10,7 @@ import '../../utils/permission_navigation.dart';
 import '../../widgets/pos/pos_hub_scope.dart';
 import '../../widgets/pos/pos_mobile_widgets.dart';
 import '../../widgets/pos/pos_theme.dart';
-import '../main_layout.dart' show ScreenRefreshNotifier;
+import '../../utils/screen_refresh_notifier.dart';
 import '../overview/business_overview_screen.dart';
 import 'pos_qr_menu_screen.dart';
 import 'pos_qr_online_orders_screen.dart';

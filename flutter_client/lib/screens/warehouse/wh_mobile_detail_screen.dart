@@ -16,7 +16,7 @@ import '../../widgets/warehouse/wh_doc_type.dart';
 import '../../widgets/warehouse/wh_mobile_components.dart';
 import '../../widgets/warehouse/wh_mobile_doc_service.dart';
 import '../../widgets/warehouse/wh_mobile_theme.dart';
-import '../main_layout.dart' show ScreenRefreshNotifier;
+import '../../utils/screen_refresh_notifier.dart';
 import 'wh_mobile_editor_router.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 

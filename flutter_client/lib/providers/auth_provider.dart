@@ -13,7 +13,7 @@ import '../services/fcm_service_stub.dart'
     if (dart.library.io) '../services/fcm_service.dart';
 import '../utils/pending_notification_launch.dart';
 import '../utils/store_role_helper.dart';
-import '../services/global_location_reporter.dart';
+import '../utils/location_reporting.dart';
 import '../services/notification_preferences_cache.dart';
 import '../services/session_reset.dart';
 import '../services/pos_print_agent_service.dart';
@@ -323,7 +323,7 @@ class AuthProvider extends ChangeNotifier {
     }
     // Đăng nhập thay: không đăng ký nhận thông báo / gửi vị trí thay cho người dùng thật.
     if (isImpersonating) return;
-    GlobalLocationReporter.instance.startIfEligible(
+    locationReporter?.startIfEligible(
       employeeId: _user?.employeeId ?? _user?.id,
     );
     // ignore: discarded_futures
@@ -415,7 +415,7 @@ class AuthProvider extends ChangeNotifier {
 
           // Start global location reporting for employees/managers so the
           // manager map can see real-time positions.
-          GlobalLocationReporter.instance.startIfEligible(
+          locationReporter?.startIfEligible(
       employeeId: _user?.employeeId ?? _user?.id,
     );
 
@@ -590,7 +590,7 @@ class AuthProvider extends ChangeNotifier {
     _isLoading = true;
     notifyListeners();
 
-    GlobalLocationReporter.instance.stop();
+    locationReporter?.stop();
     BranchSession.instance.clear();
 
     // Unregister FCM token before clearing access token.
@@ -642,7 +642,7 @@ class AuthProvider extends ChangeNotifier {
     if (ApiService.onLicenseExpired == _handleLicenseExpired) {
       ApiService.onLicenseExpired = null;
     }
-    GlobalLocationReporter.instance.stop();
+    locationReporter?.stop();
     super.dispose();
   }
 

@@ -25,7 +25,7 @@ import '../../utils/pos_print_orchestrator.dart';
 import '../../utils/pos_qr_order_voice.dart';
 import '../../widgets/notification_overlay.dart';
 import '../../widgets/pos/pos_theme.dart';
-import '../main_layout.dart' show ScreenRefreshNotifier;
+import '../../utils/screen_refresh_notifier.dart';
 import 'pos_kds_screen.dart';
 import 'pos_mobile_hub_screen.dart';
 import '../../utils/pos_printer_auto_detect.dart';

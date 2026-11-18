@@ -27,7 +27,7 @@ import '../utils/pos_purchase_product_lookup.dart';
 import '../utils/pos_purchase_receipt_print.dart';
 import '../widgets/pos/pos_barcode_keyboard_scope.dart';
 import '../widgets/pos_barcode_scanner.dart';
-import 'main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import 'pos/pos_product_editor_page.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 import '../widgets/pos/pos_serial_list_dialog.dart';

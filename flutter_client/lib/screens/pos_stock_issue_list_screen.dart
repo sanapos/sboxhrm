@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import '../models/pos_stock_issue_doc.dart';
 import '../providers/permission_provider.dart';
 import '../services/api_service.dart';
-import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import '../utils/pos_doc_status.dart';
 import '../utils/pos_mutation_result.dart';
 import '../widgets/loading_widget.dart';

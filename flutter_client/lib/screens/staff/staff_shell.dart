@@ -17,7 +17,7 @@ import '../../utils/notification_open_screens.dart';
 import '../../utils/pending_notification_launch.dart';
 import '../../utils/store_role_helper.dart';
 import '../../widgets/notification_overlay.dart';
-import '../main_layout.dart' show ScreenRefreshNotifier;
+import '../../utils/screen_refresh_notifier.dart';
 import '../pos/pos_mobile_hub_screen.dart';
 import '../settings_screen.dart';
 import '../shift_hub/my_schedule_view.dart';

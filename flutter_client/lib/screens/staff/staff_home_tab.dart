@@ -5,7 +5,7 @@ import '../../l10n/app_tr.dart';
 import '../../providers/auth_provider.dart';
 import '../../services/api_service.dart';
 import '../../theme/sbox_tokens.dart';
-import '../main_layout.dart' show ScreenRefreshNotifier;
+import '../../utils/screen_refresh_notifier.dart';
 import '../notifications_screen.dart';
 import 'staff_entries.dart';
 import 'staff_nav.dart';

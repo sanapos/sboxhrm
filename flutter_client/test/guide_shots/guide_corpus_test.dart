@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:zkteco_flutter_client/utils/landing_guide_groups.dart';
 import 'package:zkteco_flutter_client/utils/landing_industry_guide.dart';
 import 'package:zkteco_flutter_client/utils/landing_usage_guide.dart';
+import 'package:zkteco_flutter_client/utils/landing_usage_guide_hrm.dart';
 
 /// Một nguồn cho cả trợ lý AI và trang guide.html: toàn bộ hướng dẫn (khu → nhóm → bước)
 /// xuất ra src/ZKTecoADMS.Api/Services/HelpCorpus/landing-guide.json (nhúng vào API, đọc bởi
@@ -14,8 +15,8 @@ import 'package:zkteco_flutter_client/utils/landing_usage_guide.dart';
 const corpusPath = '../src/ZKTecoADMS.Api/Services/HelpCorpus/landing-guide.json';
 
 final _allSteps = [
-  ...LandingUsageGuide.basicSteps,
-  ...LandingUsageGuide.advancedSteps,
+  ...hrmBasicSteps,
+  ...hrmAdvancedSteps,
   ...LandingUsageGuide.posSteps,
   ...landingIndustrySteps,
 ];
@@ -60,6 +61,10 @@ String buildGuideCorpusJson() {
 }
 
 void main() {
+  // Bài hướng dẫn phần HRM nay gắn từ điểm vào (lib/main.dart); bản SBOX Bán Hàng không gắn.
+  hrmGuideBasicSteps = () => hrmBasicSteps;
+  hrmGuideAdvancedSteps = () => hrmAdvancedSteps;
+  hrmGuideKeywords = () => hrmAllKeywords;
   test('Mã bước hướng dẫn không trùng giữa các mục (AI tra theo mã bước)', () {
     final ids = _allSteps.map((s) => s.id).toList();
     expect(ids.toSet().length, ids.length, reason: 'trùng mã bước');

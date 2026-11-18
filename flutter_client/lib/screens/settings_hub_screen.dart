@@ -17,6 +17,8 @@ import '../utils/pos_print_orchestrator.dart';
 import '../models/pos_sell_industry.dart';
 import '../utils/pos_sell_settings_helper.dart';
 import '../utils/settings_hub_catalog.dart';
+import '../utils/settings_hub_pending.dart';
+import '../utils/settings_hub_hrm_hook.dart';
 import '../utils/store_role_helper.dart';
 import '../widgets/hrm_page_chrome.dart';
 import '../widgets/sbox_icon_tile.dart';
@@ -26,17 +28,9 @@ import '../widgets/settings/settings_page.dart';
 import '../widgets/settings_hub_sidebar_config_dialog.dart';
 import '../widgets/store_agent_support_card.dart';
 import 'account_management_screen.dart';
-import 'annual_leave/al_policy.dart';
 import 'ai_settings_screen.dart';
-import 'allowance_settings_screen.dart';
 import 'branch_management_screen.dart';
-import 'device_management_settings_screen.dart';
-import 'gateway/zk_gateway_list_screen.dart';
-import 'holiday_settings_screen.dart';
-import 'insurance_settings_screen.dart';
-import 'mobile_attendance_settings_screen.dart';
 import 'notification_settings_screen.dart';
-import 'penalty_settings_screen.dart';
 import 'pos/pos_customer_display_settings_screen.dart';
 import 'pos/pos_einvoice_settings_screen.dart';
 import 'pos/pos_payment_gateway_settings_screen.dart';
@@ -50,13 +44,8 @@ import 'pos/pos_sell_industry_settings_screen.dart';
 import 'pos/pos_shipping_settings_screen.dart';
 import 'pos/pos_store_settings_hub_screen.dart';
 import 'pos_print_templates_screen.dart';
-import 'product_salary_settings_screen.dart';
 import 'role_permissions_screen.dart';
-import 'shift_settings_screen.dart';
-import 'staffing_quota_settings_screen.dart';
-import 'store_access_devices_screen.dart';
 import 'system_settings_screen.dart';
-import 'tax_settings_screen.dart';
 import 'zalo_bot_settings_screen.dart';
 
 /// Thiết lập SBOX: tìm kiếm, tình trạng từng mục (chưa cấu hình / cần chú ý), mở gần đây,
@@ -103,17 +92,11 @@ class SettingsHubScreen extends StatefulWidget {
   @visibleForTesting
   static List<SettingsHubItemDef>? debugPermittedItems;
 
-  /// Mở thẳng một mục khi điều hướng tới Thiết lập (đặt giá trị kể cả khi đang ở Thiết lập).
-  static final ValueNotifier<int?> pendingSubIndex = ValueNotifier<int?>(null);
+  /// Mục sẽ mở thẳng — giữ ở [SettingsHubPending] để nơi điều hướng không phải nạp cả màn này.
+  static ValueNotifier<int?> get pendingSubIndex => SettingsHubPending.subIndex;
 
   /// Mở thẳng một mục theo mã chữ cố định (vd `printers`, `printTemplates`, `device`).
-  /// Gọi trước khi điều hướng tới Thiết lập SBOX. Trả về false nếu mã không tồn tại.
-  static bool openCode(String code) {
-    final item = SettingsHubCatalog.byCode(code);
-    if (item == null) return false;
-    pendingSubIndex.value = item.index;
-    return true;
-  }
+  static bool openCode(String code) => SettingsHubPending.openCode(code);
 
   /// Quay lại từ trang con Thiết lập.
   static void goBack(BuildContext context) {
@@ -376,36 +359,16 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       );
     }
     switch (index) {
-      case 0:
-        return const ShiftSettingsScreen();
-      case 1:
-        return const MobileAttendanceSettingsScreen();
-      case 2:
-        return const HolidaySettingsScreen();
-      case 3:
-        return const AllowanceSettingsScreen();
-      case 4:
-        return const PenaltySettingsScreen();
-      case 5:
-        return const InsuranceSettingsScreen();
-      case 6:
-        return const TaxSettingsScreen();
       case 7:
         return const AccountManagementScreen();
       case 8:
         return const RolePermissionsScreen();
       case 9:
         return const SystemSettingsScreen();
-      case 10:
-        return const ProductSalarySettingsScreen();
       case 11:
         return const AiSettingsScreen();
-      case 12:
-        return const DeviceManagementSettingsScreen();
       case 13:
         return const BranchManagementScreen();
-      case 14:
-        return const StaffingQuotaSettingsScreen();
       case 15:
         return const PosPrintTemplatesScreen(embeddedInSettings: true);
       case 16:
@@ -420,8 +383,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const NotificationSettingsScreen();
       case 23:
         return const PosCustomerDisplaySettingsScreen(embeddedInSettings: true);
-      case 25:
-        return const ZkGatewayListScreen();
       case 26:
         return const PosEInvoiceSettingsScreen();
       case 27:
@@ -430,10 +391,6 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
         return const PosPaymentGatewaySettingsScreen();
       case 29:
         return const PosPrintersTabsScreen(cloudFirst: true);
-      case 30:
-        return const StoreAccessDevicesScreen();
-      case 31:
-        return const AnnualLeavePolicyScreen();
       case 32:
         return const PosQrTableOrderScreen();
       case 33:
@@ -445,7 +402,8 @@ class _SettingsHubScreenState extends State<SettingsHubScreen> {
       case 36:
         return const ZaloBotSettingsScreen();
       default:
-        return const SizedBox();
+        // Các mục chỉ có ở SBOX HRM được gắn từ main.dart; bản SBOX Bán Hàng không nạp chúng.
+        return settingsHubHrmPage?.call(index) ?? const SizedBox();
     }
   }
 

@@ -4,14 +4,19 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:zkteco_flutter_client/utils/landing_industry_guide.dart';
 import 'package:zkteco_flutter_client/utils/landing_usage_guide.dart';
+import 'package:zkteco_flutter_client/utils/landing_usage_guide_hrm.dart';
 
 /// Mọi [GuideShot] khai báo trong hướng dẫn phải có đủ ảnh máy tính + điện thoại, và
 /// mỗi dòng bước nó gắn vào phải tồn tại. GUIDE_SHOT_DIR có → ghi manifest.json
 /// (tên ảnh, chú thích, bước) để scripts/guide_html_shots.py chèn hình vào guide.html.
 void main() {
+  // Bài hướng dẫn phần HRM nay gắn từ điểm vào (lib/main.dart); bản SBOX Bán Hàng không gắn.
+  hrmGuideBasicSteps = () => hrmBasicSteps;
+  hrmGuideAdvancedSteps = () => hrmAdvancedSteps;
+  hrmGuideKeywords = () => hrmAllKeywords;
   final steps = [
-    ...LandingUsageGuide.basicSteps,
-    ...LandingUsageGuide.advancedSteps,
+    ...hrmBasicSteps,
+    ...hrmAdvancedSteps,
     ...LandingUsageGuide.posSteps,
     ...landingIndustrySteps,
   ];

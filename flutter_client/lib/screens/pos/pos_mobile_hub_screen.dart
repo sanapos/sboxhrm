@@ -21,7 +21,7 @@ import '../pos_products_screen.dart';
 import '../pos_sale_order_list_screen.dart';
 import 'pos_qr_online_orders_screen.dart';
 import '../pos_sell_screen.dart';
-import '../main_layout.dart' show ScreenRefreshNotifier;
+import '../../utils/screen_refresh_notifier.dart';
 import 'pos_more_screen.dart';
 import 'pos_overview_screen.dart';
 import '../../l10n/app_tr.dart';

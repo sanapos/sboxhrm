@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../config/sbox_app_variant.dart';
-import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import '../services/api_service.dart';
 import '../utils/notification_display_utils.dart';
 import '../utils/notification_navigation.dart';

@@ -21,7 +21,7 @@ import '../../utils/pos_area_dims.dart';
 import '../../utils/pos_qty_rules.dart';
 import '../../utils/pos_combo_stock.dart';
 import '../../widgets/notification_overlay.dart';
-import '../main_layout.dart' show ScreenRefreshNotifier;
+import '../../utils/screen_refresh_notifier.dart';
 import '../../utils/number_formatter.dart';
 import '../../widgets/pos/pos_catalog_manage.dart';
 import '../../widgets/pos/pos_supplier_form_dialog.dart';

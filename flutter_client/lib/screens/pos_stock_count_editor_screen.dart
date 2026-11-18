@@ -19,7 +19,7 @@ import '../widgets/pos/pos_stock_count_helpers.dart';
 import '../widgets/pos/pos_theme.dart';
 import '../widgets/pos/pos_unsaved_changes.dart';
 import '../widgets/pos_barcode_scanner.dart';
-import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import '../utils/screen_refresh_notifier.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../theme/sbox_tokens.dart';

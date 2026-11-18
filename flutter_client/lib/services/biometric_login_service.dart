@@ -2,12 +2,11 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:local_auth/local_auth.dart';
-import 'package:local_auth_android/local_auth_android.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../config/sbox_app_variant.dart';
+import 'biometric_auth.dart';
 import 'api_service.dart';
 
 /// Tài khoản đã bật đăng nhập bằng Face ID / vân tay trên máy này (không có mật khẩu).
@@ -55,7 +54,6 @@ class BiometricLoginService {
   BiometricLoginService._();
   static final BiometricLoginService instance = BiometricLoginService._();
 
-  final LocalAuthentication _auth = LocalAuthentication();
   static const FlutterSecureStorage _storage = FlutterSecureStorage(
     iOptions: IOSOptions(
       accessibility: KeychainAccessibility.first_unlock_this_device,
@@ -74,10 +72,10 @@ class BiometricLoginService {
   /// Máy có cảm biến và đã cài khuôn mặt / vân tay.
   Future<bool> isAvailable() async {
     if (!platformSupported || SboxAppVariant.iosPosApp) return false;
+    final auth = biometricAuth;
+    if (auth == null) return false;
     try {
-      if (!await _auth.isDeviceSupported()) return false;
-      if (!await _auth.canCheckBiometrics) return false;
-      return (await _auth.getAvailableBiometrics()).isNotEmpty;
+      return await auth.isAvailable();
     } catch (e) {
       debugPrint('BiometricLogin: availability check failed: $e');
       return false;
@@ -88,9 +86,7 @@ class BiometricLoginService {
   Future<String> loginLabel() async {
     if (defaultTargetPlatform == TargetPlatform.iOS) {
       try {
-        final types = await _auth.getAvailableBiometrics();
-        if (!types.contains(BiometricType.face) &&
-            types.contains(BiometricType.fingerprint)) {
+        if (await biometricAuth?.fingerprintOnly() ?? false) {
           return tr('Đăng nhập bằng Touch ID');
         }
       } catch (_) {}
@@ -118,21 +114,14 @@ class BiometricLoginService {
   }
 
   Future<bool> authenticate(String reason) async {
+    final auth = biometricAuth;
+    if (auth == null) return false;
     try {
-      return await _auth.authenticate(
-        localizedReason: reason,
-        authMessages: [
-          AndroidAuthMessages(
-            signInTitle: tr('Xác thực đăng nhập SBOX'),
-            signInHint: '',
-            cancelButton: tr('Hủy'),
-          ),
-        ],
-        persistAcrossBackgrounding: true,
+      return await auth.authenticate(
+        reason: reason,
+        androidTitle: tr('Xác thực đăng nhập SBOX'),
+        androidCancel: tr('Hủy'),
       );
-    } on LocalAuthException catch (e) {
-      debugPrint('BiometricLogin: authenticate ${e.code.name}');
-      return false;
     } catch (e) {
       debugPrint('BiometricLogin: authenticate error: $e');
       return false;

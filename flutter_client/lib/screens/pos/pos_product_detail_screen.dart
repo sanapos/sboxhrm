@@ -13,7 +13,7 @@ import '../../widgets/pos/pos_stock_card_table.dart';
 import '../../widgets/pos/pos_product_type_badge.dart';
 import '../../widgets/pos/pos_theme.dart';
 import 'pos_product_editor_page.dart';
-import '../main_layout.dart' show ScreenRefreshNotifier;
+import '../../utils/screen_refresh_notifier.dart';
 import 'package:zkteco_flutter_client/l10n/app_tr.dart';
 
 import '../../theme/sbox_tokens.dart';

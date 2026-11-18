@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../services/api_service.dart';
-import '../screens/main_layout.dart' show ScreenRefreshNotifier;
+import 'screen_refresh_notifier.dart';
 import 'navigation_notifier.dart';
 import 'notification_navigation.dart';
 import 'admin_navigation.dart';

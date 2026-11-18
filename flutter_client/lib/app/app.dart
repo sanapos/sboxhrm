@@ -18,22 +18,18 @@ import '../providers/theme_provider.dart';
 import '../services/session_reset.dart';
 import '../utils/app_text_scaler.dart';
 import '../utils/vietnamese_font.dart';
-import '../screens/main_layout.dart';
 import '../screens/login_screen.dart';
 import '../screens/register_screen.dart';
 import '../screens/forgot_password_screen.dart';
 import '../screens/reset_password_screen.dart';
 // Deferred: chỉ tài khoản SuperAdmin / Đại lý mở — bản web không tải phần này cho cửa hàng.
-import '../screens/system_admin_screen.dart' deferred as system_admin;
 import '../widgets/deferred_screen.dart';
 import '../screens/agent_register_screen.dart';
 import '../screens/admin_login_screen.dart';
-import '../screens/landing_guide_screen.dart';
 import '../screens/pos/pos_customer_display_screen.dart';
 import '../screens/pos/pos_standalone_shell.dart';
-import '../screens/staff/staff_shell.dart';
-import '../features/boss/boss_shell.dart';
 import '../config/sbox_app_variant.dart';
+import 'app_shells.dart';
 import '../theme/sbox_tokens.dart';
 import '../utils/media_query_safe_padding.dart';
 import '../utils/play_system_ui.dart';
@@ -227,7 +223,8 @@ class ZKTecoApp extends StatelessWidget {
                 : const _AdminRouteGuard(),
             '/login-app': (context) => const LoginScreen(),
             '/landing': (context) => const WebStaticHomeRedirect(),
-            '/guide': (context) => const LandingGuideScreen(),
+            '/guide': (context) =>
+                AppShells.landingGuide?.call() ?? const SizedBox.shrink(),
             '/design-system': (context) => const DesignSystemShowcaseScreen(),
           },
           onGenerateRoute: (settings) {
@@ -294,7 +291,8 @@ class ZKTecoApp extends StatelessWidget {
                   return const AdminLoginScreen();
                 }
                 if (kIsWeb && InitialWebRoute.showGuide) {
-                  return const LandingGuideScreen();
+                  final guide = AppShells.landingGuide?.call();
+                  if (guide != null) return guide;
                 }
                 return kIsWeb
                     ? const WebStaticHomeRedirect()
@@ -305,25 +303,23 @@ class ZKTecoApp extends StatelessWidget {
                   return const _StandalonePosAdminBlocked();
                 }
                 final agentMode = state.role.toLowerCase() == 'agent';
-                return DeferredScreen(
-                  load: system_admin.loadLibrary,
-                  builder: () =>
-                      system_admin.SystemAdminScreen(agentMode: agentMode),
-                );
+                return AppShells.systemAdmin?.call(agentMode) ??
+                    const _StandalonePosAdminBlocked();
               }
               if (SboxAppVariant.bossApp) {
-                return const BossShell();
+                return AppShells.boss?.call() ?? const PosStandaloneShell();
               }
               if (SboxAppVariant.posUsesMainLayout) {
-                return const MainLayout();
+                return AppShells.hrm?.call() ?? const PosStandaloneShell();
               }
               if (SboxAppVariant.standalonePos) {
                 return const PosStandaloneShell();
               }
               if (SboxAppVariant.staffApp) {
-                return const StaffShell();
+                return AppShells.staff?.call() ?? const PosStandaloneShell();
               }
-              return const MainLayout();
+              // Bản SBOX Bán Hàng không gắn khung HRM — rơi về vỏ bán hàng.
+              return AppShells.hrm?.call() ?? const PosStandaloneShell();
             },
           )),
         );
@@ -349,10 +345,7 @@ class _AdminRouteGuard extends StatelessWidget {
 
         if (StoreRoleHelper.isSystemPortalRole(state.role)) {
           final agentMode = state.role!.toLowerCase() == 'agent';
-          return DeferredScreen(
-            load: system_admin.loadLibrary,
-            builder: () => system_admin.SystemAdminScreen(agentMode: agentMode),
-          );
+          return AppShells.systemAdmin?.call(agentMode) ?? const AdminLoginScreen();
         }
 
         return const AdminLoginScreen();

@@ -17,14 +17,14 @@ import '../widgets/notification_overlay.dart';
 
 import '../widgets/sbox/sbox_ui.dart';
 /// Kiểu tham số kỳ của báo cáo.
-enum _PeriodKind { range, month, year, none }
+enum PeriodKind { range, month, year, none }
 
 class AnalyticsReportSpec {
   final String group;
   final String title;
   final String subtitle;
   final String path;
-  final _PeriodKind period;
+  final PeriodKind period;
   final List<String> modules; // cần quyền Xem ít nhất một module
   /// Biểu đồ xếp hạng tự chọn số liệu — tắt khi không có số nào đáng xếp hạng (vd danh sách gọi nhắc gia hạn).
   final bool rankChart;
@@ -33,157 +33,18 @@ class AnalyticsReportSpec {
 
   /// Báo cáo ngành (mở từ Báo cáo POS, không thuộc báo cáo nhân sự).
   static const stayGuests = AnalyticsReportSpec('Khách sạn', 'Sổ khách lưu trú', 'Khách ở trong kỳ — xuất Excel khai báo tạm trú',
-      '/api/pos/stay-guests/register', _PeriodKind.range, ['PosReportStayGuests']);
+      '/api/pos/stay-guests/register', PeriodKind.range, ['PosReportStayGuests']);
   static const sessionExpiry = AnalyticsReportSpec('Gym / Spa', 'Thẻ tập & gói buổi sắp hết hạn',
       'Sắp hết hạn 7 ngày, hết hạn 30 ngày, còn ≤ 2 buổi — gọi nhắc gia hạn', '/api/pos/session-balances/expiring',
-      _PeriodKind.none, ['PosReportSessionExpiry'], rankChart: false);
+      PeriodKind.none, ['PosReportSessionExpiry'], rankChart: false);
 }
-
-const _attendanceModules = ['AttendanceReport', 'AttendanceSummary', 'AttendanceByShift', 'Attendance'];
 
 /// Báo cáo phân tích nhân sự (chức năng gói «HrAnalyticsReport»). Báo cáo ngành bán hàng ở Báo cáo POS.
-const _reports = <AnalyticsReportSpec>[
-  AnalyticsReportSpec('Chấm công', 'Tỷ lệ chuyên cần', 'Theo nhân viên trong tháng', '/api/reports/attendance-analytics/compliance', _PeriodKind.month, _attendanceModules),
-  AnalyticsReportSpec('Chấm công', 'Vắng không phép', 'Từng ngày vắng không có đơn', '/api/reports/attendance-analytics/absence', _PeriodKind.range, _attendanceModules),
-  AnalyticsReportSpec('Chấm công', 'Có lịch nhưng không chấm công', 'Theo ngày xếp lịch', '/api/reports/attendance-analytics/no-show', _PeriodKind.range, _attendanceModules),
-  AnalyticsReportSpec('Chấm công', 'Chấm công bất thường', 'Quá sớm, quá muộn, chấm nhiều lần', '/api/reports/attendance-analytics/anomalies', _PeriodKind.range, _attendanceModules),
-  AnalyticsReportSpec('Chấm công', 'Công tác / check-in điểm', 'Tổng hợp lượt check-in ngoài', '/api/reports/attendance-analytics/field-summary', _PeriodKind.range, _attendanceModules),
-  AnalyticsReportSpec('Chấm công', 'Chấm công Mobile / WiFi', 'Mức dùng chấm công điện thoại', '/api/reports/attendance-analytics/mobile-usage', _PeriodKind.range, _attendanceModules),
-  AnalyticsReportSpec('Nghỉ phép & ca', 'Số ngày phép còn lại', 'Theo nhân viên trong năm', '/api/reports/leave-shift/leave-balance', _PeriodKind.year, ['LeaveReport']),
-  AnalyticsReportSpec('Nghỉ phép & ca', 'Thời gian duyệt đơn phép', 'Người duyệt nhanh / chậm', '/api/reports/leave-shift/leave-approval-sla', _PeriodKind.range, ['LeaveReport']),
-  AnalyticsReportSpec('Nghỉ phép & ca', 'Độ phủ ca theo định mức', 'Thiếu / đủ / vượt người mỗi ca', '/api/reports/leave-shift/shift-coverage', _PeriodKind.range, ['LeaveReport', 'WorkSchedule']),
-  AnalyticsReportSpec('Nghỉ phép & ca', 'Tần suất đổi ca', 'Theo nhân viên', '/api/reports/leave-shift/shift-swaps', _PeriodKind.range, ['LeaveReport']),
-  AnalyticsReportSpec('Hiệu suất', 'Tổng hợp KPI', 'Theo nhân viên và phòng ban', '/api/reports/performance/kpi-summary', _PeriodKind.month, ['KPI']),
-  AnalyticsReportSpec('Hiệu suất', 'Sản lượng', 'Theo nhân viên và sản phẩm', '/api/reports/performance/production-output', _PeriodKind.range, ['KPI']),
-  AnalyticsReportSpec('Hiệu suất', 'Tài sản đang giao', 'Theo trạng thái và người giữ', '/api/reports/performance/asset-assignment', _PeriodKind.none, ['KPI']),
-  AnalyticsReportSpec('Tổng hợp', 'Báo cáo điều hành tháng', 'Nhân sự, chấm công, chi phí trong tháng', '/api/reports/executive/monthly-summary', _PeriodKind.month, ['Report']),
-  AnalyticsReportSpec('Tài chính nhân sự', 'Nợ tiền cơm', 'Theo nhân viên', '/api/reports/finance/meal-debt', _PeriodKind.range, ['Meal']),
-];
 
 /// Icon + màu theo nhóm báo cáo.
-const _groupStyle = <String, (IconData, Color)>{
-  'Chấm công': (Icons.fingerprint_rounded, SboxColors.brand500),
-  'Nghỉ phép & ca': (Icons.event_available_rounded, SboxColors.violet),
-  'Hiệu suất': (Icons.trending_up_rounded, SboxColors.success),
-  'Tổng hợp': (Icons.dashboard_rounded, HrmPageChrome.primaryNavy),
-  'Tài chính nhân sự': (Icons.account_balance_wallet_rounded, SboxColors.danger),
-};
 
 /// Danh sách báo cáo phân tích (lọc theo quyền) — lưới thẻ theo nhóm, có ô tìm.
-class AnalyticsReportsScreen extends StatefulWidget {
-  const AnalyticsReportsScreen({super.key});
 
-  @override
-  State<AnalyticsReportsScreen> createState() => _AnalyticsReportsScreenState();
-}
-
-class _AnalyticsReportsScreenState extends State<AnalyticsReportsScreen> {
-  String _q = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final perm = context.watch<PermissionProvider>();
-    final q = _q.trim().toLowerCase();
-    final visible = _reports
-        .where((r) => r.modules.any(perm.canView))
-        .where((r) => q.isEmpty || '${r.title} ${r.subtitle} ${r.group}'.toLowerCase().contains(q))
-        .toList();
-    final groups = <String, List<AnalyticsReportSpec>>{};
-    for (final r in visible) {
-      groups.putIfAbsent(r.group, () => []).add(r);
-    }
-    return Scaffold(
-      backgroundColor: HrmPageChrome.background,
-      // Trong khung chính (điện thoại): thanh trên đã ghi tiêu đề — không vẽ AppBar thứ hai.
-      appBar: HrmPageChrome.showInPageAppBar(context) ? AppBar(title: Text(tr('Báo cáo phân tích'))) : null,
-      body: LayoutBuilder(builder: (context, cons) {
-        final cols = cons.maxWidth >= 1100 ? 3 : (cons.maxWidth >= 680 ? 2 : 1);
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-          children: [
-            TextField(
-              onChanged: (v) => setState(() => _q = v),
-              decoration: InputDecoration(
-                isDense: true,
-                filled: true,
-                fillColor: Colors.white,
-                prefixIcon: const Icon(Icons.search_rounded),
-                hintText: tr('Tìm báo cáo…'),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              ),
-            ),
-            if (visible.isEmpty)
-              Padding(
-                padding: const EdgeInsets.all(40),
-                child: Center(child: Text(tr(q.isEmpty ? 'Không có báo cáo nào bạn được xem' : 'Không tìm thấy báo cáo'))),
-              ),
-            for (final g in groups.entries) ...[
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 16, 4, 8),
-                child: Row(children: [
-                  Icon(_groupStyle[g.key]?.$1 ?? Icons.insert_chart_outlined,
-                      size: 18, color: _groupStyle[g.key]?.$2 ?? HrmPageChrome.primaryNavy),
-                  const SizedBox(width: 6),
-                  Text(tr(g.key),
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14.5, color: SboxColors.slate900)),
-                  const SizedBox(width: 6),
-                  Text('${g.value.length}', style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
-                ]),
-              ),
-              SboxGrid(
-                columns: cols,
-                spacing: 8,
-                children: [for (final r in g.value) _reportTile(context, r)],
-              ),
-            ],
-          ],
-        );
-      }),
-    );
-  }
-
-  Widget _reportTile(BuildContext context, AnalyticsReportSpec r) {
-    final color = _groupStyle[r.group]?.$2 ?? HrmPageChrome.primaryNavy;
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => AnalyticsReportViewer(spec: r))),
-        child: Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: SboxColors.slate200),
-          ),
-          child: Row(children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(color: SboxColors.isBoss ? SboxColors.iconBox : color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-              child: Icon(Icons.insert_chart_outlined_rounded, color: SboxColors.isBoss ? SboxColors.iconOnBox : color, size: 20),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(tr(r.title),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: SboxColors.slate900)),
-                const SizedBox(height: 2),
-                Text(tr(r.subtitle),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: SboxColors.slate500)),
-              ]),
-            ),
-            const Icon(Icons.chevron_right_rounded, color: SboxColors.slate400),
-          ]),
-        ),
-      ),
-    );
-  }
-}
 
 /// Nhãn tiếng Việt cho khóa hay gặp; khóa lạ hiển thị dạng tách chữ.
 const _labels = <String, String>{
@@ -384,10 +245,10 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
   Map<String, String> get _params {
     final iso = DateFormat('yyyy-MM-dd');
     return switch (widget.spec.period) {
-      _PeriodKind.range => {'from': iso.format(_from), 'to': iso.format(_to)},
-      _PeriodKind.month => {'year': '${_from.year}', 'month': '${_from.month}'},
-      _PeriodKind.year => {'year': '${_from.year}'},
-      _PeriodKind.none => {},
+      PeriodKind.range => {'from': iso.format(_from), 'to': iso.format(_to)},
+      PeriodKind.month => {'year': '${_from.year}', 'month': '${_from.month}'},
+      PeriodKind.year => {'year': '${_from.year}'},
+      PeriodKind.none => {},
     };
   }
 
@@ -409,7 +270,7 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
   }
 
   Future<void> _pickPeriod() async {
-    if (widget.spec.period == _PeriodKind.range) {
+    if (widget.spec.period == PeriodKind.range) {
       final r = await showDateRangePicker(
         context: context,
         firstDate: DateTime(2020),
@@ -425,7 +286,7 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
         firstDate: DateTime(2020),
         lastDate: DateTime.now().add(const Duration(days: 365)),
         initialDate: _from,
-        helpText: widget.spec.period == _PeriodKind.year ? tr('Chọn năm (ngày bất kỳ)') : tr('Chọn tháng (ngày bất kỳ)'),
+        helpText: widget.spec.period == PeriodKind.year ? tr('Chọn năm (ngày bất kỳ)') : tr('Chọn tháng (ngày bất kỳ)'),
       );
       if (d == null) return;
       _from = d;
@@ -434,10 +295,10 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
   }
 
   String get _periodLabel => switch (widget.spec.period) {
-        _PeriodKind.range => '${_dateFmt.format(_from)} – ${_dateFmt.format(_to)}',
-        _PeriodKind.month => 'Tháng ${_from.month}/${_from.year}',
-        _PeriodKind.year => 'Năm ${_from.year}',
-        _PeriodKind.none => 'Hiện tại',
+        PeriodKind.range => '${_dateFmt.format(_from)} – ${_dateFmt.format(_to)}',
+        PeriodKind.month => 'Tháng ${_from.month}/${_from.year}',
+        PeriodKind.year => 'Năm ${_from.year}',
+        PeriodKind.none => 'Hiện tại',
       };
 
   Future<void> _excel() async {
@@ -511,7 +372,7 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
       filePrefix: widget.spec.title.replaceAll(' ', '_'),
       headers: headers,
       rows: rows,
-      periodLabel: widget.spec.period == _PeriodKind.none ? null : tr(_periodLabel),
+      periodLabel: widget.spec.period == PeriodKind.none ? null : tr(_periodLabel),
       summaryLines: main != null ? summary : const [],
     );
   }
@@ -566,7 +427,7 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
               child: Text(tr(widget.spec.subtitle),
                   maxLines: 2, overflow: TextOverflow.ellipsis, style: SboxType.captionStyle()),
             ),
-            if (widget.spec.period != _PeriodKind.none) ...[
+            if (widget.spec.period != PeriodKind.none) ...[
               const SizedBox(width: 8),
               OutlinedButton.icon(
                 style: OutlinedButton.styleFrom(
@@ -680,7 +541,7 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
     num cell(Map r, String c) => r[c] is num ? r[c] as num : 0;
     bool near(num a, num b) => (a - b).abs() <= math.max(0.01, b.abs() * 0.005);
     final title = _label(key);
-    final sub = '${widget.spec.period == _PeriodKind.none ? 'Hiện tại' : _periodLabel} · ${_label(main.key)}';
+    final sub = '${widget.spec.period == PeriodKind.none ? 'Hiện tại' : _periodLabel} · ${_label(main.key)}';
     final dept = _hasDept(rows, nameKey);
     String? deptOf(List<Map> g) {
       if (!dept) return null;
@@ -763,7 +624,7 @@ class _AnalyticsReportViewerState extends State<AnalyticsReportViewer> {
     showReportBreakdownSheet(
       context,
       title: _rowName(r, nameKey, codeKey),
-      subtitle: '${tr(widget.spec.title)} · ${widget.spec.period == _PeriodKind.none ? 'Hiện tại' : _periodLabel}',
+      subtitle: '${tr(widget.spec.title)} · ${widget.spec.period == PeriodKind.none ? 'Hiện tại' : _periodLabel}',
       rows: out,
     );
   }
