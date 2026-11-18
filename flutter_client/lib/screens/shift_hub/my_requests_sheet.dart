@@ -20,6 +20,7 @@ class _Req {
     this.sortDate,
     this.mine = true,
     this.step,
+    this.kindLabel,
   });
   final String kind; // reg | leave | swap
   final String id;
@@ -32,6 +33,8 @@ class _Req {
   final bool mine;
   /// «Bước 2/3» khi duyệt nhiều cấp.
   final String? step;
+  /// Chữ loại phiếu riêng (phiếu xin bỏ ca / đổi ca không phải «Đăng ký ca») — rỗng thì lấy theo [kind].
+  final String? kindLabel;
 }
 
 /// «Yêu cầu của tôi»: đăng ký ca, đơn nghỉ, đổi ca trong một danh sách, cùng một kiểu trạng thái;
@@ -100,6 +103,14 @@ class _MyRequestsState extends State<_MyRequests> {
     return 'Đăng ký ${shift.isEmpty ? 'ca' : shift}';
   }
 
+  /// Chữ loại phiếu: phiếu xin bỏ ca / đổi ca vẫn là «đăng ký» về dữ liệu, nhưng ghi «Đăng ký ca» thì đọc ngược.
+  String _regKindLabel(Map<String, dynamic> r) {
+    if (r['isDayOff'] == true) return 'Đăng ký nghỉ';
+    final drop = (r['replaceShiftName'] ?? '').toString().trim();
+    if (drop.isEmpty) return 'Đăng ký ca';
+    return (r['shiftName'] ?? '').toString().trim().isEmpty ? 'Xin bỏ ca' : 'Đổi ca đã xếp';
+  }
+
   Future<void> _load() async {
     setState(() => _loading = true);
     final uid = Provider.of<AuthProvider>(context, listen: false).user?.id.toString();
@@ -116,6 +127,7 @@ class _MyRequestsState extends State<_MyRequests> {
         kind: 'reg',
         id: r['id'].toString(),
         title: _regTitle(r),
+        kindLabel: _regKindLabel(r),
         when: _d(r['date']),
         status: _status(r['status'], const ['Pending', 'Approved', 'Rejected', 'Cancelled']),
         detail: (r['rejectionReason'] ?? r['note'])?.toString(),
@@ -171,7 +183,7 @@ class _MyRequestsState extends State<_MyRequests> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(tr('Huỷ yêu cầu?')),
-        content: Text(tr('${ShiftUi.requestKinds[i.kind]!.$1}: ${i.title} · ${i.when}')),
+        content: Text(tr('${i.kindLabel ?? ShiftUi.requestKinds[i.kind]!.$1}: ${i.title} · ${i.when}')),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(tr('Không'))),
           FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(tr('Huỷ yêu cầu'))),
@@ -241,7 +253,8 @@ class _MyRequestsState extends State<_MyRequests> {
   }
 
   Widget _tile(_Req i) {
-    final (label, icon) = ShiftUi.requestKinds[i.kind]!;
+    final (kindLabel, icon) = ShiftUi.requestKinds[i.kind]!;
+    final label = i.kindLabel ?? kindLabel;
     final canCancel = i.mine && ShiftUi.requestCancellable(i.kind, i.status);
     return Card(
       elevation: 0,
