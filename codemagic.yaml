@@ -125,11 +125,13 @@ workflows:
       groups:
         - appstore_credentials
       vars:
-        APP_STORE_APP_ID: "6807833339"
-        BUNDLE_ID: "com.sboxpos"
+        # Bản ghi app mới «SBOX POS» (pos.sboxpos.com), tạo 19/11/2026.
+        # Bản ghi cũ «SBOX Bán Hàng» (com.sboxpos, 6807833339) không dùng nữa.
+        APP_STORE_APP_ID: "6836856289"
+        BUNDLE_ID: "pos.sboxpos.com"
         API_BASE_URL: "https://sboxpos.com"
-        APP_DISPLAY_NAME: "SBOX Bán Hàng"
-        POS_APP_VERSION: "1.0.5"
+        APP_DISPLAY_NAME: "SBOX POS"
+        POS_APP_VERSION: "1.0.0"
         APP_REVIEW_USERNAME: "demopos@gmail.com"
         APP_REVIEW_PASSWORD: "123456"
         SBOX_POS_IOS: "1"
@@ -262,13 +264,13 @@ workflows:
       groups:
         - appstore_credentials
       vars:
-        APP_STORE_APP_ID: "6807833339"
-        APP_VERSION: "1.0.5"
+        APP_STORE_APP_ID: "6836856289"
+        APP_VERSION: "1.0.0"
         APP_REVIEW_USERNAME: "demopos@gmail.com"
         APP_REVIEW_PASSWORD: "123456"
 
     scripts:
-      - name: Submit processed SBOX POS 1.0.5 build to App Store review
+      - name: Submit processed SBOX POS build to App Store review
         script: |
           set -e
           if [ -z "$APP_STORE_CONNECT_ISSUER_ID" ] || [ -z "$APP_STORE_CONNECT_KEY_IDENTIFIER" ] || [ -z "$APP_STORE_CONNECT_PRIVATE_KEY" ]; then
