@@ -161,6 +161,12 @@ workflows:
           p.write_text(text.replace(old, new))
           print(f"Replaced {n} PRODUCT_BUNDLE_IDENTIFIER -> {bundle}")
           PY
+          # Firebase: POS co app iOS rieng pos.sboxpos.com (dang ky 20/11/2026) nen dung plist rieng,
+          # khong dung plist HRM (vn.sana.sbox) nua. AppDelegate goi FirebaseApp.configure() doc tep nay.
+          POS_PLIST=ios/flavor_firebase/pos-GoogleService-Info.plist
+          grep -q "<string>$BUNDLE_ID</string>" "$POS_PLIST" || { echo "ERROR: $POS_PLIST khong phai cua $BUNDLE_ID"; exit 1; }
+          cp "$POS_PLIST" ios/Runner/GoogleService-Info.plist
+          echo "Firebase plist -> $BUNDLE_ID"
           /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $APP_DISPLAY_NAME" ios/Runner/Info.plist
           echo "CFBundleDisplayName=$APP_DISPLAY_NAME BUNDLE_ID=$BUNDLE_ID APP=$APP_STORE_APP_ID"
           # Info.plist dùng chung với HRM: câu xin quyền của POS phải đúng với POS (Apple từ chối 2.3.1(a) ngày 01/10/2026).
